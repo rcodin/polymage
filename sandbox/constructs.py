@@ -29,6 +29,7 @@ from expression import *
 import logging
 import targetc as genc
 import math
+import copy
 
 logging.basicConfig(format="%(levelname)s: %(name)s: %(message)s")
 
@@ -524,7 +525,7 @@ class Stencil(AbstractExpression):
         self._iteration_vars = _iteration_vars
 
         assert is_valid_kernel(_kernel, len(_iteration_vars))
-        self.kernel = _kernel
+        self._kernel = _kernel
 
         if _origin is None:
             sizes = get_valid_kernel_sizes(_kernel)
@@ -540,8 +541,8 @@ class Stencil(AbstractExpression):
                 "\n\tkernel: %s" % (str(Stencil.macro_expand(self)),
                                     self._input_fn,
                                     list(map(str, self._iteration_vars)),
-                                    get_valid_kernel_sizes(self.kernel),
-                                    self._origin, self.kernel))
+                                    get_valid_kernel_sizes(self._kernel),
+                                    self._origin, self._kernel))
 
     @staticmethod
     def _build_indexed_kernel_recur(origin_vector, iter_vars, chosen_indeces,
@@ -628,7 +629,7 @@ class Stencil(AbstractExpression):
     def macro_expand(self):
         indexed_kernel = self._build_indexed_kernel(self._origin,
                                                     self._iteration_vars,
-                                                    self.kernel)
+                                                    self._kernel)
         index_expr = 0
         for (indeces, weight) in indexed_kernel:
             ref = Reference(self._input_fn, indeces)
@@ -645,12 +646,12 @@ class TStencil(object):
     def __init__(self, _var_domain, _kernel, _name,
                  _origin=None, _timesteps=1):
 
-        self.name = _name
+        self._name = _name
         self._var_domain = _var_domain
         self._timesteps = int(_timesteps)
 
         assert is_valid_kernel(_kernel, len(_var_domain))
-        self.kernel = _kernel
+        self._kernel = _kernel
 
         size = get_valid_kernel_sizes(self._kernel)
         if _origin is None:
@@ -671,14 +672,14 @@ class TStencil(object):
                 "\n\tdimensions: %s"
                 "\n\ttimesteps: %s"
                 "\n\torigin: %s"
-                "\n\tkernel: %s" % (self.name,
+                "\n\tkernel: %s" % (self._name,
                                     list(map(str, self._var_domain)),
                                     size, self._timesteps,
-                                    self._origin, self.kernel))
+                                    self._origin, self._kernel))
 
     def clone(self):
-        var_domain = [v.clone() for v in _var_domain]
-        kernel = copy.deepcopy(kernel)
+        var_domain = [v.clone() for v in self._var_domain]
+        kernel = copy.deepcopy(self._kernel)
         origin = copy.deepcopy(self._origin)
         name = copy.deepcopy(self._name)
         return TStencil(var_domain, kernel, name,
