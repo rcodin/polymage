@@ -646,32 +646,43 @@ class TStencil(object):
                  _origin=None, _timesteps=1):
 
         self.name = _name
-        self.var_domain = _var_domain
-        self.timesteps = int(_timesteps)
+        self._var_domain = _var_domain
+        self._timesteps = int(_timesteps)
 
         assert is_valid_kernel(_kernel, len(_var_domain))
-        self.size = get_valid_kernel_sizes(_kernel)
         self.kernel = _kernel
 
+        size = get_valid_kernel_sizes(self._kernel)
         if _origin is None:
-            self.origin = list(map(lambda x: math.floor(x / 2), self.size))
+            self._origin = list(map(lambda x: math.floor(x / 2), size))
+        else:
+            self._origin = _origin
 
     def getObjects(self, objType):
         objs = []
-        for interval in self.var_domain:
+        for interval in self._var_domain:
             objs += interval.collect(objType)
         return list(set(objs))
 
     def __str__(self):
+        size = get_valid_kernel_sizes(self._kernel)
         return ("Stencil object (%s)"
                 "\n\tdomain: %s"
                 "\n\tdimensions: %s"
                 "\n\ttimesteps: %s"
                 "\n\torigin: %s"
-                "\n\tkernel: %s" % (self.name, list(map(str, self.var_domain)),
-                                    self.size, self.timesteps,
-                                    self.origin, self.kernel))
+                "\n\tkernel: %s" % (self.name,
+                                    list(map(str, self._var_domain)),
+                                    size, self._timesteps,
+                                    self._origin, self.kernel))
 
+    def clone(self):
+        var_domain = [v.clone() for v in _var_domain]
+        kernel = copy.deepcopy(kernel)
+        origin = copy.deepcopy(self._origin)
+        name = copy.deepcopy(self._name)
+        return TStencil(var_domain, kernel, name,
+                        origin, self._timesteps)
 
 
 class Condition(object):
