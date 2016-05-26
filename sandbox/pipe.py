@@ -122,7 +122,7 @@ def get_funcs(outputs):
 
 class ComputeObject:
     def __init__(self, _func, _is_output=False):
-        assert isinstance(_func, Function)
+        assert isinstance(_func, (Function, TStencil))
         self._func = _func
         self._parents = []
         self._children = []

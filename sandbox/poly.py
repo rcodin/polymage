@@ -538,19 +538,33 @@ class PolyRep(object):
         schedule_names = ['_t'] + \
                          [ self.getVarName()  for i in range(0, dim) ]
 
+        # a mapping between compute objects and the function
+        # used on them to extract the polyhedral representation
+        polyrep_extraction_fn_map = {
+            Function: PolyRep.extract_polyrep_from_function,
+            Image: PolyRep.extract_polyrep_from_function,
+            Reduction: PolyRep.extract_polyrep_from_reduction
+            # TStencil: self.extract_polyrep_from_tstencil
+
+        }
+
         for comp in comp_map:
-            if (type(comp.func) == Function or type(comp.func) == Image):
-                self.extract_polyrep_from_function(comp, dim, schedule_names,
-                                                   param_names, context_conds,
-                                                   comp_map[comp]+1,
-                                                   param_constraints)
-            elif (type(comp.func) == Reduction):
-                self.extract_polyrep_from_reduction(comp, dim, schedule_names,
-                                                    param_names, context_conds,
-                                                    comp_map[comp]+1,
-                                                    param_constraints)
-            else:
-                assert False
+            # get the function needed to extract the polyhedral repr
+            # for the compute object we have
+            extraction_fn = polyrep_extraction_fn_map.get(type(comp.func))
+            assert extraction_fn is not None, ("unable to find suitable "
+                                               "function to extract "
+                                               "polyhedral representation of "
+                                               "object.\nObject: %s\Type: %s" %
+                                               (comp.func,
+                                                type(comp.func).__name__))
+
+            print("Extraction function: %s" % extraction_fn)
+
+            extraction_fn(self, comp, dim, schedule_names,
+                          param_names, context_conds,
+                          comp_map[comp] + 1,
+                          param_constraints)
 
     def format_param_constraints(self, param_constraints, grp_params):
         context_conds = []

@@ -642,13 +642,25 @@ class Stencil(AbstractExpression):
 
         return index_expr
 
+
 class TStencil(object):
     def __init__(self, _var_domain, _kernel, _name,
                  _origin=None, _timesteps=1):
 
         self._name = _name
-        self._var_domain = _var_domain
         self._timesteps = int(_timesteps)
+
+        assert(len(_var_domain[0]) == len(_var_domain[1]))
+        for i in range(0, len(_var_domain[0])):
+            assert(isinstance(_var_domain[0][i], Variable))
+            assert(isinstance(_var_domain[1][i], Interval))
+            assert(_var_domain[0][i].typ == _var_domain[1][i].typ)
+
+        self._variables = _var_domain[0]
+        self._var_domain = _var_domain[1]
+
+        # dimensionality of the Function
+        self._ndims = len(self._variables)
 
         assert is_valid_kernel(_kernel, len(_var_domain))
         self._kernel = _kernel
@@ -678,12 +690,39 @@ class TStencil(object):
                                     self._origin, self._kernel))
 
     def clone(self):
+        variables = [v.clone() for v in self._variables]
         var_domain = [v.clone() for v in self._var_domain]
         kernel = copy.deepcopy(self._kernel)
         origin = copy.deepcopy(self._origin)
         name = copy.deepcopy(self._name)
-        return TStencil(var_domain, kernel, name,
+        return TStencil((variables, var_domain), kernel, name,
                         origin, self._timesteps)
+
+    @property
+    def domain(self):
+        return self._var_domain
+
+    @property
+    def variables(self):
+        return self._variables
+
+    @property
+    def ndims(self):
+        return self._ndims
+
+    def hasBoundedIntegerDomain(self):
+        boundedIntegerDomain = True
+        for var_dom in self._var_domain:
+            if isinstance(var_dom, Interval):
+                if(not isAffine(var_dom.lowerBound) or
+                   not isAffine(var_dom.upperBound)):
+                    boundedIntegerDomain = False
+                    break
+            else:
+                boundedIntegerDomain = False
+                break
+
+        return boundedIntegerDomain
 
 
 class Condition(object):
@@ -926,7 +965,7 @@ class Function(object):
     @property
     def variableDomain(self):
         return (self._variables, self._varDomain)
-           
+
     @property
     def domain(self):
         return self._varDomain
