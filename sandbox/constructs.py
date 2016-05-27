@@ -725,6 +725,10 @@ class TStencil(object):
                         origin, self._timesteps)
 
     @property
+    def name(self):
+        return self._name
+
+    @property
     def domain(self):
         return self._var_domain
 

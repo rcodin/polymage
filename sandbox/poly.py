@@ -536,15 +536,15 @@ class PolyRep(object):
 
         # The [t] is for the stage dimension
         schedule_names = ['_t'] + \
-                         [ self.getVarName()  for i in range(0, dim) ]
+                         [self.getVarName() for i in range(0, dim)]
 
         # a mapping between compute objects and the function
         # used on them to extract the polyhedral representation
         polyrep_extraction_fn_map = {
             Function: PolyRep.extract_polyrep_from_function,
             Image: PolyRep.extract_polyrep_from_function,
-            Reduction: PolyRep.extract_polyrep_from_reduction
-            # TStencil: self.extract_polyrep_from_tstencil
+            Reduction: PolyRep.extract_polyrep_from_reduction,
+            TStencil: PolyRep.extract_polyrep_from_tstencil
 
         }
 
@@ -555,7 +555,9 @@ class PolyRep(object):
             assert extraction_fn is not None, ("unable to find suitable "
                                                "function to extract "
                                                "polyhedral representation of "
-                                               "object.\nObject: %s\Type: %s" %
+                                               "object.\n"
+                                               "Object: %s\n"
+                                               "Type: %s" %
                                                (comp.func,
                                                 type(comp.func).__name__))
 
@@ -648,6 +650,20 @@ class PolyRep(object):
         # Initializing the reduction earlier than any other function
         self.create_poly_parts_from_default(comp, max_dim, dom_map, level_no,
                                             schedule_names)
+
+    def extract_polyrep_from_tstencil(self, comp, max_dim,
+                                      schedule_names, param_names,
+                                      context_conds, level_no,
+                                      param_constraints):
+        self.poly_doms[comp] = \
+            self.extract_poly_dom_from_comp(comp, param_constraints)
+        sched_map = self.create_sched_space(comp.func.variables,
+                                            comp.func.domain,
+                                            schedule_names, param_names,
+                                            context_conds)
+        self.create_poly_parts_from_definition(comp, max_dim, sched_map,
+                                               level_no, schedule_names,
+                                               comp.func.domain)
 
     def create_sched_space(self, variables, domains,
                            schedule_names, param_names, context_conds):
