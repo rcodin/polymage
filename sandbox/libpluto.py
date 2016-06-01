@@ -1,4 +1,4 @@
-from ctypes import cdll, Structure, c_int, c_double, c_uint
+# from ctypes import cdll, Structure, c_int, c_double, c_uint
 from cffi import FFI
 import islpy as isl
 
@@ -253,9 +253,10 @@ typedef struct plutoOptions PlutoOptions;
 PlutoOptions *pluto_options_alloc();
 void pluto_options_free(PlutoOptions *);
 
-void pluto_schedule_str(char *domains_str,
-        char *dependences_str,
-        char* schedule_str_buffer,
+void pluto_schedule_str(const char *domains_str,
+        const char *dependences_str,
+        char** schedule_str_buffer_ptr,
+        int *schedule_strlen,
         PlutoOptions *options);
 
 """)
@@ -266,18 +267,35 @@ void pluto_schedule_str(char *domains_str,
     def options_alloc(self):
         return self.sharedobj.pluto_options_alloc()
 
-    def schedule(self, domains, dependences, options):
+    def schedule(self, ctx, domains, dependences, options):
         assert isinstance(domains, isl.UnionSet)
         assert isinstance(dependences, isl.UnionMap)
-        domains_str = self.ffi.new("char[]", domains.to_str().encode('utf-8'))
-        dependences_str = self.ffi.new("char[]", dependences.to_str().encode('utf-8'))
-        schedule_str = self.ffi.new("char *")
+        #domains_str = self.ffi.new("char[]", domains.to_str().encode('utf-8'))
+        #dependences_str = self.ffi.new("char[]", dependences.to_str().encode('utf-8'))
+        
+        domains_str = domains.to_str().encode('utf-8')
+        dependences_str = dependences.to_str().encode('utf-8')
+        schedule_strbuf = self.ffi.new("char **")
+        schedule_strlen = self.ffi.new("int *")
 
-        print("domains: %s\ndependences: %s\n schedule: %s\n" % (domains_str,
-                                                                 dependences_str,
-                                                                 schedule_str))
         self.sharedobj.pluto_schedule_str(domains_str, dependences_str,
-                                          schedule_str, options)
+                                          schedule_strbuf, schedule_strlen,
+                                          options)
 
-        schedule = isl.UnionMap.from_str(schedule_str)
+        # import pdb
+        # pdb.set_trace()
+        assert schedule_strbuf[0] != self.ffi.NULL, \
+            ("unable to get schedule from PLUTO")
+
+        schedule_str = self.ffi.string(schedule_strbuf[0]).decode('utf-8')
+        schedule = isl.UnionMap.read_from_str(ctx, schedule_str)
         return schedule
+
+
+if __name__ == "__main__":
+    ffi = PlutoFFI()
+    ctx = isl.Context.alloc()
+    opts = ffi.options_alloc()
+    domains = isl.UnionSet.read_from_str(ctx, "[p_0, p_1, p_2, p_3, p_4, p_5, p_7] -> { S_1[i0, i1] : i0 >= 0 and i0 <= p_0 and i1 >= 0 and i1 <= p_3 and p_2 >= 0; S_0[i0] : i0 >= 0 and i0 <= p_0}")
+    deps = isl.UnionMap.read_from_str(ctx, "[p_0, p_1, p_2, p_3, p_4, p_5, p_7] -> { S_0[i0] -> S_1[o0, o1] : (exists (e0 = [(p_7)/8]: 8o1 = -p_5 + p_7 + 8192i0 - 8192o0 and 8e0 = p_7 and i0 >= 0 and o0 <= p_0 and 8192o0 >= -8p_3 - p_5 + p_7 + 8192i0 and 8192o0 <= -p_5 + p_7 + 8192i0 and p_2 >= 0 and o0 >= 1 + i0)); S_1[i0, i1] -> S_0[o0] : (exists (e0 = [(p_1)/8], e1 = [(p_4)/8], e2 = [(-p_1 + p_7)/8184]: 8192o0 = p_5 - p_7 + 8192i0 + 8i1 and 8e0 = p_1 and 8e1 = p_4 and 8184e2 = -p_1 + p_7 and i1 >= 0 and 8i1 <= 8192p_0 - p_5 + p_7 - 8192i0 and 8184i1 >= 1024 + 1024p_1 - 1023p_5 - p_7 - 8380416i0 and p_2 >= 0 and p_7 <= -1 + p_5 and 8i1 >= 1 + 8p_3 + p_4 - p_5 - 8192i0 and i1 <= p_3 and i0 >= 0 and 8i1 >= 8192 - p_5 + p_7))}")
+    sched = ffi.schedule(ctx, domains, deps, opts)
