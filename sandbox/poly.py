@@ -517,6 +517,8 @@ class PolyRep(object):
                     dim = max(dim, len(comp.func.variables))
                 elif type(comp.func) == Function or type(comp.func) == Image:
                     dim = max(dim, len(comp.func.variables))
+                elif type(comp.func) == TStencil:
+                    dim = max(dim, len(comp.func.variables))
             return dim
 
         dim = max_dim(comp_map)
@@ -655,15 +657,22 @@ class PolyRep(object):
                                       schedule_names, param_names,
                                       context_conds, level_no,
                                       param_constraints):
+
+        # add the time dimension to the tstencil
+        schedule_names.append("time")
+
         self.poly_doms[comp] = \
             self.extract_poly_dom_from_comp(comp, param_constraints)
+
         sched_map = self.create_sched_space(comp.func.variables,
                                             comp.func.domain,
                                             schedule_names, param_names,
                                             context_conds)
+
         self.create_poly_parts_from_definition(comp, max_dim, sched_map,
                                                level_no, schedule_names,
                                                comp.func.domain)
+
 
     def create_sched_space(self, variables, domains,
                            schedule_names, param_names, context_conds):
@@ -683,6 +692,16 @@ class PolyRep(object):
         sched_map = add_constraints(sched_map, param_ineqs, param_eqs)
 
         return sched_map
+
+    def create_poly_parts_from_tstencil(self, comp, max_dim,
+                                        sched_map, level_no,
+                                        schedule_names, domain):
+
+        tstencil = comp.func
+        defn = Stencil(tstencil._input_fn, tstencil._variables,
+                       tstencil._kernel, tstencil._origin)
+
+        print("stencil for def:\n%s" % defn)
 
     def create_poly_parts_from_definition(self, comp, max_dim,
                                           sched_map, level_no,

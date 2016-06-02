@@ -443,8 +443,10 @@ def list_elements_equal(lst):
 
 
 def is_valid_kernel(kernel, num_dimensions):
-    """Checks if the given kernel is a valid stencil by making sure
+    """
+    Checks if the given kernel is a valid stencil by making sure
     that length(vardom) = nesting of kernel
+
     Parameters
     ----------
     kernel: list
@@ -534,8 +536,8 @@ def check_type(given_variable, expected_type):
         raise TypeError("Expected {given_value} to be of type {expected_type}."
             "\nGiven Value: {given_value}"
             "\nGiven Type: {given_type}"
-            "\nExpected Type: {expected_type}".format({
-                "expected_type": str(type(given_variable)),
+            "\nExpected Type: {expected_type}".format(**{
+                "expected_type": expected_type.__name__,
                 "given_type": str(type(given_variable)),
                 "given_value": str(given_variable)
             }))
@@ -688,8 +690,11 @@ class Stencil(AbstractExpression):
 
 
 class TStencil(object):
-    def __init__(self, _var_domain, _kernel, _name,
+    def __init__(self, _input_fn, _var_domain, _kernel, _name,
                  _origin=None, _timesteps=1):
+
+        check_type(_input_fn, Function)
+        self._input_fn = _input_fn
 
         self._name = _name
         self._timesteps = int(_timesteps)
@@ -715,6 +720,11 @@ class TStencil(object):
         else:
             self._origin = _origin
 
+        # Add the time variable of the TStencil
+        self._variables.append(Variable(Int, "time"))
+        self._var_domain.append(Interval(Int, 1, self._timesteps))
+
+        
     def getObjects(self, objType):
         objs = []
         for interval in self._var_domain:
