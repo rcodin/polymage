@@ -724,7 +724,40 @@ class TStencil(object):
         self._variables.append(Variable(Int, "time"))
         self._var_domain.append(Interval(Int, 1, self._timesteps))
 
+        # make a Stencil macro and expand it to get the stencilling
+        # operation
+        self.stencil_expr = Stencil(_input_fn, self._variables,
+                                    self._kernel, self._origin).macro_expand()
+
+    def _build_expr(self):
+
+        indexed_kernel = self._build_indexed_kernel(self._origin,
+                                                    self._iteration_vars,
+                                                    self._kernel)
+
+        tstencil_fn_variables = this._variables + [Variable(Int, "time")]
+        tstencil_fn_domains = this._var_domain + [Interval(0, this._timesteps)]
+
+        new_indexing_fn = Function((tstencil_fn_variables,
+                                   tstencil_fn_domains),
+                                   this._input_fn._typ,
+                                   this.name + "_pingpong")
         
+        # what should cond be?
+        new_indexing_fn.defn = [(Case(), index_expr]
+
+        index_expr = 0
+        for (indeces, weight) in indexed_kernel:
+            ref = Reference(new_indexing_fn_input_fn, indeces)
+            index_expr += ref * weight
+
+        # do this to force a pair of brackets around the entire indexing
+        # expression
+        # TODO: check if this is actually essential
+        index_expr = 1 * index_expr
+
+        return index_expr
+
     def getObjects(self, objType):
         objs = []
         for interval in self._var_domain:
