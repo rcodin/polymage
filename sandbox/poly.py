@@ -670,10 +670,12 @@ class PolyRep(object):
         # EXTRACT POLY DOM FROM COMP
 
         tstencil = comp.func
-        tstencil.variables.append(tstencil.time_var)
-        var_names = [ var.name for var in tstencil.variables ]
-        print("var_names: %s" % var_names)
+        tstencil_vars = tstencil.variables + [tstencil.time_var]
+        tstencil_domains = tstencil.domain + [Interval(Int, 0, tstencil.timesteps)]
 
+        var_names = [ var.name for var in  tstencil_vars]
+        
+        print("var_names: %s" % var_names)
         dom_map_names = [ name +'\'' for name in var_names ]
 
         params = []
@@ -690,9 +692,7 @@ class PolyRep(object):
                                                       params = param_names)
         print(">>>space: %s" % space)
         dom_map = isl.BasicMap.universe(space)
-        # Adding the domain constraints
-        tstencil.domain.append(Interval(Int, 0, tstencil.timesteps))
-        [ineqs, eqs] = format_domain_constraints(tstencil.domain, var_names)
+        [ineqs, eqs] = format_domain_constraints(tstencil_domains, var_names)
         dom_map = add_constraints(dom_map, ineqs, eqs)
 
         param_conds = self.format_param_constraints(param_constraints, params)
@@ -710,8 +710,8 @@ class PolyRep(object):
 
         # -----
         # CREATE_SCHED_SPACE
-        sched_map = self.create_sched_space(comp.func.variables,
-                                            comp.func.domain,
+        sched_map = self.create_sched_space(tstencil_vars,
+                                            tstencil_domains,
                                             schedule_names, param_names,
                                             context_conds)
 
@@ -722,8 +722,9 @@ class PolyRep(object):
         align, scale = \
             aln_scl.default_align_and_scale(sched_m, max_dim, shift=True)
 
-        assert(isinstance(comp.func.default, AbstractExpression))
-        poly_part = PolyPart(sched_m, comp.func.default,
+        tstencil_expr = tstencil.get_indexing_expr()
+        assert(isinstance(tstencil_expr, AbstractExpression))
+        poly_part = PolyPart(sched_m, tstencil_expr,
                              None, comp,
                              align, scale, level_no-1)
 
@@ -753,15 +754,6 @@ class PolyRep(object):
 
         return sched_map
 
-    def create_poly_parts_from_tstencil(self, comp, max_dim,
-                                        sched_map, level_no,
-                                        schedule_names, domain):
-
-        tstencil = comp.func
-        defn = Stencil(tstencil._input_fn, tstencil._variables,
-                       tstencil._kernel, tstencil._origin)
-
-        print("stencil for def:\n%s" % defn)
 
     def create_poly_parts_from_definition(self, comp, max_dim,
                                           sched_map, level_no,

@@ -785,7 +785,7 @@ class TStencil(object):
         return boundedIntegerDomain
 
     @staticmethod
-    def _build_indexed_kernel_recur(origin_vector, iter_vars, time_var, chosen_indeces,
+    def _build_indexed_kernel_recur(origin_vector, iter_vars, chosen_indeces,
                                     to_choose_sizes, subkernel):
         """
         Builds a list [([variable index], kernel weight] by taking the kernel,
@@ -845,13 +845,12 @@ class TStencil(object):
 
             if len(to_choose_sizes) == 1:
                 # TODO: time (or) time - 1?
-                chosen.append((chosen_indeces + [index_wrt_origin, time_var],
+                chosen.append((chosen_indeces + [index_wrt_origin],
                               subkernel[i]))
             else:
                 indexed = \
                     TStencil._build_indexed_kernel_recur(origin_vector[1:],
                                                         iter_vars[1:],
-                                                        time_var,
                                                         chosen_indeces +
                                                         [index_wrt_origin],
                                                         to_choose_sizes[1:],
@@ -860,15 +859,15 @@ class TStencil(object):
         return chosen
 
     def _build_indexed_kernel(self):
+        print(">>>variables: %s" % " ".join(map(str, self.variables)))
         assert is_valid_kernel(self._kernel, num_dimensions=len(self.variables))
         kernel_sizes = get_valid_kernel_sizes(self._kernel)
         return self._build_indexed_kernel_recur(self._origin,
                                                 self.variables,
-                                                self.time_var,
                                                 [],
                                                 kernel_sizes,
                                                 self._kernel)
-    def get_expr(self):
+    def get_indexing_expr(self):
         indexed_kernel = self._build_indexed_kernel()
         index_expr = 0 
         for (indeces, weight) in indexed_kernel:
@@ -881,7 +880,14 @@ class TStencil(object):
         # TODO: check if this is actually essential
         index_expr = 1 * index_expr
 
-        return index_expr
+        return Reference(self, index_expr)
+
+    def __call__(self, *args):
+        assert(len(args) == len(self._variables))
+        for arg in args:
+            arg = Value.numericToValue(arg)
+            assert(isinstance(arg, AbstractExpression))
+        return Reference(self, args)
 
 class Condition(object):
     def __init__(self, _left, _cond, _right):
