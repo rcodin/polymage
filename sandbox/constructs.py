@@ -720,43 +720,7 @@ class TStencil(object):
         else:
             self._origin = _origin
 
-        # Add the time variable of the TStencil
-        self._variables.append(Variable(Int, "time"))
-        self._var_domain.append(Interval(Int, 1, self._timesteps))
-
-        # make a Stencil macro and expand it to get the stencilling
-        # operation
-        self.stencil_expr = Stencil(_input_fn, self._variables,
-                                    self._kernel, self._origin).macro_expand()
-
-    def _build_expr(self):
-
-        indexed_kernel = self._build_indexed_kernel(self._origin,
-                                                    self._iteration_vars,
-                                                    self._kernel)
-
-        tstencil_fn_variables = this._variables + [Variable(Int, "time")]
-        tstencil_fn_domains = this._var_domain + [Interval(0, this._timesteps)]
-
-        new_indexing_fn = Function((tstencil_fn_variables,
-                                   tstencil_fn_domains),
-                                   this._input_fn._typ,
-                                   this.name + "_pingpong")
-        
-        # what should cond be?
-        new_indexing_fn.defn = [(Case(), index_expr]
-
-        index_expr = 0
-        for (indeces, weight) in indexed_kernel:
-            ref = Reference(new_indexing_fn_input_fn, indeces)
-            index_expr += ref * weight
-
-        # do this to force a pair of brackets around the entire indexing
-        # expression
-        # TODO: check if this is actually essential
-        index_expr = 1 * index_expr
-
-        return index_expr
+        self.time_var = Variable(Int, "time")
 
     def getObjects(self, objType):
         objs = []
@@ -782,7 +746,7 @@ class TStencil(object):
         kernel = copy.deepcopy(self._kernel)
         origin = copy.deepcopy(self._origin)
         name = copy.deepcopy(self._name)
-        return TStencil((variables, var_domain), kernel, name,
+        return TStencil(self._input_fn, (variables, var_domain), kernel, name,
                         origin, self._timesteps)
 
     @property
@@ -815,6 +779,104 @@ class TStencil(object):
 
         return boundedIntegerDomain
 
+    @staticmethod
+    def _build_indexed_kernel_recur(origin_vector, iter_vars, time_var, chosen_indeces,
+                                    to_choose_sizes, subkernel):
+        """
+        Builds a list [([variable index], kernel weight] by taking the kernel,
+        origin offset, and list of variables as parameters
+
+        Parameters
+        ----------
+        origin_vector: [Int]
+        the relative origin of the kernel with respect to the top left.
+        If origin is (0, 0), then the kernel is built up as
+        (x, y) to (x + w, y + h), since (0, 0) is taken to be the origin of the
+        kernel.
+        Usually, the origin is (w/2, h/2, ...)
+
+        iter_vars: [Variable]
+        Variables that represnt the iteration axes to
+        index the source function
+        Usually x, y, z, ...
+
+        chosen_indeces: [Expression]
+        pass "frozen" incdeces that have already been chosen. The function
+        is now expected to generate all sub-indeces for these chosen
+        indeces. One way to look at this is that chosen_indeces represents the
+        chosen vector components of the final index.
+
+        to_choose_sizes: [Int]
+        Represents the sizes of the indeces that are yet to be chosen. Hence,
+        these need to be looped over to pick _every_ index in these indeces.
+
+        subkernel: [Int]^k (k-nested list)
+        the remaining sub-space of the kernel that is yet to be chosen. Must
+        be indexed from to_choose_sizes.
+
+        Invariants
+        ----------
+        total kernel dimension: K
+        subkernel dimension: K_s
+
+        dim(origin_vector) = K
+        len(iter_vars) = K
+        len(to_choose_sizes) + len(chosen_indeces) = K
+
+        K_s = len(to_choose_sizes)
+
+        Returns
+        -------
+        indexed_kernel: [([index_expr: Expression], kernel_weight : Int)]
+
+        Returns a list of tuples
+        Each tuple has a list of indexing expressions, used to index the
+        Kernel outermost to innerpost, along with the corresponding kernel
+        weight at that index.
+        """
+        chosen = []
+        for i in range(to_choose_sizes[0]):
+            index_wrt_origin = iter_vars[0] + (i - origin_vector[0])
+
+            if len(to_choose_sizes) == 1:
+                # TODO: time (or) time - 1?
+                chosen.append((chosen_indeces + [index_wrt_origin, time_var],
+                              subkernel[i]))
+            else:
+                indexed = \
+                    TStencil._build_indexed_kernel_recur(origin_vector[1:],
+                                                        iter_vars[1:],
+                                                        time_var,
+                                                        chosen_indeces +
+                                                        [index_wrt_origin],
+                                                        to_choose_sizes[1:],
+                                                        subkernel[i])
+                chosen.extend(indexed)
+        return chosen
+
+    def _build_indexed_kernel(self):
+        assert is_valid_kernel(self._kernel, num_dimensions=len(self.variables))
+        kernel_sizes = get_valid_kernel_sizes(self._kernel)
+        return self._build_indexed_kernel_recur(self._origin,
+                                                self.variables,
+                                                self.time_var,
+                                                [],
+                                                kernel_sizes,
+                                                self._kernel)
+    def get_expr(self):
+        indexed_kernel = self._build_indexed_kernel()
+        index_expr = 0 
+        for (indeces, weight) in indexed_kernel:
+                print("indeces: %s" % indeces)
+                ref = Reference(self._input_fn, indeces)
+                index_expr += ref * weight
+
+        # do this to force a pair of brackets around the entire indexing
+        # expression
+        # TODO: check if this is actually essential
+        index_expr = 1 * index_expr
+
+        return index_expr
 
 class Condition(object):
     def __init__(self, _left, _cond, _right):

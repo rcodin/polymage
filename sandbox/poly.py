@@ -669,9 +669,64 @@ class PolyRep(object):
                                             schedule_names, param_names,
                                             context_conds)
 
-        self.create_poly_parts_from_definition(comp, max_dim, sched_map,
-                                               level_no, schedule_names,
-                                               comp.func.domain)
+       # ------
+       # CREATE POLY PARTS FOR T STENCIL
+
+        self.poly_parts[comp] = []
+        # for case in comp.func.defn:
+        sched_m = sched_map.copy()
+
+        # The basic schedule is an identity schedule appended with
+        # a level dimension. The level dimension gives the ordering
+        # of the compute objects within a group.
+
+        align, scale = \
+            aln_scl.default_align_and_scale(sched_m, max_dim, shift=True)
+
+        # if (isinstance(case, Case)):
+        #     # Dealing with != and ||. != can be replaced with < || >.
+        #     # and || splits the domain into two.
+        #     split_conjuncts = case.condition.split_to_conjuncts()
+        #     for conjunct in split_conjuncts:
+        #         # If the condition is non-affine it is stored as a
+        #         # predicate for the expression. An affine condition
+        #         # is added to the domain.
+        #         affine = True
+        #         for cond in conjunct:
+        #             affine = affine and \
+        #                      isAffine(cond.lhs) and isAffine(cond.rhs)
+        #         if(affine):
+        #             [conjunct_ineqs, conjunct_eqs] = \
+        #                 format_conjunct_constraints(conjunct)
+        #             sched_m = add_constraints(sched_m,
+        #                                       conjunct_ineqs,
+        #                                       conjunct_eqs)
+        #             parts = self.make_poly_parts(sched_m, case.expression,
+        #                                          None, comp,
+        #                                          align, scale, level_no)
+        #             for part in parts:
+        #                 self.poly_parts[comp].append(part)
+        #         else:
+        #             parts = self.make_poly_parts(sched_m, case.expression,
+        #                                          case.condition, comp,
+        #                                          align, scale, level_no)
+        #             for part in parts:
+        #                 self.poly_parts[comp].append(part)
+        # else:
+        # assert(isinstance(case, AbstractExpression) or
+        #        isinstance(case, Reduce))
+        tstencil =  comp.func
+        tstencil_expr = tstencil.get_expr()
+
+        print(">>tstencil expr: %s" % tstencil_expr)
+        parts = self.make_poly_parts(sched_m, tstencil_expr,
+                                     None, comp,
+                                     align, scale, level_no)
+
+        # FIXME: Is a loop required here? make_poly_part
+        # seems to return a list of one part
+        for part in parts:
+            self.poly_parts[comp].append(part)
 
 
     def create_sched_space(self, variables, domains,
@@ -809,6 +864,7 @@ class PolyRep(object):
 
     def make_poly_parts(self, sched_map, expr, pred, comp,
                         align, scale, level_no):
+        print(">>>poly part expr: %s" % expr)
         # Detect selects with modulo constraints and split into 
         # multiple parts. This technique can also be applied to the
         # predicate but for now we focus on selects.
