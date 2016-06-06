@@ -567,7 +567,7 @@ class PolyRep(object):
 
             extraction_fn(self, comp, dim, schedule_names,
                           param_names, context_conds,
-                          comp_map[comp] + 1,
+                          comp_map[comp],
                           param_constraints)
 
     def format_param_constraints(self, param_constraints, grp_params):
@@ -622,13 +622,16 @@ class PolyRep(object):
                                       param_constraints):
         self.poly_doms[comp] = \
             self.extract_poly_dom_from_comp(comp, param_constraints)
+        print("poly dom: %s" % self.poly_doms[comp])
         sched_map = self.create_sched_space(comp.func.variables,
                                             comp.func.domain,
                                             schedule_names, param_names,
                                             context_conds)
+        print("sched_map: %s" % sched_map)
         self.create_poly_parts_from_definition(comp, max_dim, sched_map,
                                                level_no, schedule_names,
                                                comp.func.domain)
+        print("poly parts: %s" % "\n\t".join(map(str, self.poly_parts[comp])))
 
     def extract_polyrep_from_reduction(self, comp, max_dim,
                                        schedule_names, param_names,
@@ -659,74 +662,76 @@ class PolyRep(object):
                                       param_constraints):
 
         # add the time dimension to the tstencil
-        schedule_names.append("time")
+        # schedule_names.append("time")
 
-        self.poly_doms[comp] = \
-            self.extract_poly_dom_from_comp(comp, param_constraints)
+        # self.poly_doms[comp] = \
+        #    self.extract_poly_dom_from_comp(comp, param_constraints)
+        # ------
+        # EXTRACT POLY DOM FROM COMP
 
+        tstencil = comp.func
+        tstencil.variables.append(tstencil.time_var)
+        var_names = [ var.name for var in tstencil.variables ]
+        print("var_names: %s" % var_names)
+
+        dom_map_names = [ name +'\'' for name in var_names ]
+
+        params = []
+        for interval in tstencil.domain:
+            params = params + interval.collect(Parameter)
+        if isinstance(tstencil.timesteps, Parameter):
+            params = params + [tstencil.timesteps]
+
+        params = list(set(params))
+        param_names = [ param.name for param in params ]
+
+        space = isl.Space.create_from_names(self.ctx, in_ = var_names,
+                                                      out = dom_map_names,
+                                                      params = param_names)
+        print(">>>space: %s" % space)
+        dom_map = isl.BasicMap.universe(space)
+        # Adding the domain constraints
+        tstencil.domain.append(Interval(Int, 0, tstencil.timesteps))
+        [ineqs, eqs] = format_domain_constraints(tstencil.domain, var_names)
+        dom_map = add_constraints(dom_map, ineqs, eqs)
+
+        param_conds = self.format_param_constraints(param_constraints, params)
+        [param_ineqs, param_eqs] = format_conjunct_constraints(param_conds)
+        dom_map = add_constraints(dom_map, param_ineqs, param_eqs)
+
+        poly_dom = PolyDomain(dom_map.domain(), comp)
+        id_ = isl_alloc_id_for(self.ctx, comp.func.name, poly_dom)
+        poly_dom.set_tuple_id(id_)
+        isl_set_id_user(id_, poly_dom)
+
+        self.poly_doms[comp] = poly_dom
+        print(">>>|poly domain: %s" % poly_dom)
+
+
+        # -----
+        # CREATE_SCHED_SPACE
         sched_map = self.create_sched_space(comp.func.variables,
                                             comp.func.domain,
                                             schedule_names, param_names,
                                             context_conds)
 
+        print(">>|sched space: %s" % sched_map)
        # ------
        # CREATE POLY PARTS FOR T STENCIL
-
-        self.poly_parts[comp] = []
-        # for case in comp.func.defn:
         sched_m = sched_map.copy()
-
-        # The basic schedule is an identity schedule appended with
-        # a level dimension. The level dimension gives the ordering
-        # of the compute objects within a group.
-
         align, scale = \
             aln_scl.default_align_and_scale(sched_m, max_dim, shift=True)
 
-        # if (isinstance(case, Case)):
-        #     # Dealing with != and ||. != can be replaced with < || >.
-        #     # and || splits the domain into two.
-        #     split_conjuncts = case.condition.split_to_conjuncts()
-        #     for conjunct in split_conjuncts:
-        #         # If the condition is non-affine it is stored as a
-        #         # predicate for the expression. An affine condition
-        #         # is added to the domain.
-        #         affine = True
-        #         for cond in conjunct:
-        #             affine = affine and \
-        #                      isAffine(cond.lhs) and isAffine(cond.rhs)
-        #         if(affine):
-        #             [conjunct_ineqs, conjunct_eqs] = \
-        #                 format_conjunct_constraints(conjunct)
-        #             sched_m = add_constraints(sched_m,
-        #                                       conjunct_ineqs,
-        #                                       conjunct_eqs)
-        #             parts = self.make_poly_parts(sched_m, case.expression,
-        #                                          None, comp,
-        #                                          align, scale, level_no)
-        #             for part in parts:
-        #                 self.poly_parts[comp].append(part)
-        #         else:
-        #             parts = self.make_poly_parts(sched_m, case.expression,
-        #                                          case.condition, comp,
-        #                                          align, scale, level_no)
-        #             for part in parts:
-        #                 self.poly_parts[comp].append(part)
-        # else:
-        # assert(isinstance(case, AbstractExpression) or
-        #        isinstance(case, Reduce))
-        tstencil =  comp.func
-        tstencil_expr = tstencil.get_expr()
+        assert(isinstance(comp.func.default, AbstractExpression))
+        poly_part = PolyPart(sched_m, comp.func.default,
+                             None, comp,
+                             align, scale, level_no-1)
 
-        print(">>tstencil expr: %s" % tstencil_expr)
-        parts = self.make_poly_parts(sched_m, tstencil_expr,
-                                     None, comp,
-                                     align, scale, level_no)
-
-        # FIXME: Is a loop required here? make_poly_part
-        # seems to return a list of one part
-        for part in parts:
-            self.poly_parts[comp].append(part)
+        id_ = isl_alloc_id_for(self.ctx, comp.func.name, poly_part)
+        poly_part.sched = \
+                poly_part.sched.set_tuple_id(isl._isl.dim_type.in_, id_)
+        isl_set_id_user(id_, poly_part)
+        self.poly_parts[comp].append(poly_part)
 
 
     def create_sched_space(self, variables, domains,
@@ -864,7 +869,6 @@ class PolyRep(object):
 
     def make_poly_parts(self, sched_map, expr, pred, comp,
                         align, scale, level_no):
-        print(">>>poly part expr: %s" % expr)
         # Detect selects with modulo constraints and split into 
         # multiple parts. This technique can also be applied to the
         # predicate but for now we focus on selects.

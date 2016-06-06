@@ -697,7 +697,8 @@ class TStencil(object):
         self._input_fn = _input_fn
 
         self._name = _name
-        self._timesteps = int(_timesteps)
+        assert isinstance(_timesteps, (Int, Parameter))
+        self._timesteps = _timesteps
 
         assert(len(_var_domain[0]) == len(_var_domain[1]))
         for i in range(0, len(_var_domain[0])):
@@ -748,6 +749,10 @@ class TStencil(object):
         name = copy.deepcopy(self._name)
         return TStencil(self._input_fn, (variables, var_domain), kernel, name,
                         origin, self._timesteps)
+
+    @property
+    def timesteps(self):
+        return self._timesteps
 
     @property
     def name(self):

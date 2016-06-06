@@ -12,6 +12,7 @@ def test_t_stencil():
 
     R = Parameter(Int, "R")
     C = Parameter(Int, "C")
+    T = Parameter(Int, "T")
     x = Variable(Int, "x")
     y = Variable(Int, "y")
 
@@ -27,7 +28,7 @@ def test_t_stencil():
     img = Image(Float, "input", [R+1, C+1])
 
     kernel = [[1, 1, 1], [1, 0, 1], [1, 1, 1]]
-    stencil = TStencil(img, ([x, y], [xrow, xcol]), kernel, "stencil")
+    stencil = TStencil(img, ([x, y], [xrow, xcol]), kernel, "stencil", None, T)
     print(stencil)
 
 
