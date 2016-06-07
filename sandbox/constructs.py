@@ -859,7 +859,6 @@ class TStencil(object):
         return chosen
 
     def _build_indexed_kernel(self):
-        print(">>>variables: %s" % " ".join(map(str, self.variables)))
         assert is_valid_kernel(self._kernel, num_dimensions=len(self.variables))
         kernel_sizes = get_valid_kernel_sizes(self._kernel)
         return self._build_indexed_kernel_recur(self._origin,
@@ -868,19 +867,16 @@ class TStencil(object):
                                                 kernel_sizes,
                                                 self._kernel)
     def get_indexing_expr(self):
-        indexed_kernel = self._build_indexed_kernel()
-        index_expr = 0 
-        for (indeces, weight) in indexed_kernel:
-                print("indeces: %s" % indeces)
-                ref = Reference(self._input_fn, indeces)
-                index_expr += ref * weight
+        # indexed_kernel = self._build_indexed_kernel()
+        # index_expr = 0 
+        # for (indeces, weight) in indexed_kernel:
+        #         print("indeces: %s" % indeces)
+        #         ref = Reference(self._input_fn, indeces)
+        #         index_expr += ref * weight
 
-        # do this to force a pair of brackets around the entire indexing
-        # expression
-        # TODO: check if this is actually essential
-        index_expr = 1 * index_expr
-
-        return Reference(self, index_expr)
+        
+        # multiply by 1 to upcast the reference to an expression
+        return (1 * Reference(self, self.variables))
 
     def __call__(self, *args):
         assert(len(args) == len(self._variables))

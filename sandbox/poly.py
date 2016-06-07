@@ -661,6 +661,8 @@ class PolyRep(object):
                                       context_conds, level_no,
                                       param_constraints):
 
+
+
         # add the time dimension to the tstencil
         # schedule_names.append("time")
 
@@ -673,16 +675,22 @@ class PolyRep(object):
         tstencil_vars = tstencil.variables + [tstencil.time_var]
         tstencil_domains = tstencil.domain + [Interval(Int, 0, tstencil.timesteps)]
 
+        # HACK: we need to forcibly add a variable for our schedule name of "time"
+        schedule_names.append(self.getVarName())
+
         var_names = [ var.name for var in  tstencil_vars]
         
         print("var_names: %s" % var_names)
         dom_map_names = [ name +'\'' for name in var_names ]
 
         params = []
-        for interval in tstencil.domain:
+        for interval in tstencil_domains:
             params = params + interval.collect(Parameter)
+        # add the TStencil timestep if it's of type parameter
         if isinstance(tstencil.timesteps, Parameter):
             params = params + [tstencil.timesteps]
+        else:
+            assert(isinstance(tstencil.timesteps, Int))
 
         params = list(set(params))
         param_names = [ param.name for param in params ]
@@ -690,7 +698,6 @@ class PolyRep(object):
         space = isl.Space.create_from_names(self.ctx, in_ = var_names,
                                                       out = dom_map_names,
                                                       params = param_names)
-        print(">>>space: %s" % space)
         dom_map = isl.BasicMap.universe(space)
         [ineqs, eqs] = format_domain_constraints(tstencil_domains, var_names)
         dom_map = add_constraints(dom_map, ineqs, eqs)
@@ -705,7 +712,6 @@ class PolyRep(object):
         isl_set_id_user(id_, poly_dom)
 
         self.poly_doms[comp] = poly_dom
-        print(">>>|poly domain: %s" % poly_dom)
 
 
         # -----
@@ -715,7 +721,6 @@ class PolyRep(object):
                                             schedule_names, param_names,
                                             context_conds)
 
-        print(">>|sched space: %s" % sched_map)
        # ------
        # CREATE POLY PARTS FOR T STENCIL
         sched_m = sched_map.copy()
@@ -732,6 +737,9 @@ class PolyRep(object):
         poly_part.sched = \
                 poly_part.sched.set_tuple_id(isl._isl.dim_type.in_, id_)
         isl_set_id_user(id_, poly_part)
+
+        print(">polypart: %s | self-dep: %s" % (poly_part, poly_part.check_self_dep())) 
+        self.poly_parts[comp] = []
         self.poly_parts[comp].append(poly_part)
 
 

@@ -33,6 +33,8 @@ poly_sched_logger.setLevel(logging.INFO)
 LOG = poly_sched_logger.log
 
 def format_schedule_constraints(dim_in, dim_out, align, scale, level_no):
+    print("inside format_schedule_constraints()> dim_in: %s | dim_out: %s | align: %s | scale: %s" %
+          (dim_in, dim_out, align, scale))
     ineq_coeff = []
     eq_coeff   = []
     dim_set = [ False for i in range(0, dim_out) ]
@@ -75,6 +77,7 @@ def base_schedule(group):
     for part in parts:
         dim_in = part.sched.dim(isl._isl.dim_type.in_)
         dim_out = part.sched.dim(isl._isl.dim_type.out)
+        print("in base_schedule() | part: %s || compute object: %s" % (part, part.comp.func))
         [ineqs, eqs] = format_schedule_constraints(dim_in, dim_out,
                                                    part.align,
                                                    part.scale,
