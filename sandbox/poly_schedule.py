@@ -26,6 +26,7 @@ import logging
 from grouping import get_group_dep_vecs
 from utils import *
 from poly import *
+import libpluto
 
 # LOG CONFIG #
 poly_sched_logger = logging.getLogger("poly_schedule.py")
@@ -83,7 +84,8 @@ def base_schedule(group):
                                                    part.scale,
                                                    part.level)
         part.sched = add_constraints(part.sched, ineqs, eqs)
-
+        print(">>>in base_sched(): constrained schedule: %s" % part.sched)
+  
     return parts
 
 def stripMineSchedule(sched, dim, size):
@@ -348,60 +350,96 @@ def enable_tile_scratchpad(group_parts):
 
     return
 
-def fused_schedule(pipeline, group, param_estimates):
+def fused_schedule(pipeline, isl_ctx, group, param_estimates):
     """Generate an optimized schedule for the stage."""
 
     g_poly_parts = group.polyRep.poly_parts
-    g_all_parts = []
-    for comp in g_poly_parts:
-        g_all_parts.extend(g_poly_parts[comp])
+    
+    # NOTE: we assume that group has >= 1 compute objects in it.
+    # diamond tile if group is tstencil
 
-    # get dependence vectors between each part of the group and each of its
-    # parents' part
-    comp_deps = get_group_dep_vecs(pipeline, group, g_all_parts)
+    if group.comps[0].is_tstencil_type:
 
-    # No point in tiling a group that has no dependencies
-    is_stencil = len(comp_deps) > 0 and len(g_all_parts) > 1
-    for dep, h in comp_deps:
-        # Skips groups which have self deps
-        if dep[0] == 0:
-            is_stencil = False
+        print(">>DEBUG: diamond tiling pass")
+        
+        assert(len(group.comps) == 1, ("Tstencil must be in a "
+                                       "separate group."))
+        ffi = libpluto.PlutoFFI()
+        options = ffi.create_options()
+        # enable concurrent start
+        options.partlbtile = True
 
-    # threshold for parallelism
-    if not is_stencil:
+        tstencil = group.comps[0]
+        poly_parts = g_poly_parts[tstencil]
+        assert(len(poly_parts) == 1, ("a tstencil must have only one "
+                                     "poly part associated with it"))
+        poly_part = poly_parts[0]
+        domain = isl.UnionSet.from_basic_set(poly_part.sched.domain())
+        sched = isl.UnionMap.from_basic_map(poly_part.sched)
+
+        print("in fused_schedule():\n\tdomain: %s\n\tsched: %s" % (domain, sched))
+        optimised_sched = ffi.schedule(isl_ctx, domain, 
+                                       sched,
+                                       options)
+
+        poly_part.sched = optimised_sched
+
+        print("in fused_schedule(): optimised schedule: %s" % (poly_part.sched))
+
+        return
+    else:
+        g_all_parts = []
+        for comp in g_poly_parts:
+            g_all_parts.extend(g_poly_parts[comp])
+
+        # get dependence vectors between each part of the group and each of its
+        # parents' part
+        comp_deps = get_group_dep_vecs(pipeline, group, g_all_parts)
+
+        # No point in tiling a group that has no dependencies
+        is_stencil = len(comp_deps) > 0 and len(g_all_parts) > 1
+        for dep, h in comp_deps:
+            # Skips groups which have self deps
+            if dep[0] == 0:
+                is_stencil = False
+
+        # threshold for parallelism
+        if not is_stencil:
+            for p in g_all_parts:
+                part_size = p.get_size(param_estimates)
+                big_part = (part_size != '*' and \
+                            part_size > pipeline._size_threshold)
+                if not p.is_self_dependent and big_part:
+                    mark_par_and_vec(p, pipeline._param_estimates)
+
+        # Find the parts which are not liveout
         for p in g_all_parts:
-            part_size = p.get_size(param_estimates)
-            big_part = (part_size != '*' and \
-                        part_size > pipeline._size_threshold)
-            if not p.is_self_dependent and big_part:
-                mark_par_and_vec(p, pipeline._param_estimates)
+            is_liveout = not is_stencil
+            #is_liveout = True
+            p.set_liveness(p.is_liveout or is_liveout)
 
-    # Find the parts which are not liveout
+        if is_stencil:
+            assert(len(g_all_parts) > 1)
+            hmax = max( [ p.level for p in g_all_parts ] )
+            hmin = min( [ p.level for p in g_all_parts ] )
+            slope_min, slope_max = compute_tile_slope(comp_deps, hmax)
+
+            #splitTile(stageGroups[gi], slopeMin, slopeMax)
+            overlap_tile(pipeline, g_all_parts, slope_min, slope_max)
+
+            enable_tile_scratchpad(g_all_parts)
+
+            for p in g_all_parts:
+                mark_par_and_vec_for_tile(p)
+
+            '''
+            for p in g_all_parts:
+                skewed_schedule(p)
+            '''
+        # HACK: uncomment this
+        # return
     for p in g_all_parts:
-        is_liveout = not is_stencil
-        #is_liveout = True
-        p.set_liveness(p.is_liveout or is_liveout)
-
-    if is_stencil:
-        assert(len(g_all_parts) > 1)
-        hmax = max( [ p.level for p in g_all_parts ] )
-        hmin = min( [ p.level for p in g_all_parts ] )
-        slope_min, slope_max = compute_tile_slope(comp_deps, hmax)
-
-        #splitTile(stageGroups[gi], slopeMin, slopeMax)
-        overlap_tile(pipeline, g_all_parts, slope_min, slope_max)
-
-        enable_tile_scratchpad(g_all_parts)
-
-        for p in g_all_parts:
-            mark_par_and_vec_for_tile(p)
-
-        '''
-        for p in g_all_parts:
-            skewed_schedule(p)
-        '''
-
-    return
+        print("in fused_schedule(): part: %s" % (p, ))
 
 def move_independent_dim(dim, group_parts, stageDim):
     # Move the independent dimensions outward of the stage dimension.

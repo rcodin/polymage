@@ -285,7 +285,7 @@ class PlutoOptions(object):
         ----------
         partlbtile : Bool
         """
-        self._raw_options_ptr.partlbtile = partlbtile
+        self._raw_options_ptr.partlbtile = 1 if partlbtile else 0
 
     def __del__(self):
         self._pluto_ffi._destroy_raw_options_ptr(self._raw_options_ptr)

@@ -759,13 +759,9 @@ class Pipeline:
         for g in self.groups:
             # alignment and scaling
             align_and_scale(self, g)
-            # DEBUGGING CODE
-            for comp in g.get_sorted_comps():
-                for p in g.polyRep.poly_parts[comp]:
-                    print(">>>> comp: %s || align: %s || scale: %s" % (comp.func.name, p.align, p.scale))
             base_schedule(g)
             # grouping and tiling
-            fused_schedule(self, g, self._param_estimates)
+            fused_schedule(self, self._ctx, g, self._param_estimates)
 
         # group
         self._grp_schedule = schedule_groups(self)
