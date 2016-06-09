@@ -45,9 +45,8 @@ def isl_get_id_user(id_):
     return isl_id_user_map[id_]
 
 def isl_alloc_id_for(ctx, name, user):
-    # HACK: removing the name for pluto compatibility
-    # name = name+"_"+str(id(user))
-    name = name
+    name = name+"_"+str(id(user))
+    # name = name
     id_ = isl.Id.alloc(ctx, name, None)
 
     return id_
