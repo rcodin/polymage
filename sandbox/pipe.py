@@ -131,6 +131,9 @@ class ComputeObject:
     def __init__(self, _func, _is_output=False):
 
         self._compute_type = None
+        # NOTE: do NOT change this to if-elif-elif...else
+        # since this is an _inheritance hierarchy. Somthing can be a
+        # Function AND a reduction.
         if isinstance(_func, Function):
             self._compute_type = ComputeTypes.FUNCTION
         if isinstance(_func, Image):
