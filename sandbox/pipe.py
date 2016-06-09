@@ -130,15 +130,19 @@ class ComputeTypes:
 class ComputeObject:
     def __init__(self, _func, _is_output=False):
 
+        self._compute_type = None
+        # NOTE: do NOT change this to if-elif-elif...else
+        # since this is an _inheritance hierarchy. Somthing can be a
+        # Function AND a reduction.
         if isinstance(_func, Function):
             self._compute_type = ComputeTypes.FUNCTION
-        elif isinstance(_func, Image):
+        if isinstance(_func, Image):
             self._compute_type = ComputeTypes.IMAGE
-        elif isinstance(_func, Reduction):
+        if isinstance(_func, Reduction):
             self._compute_type = ComputeTypes.REDUCTION
-        elif isinstance(_func, TStencil):
+        if isinstance(_func, TStencil):
             self._compute_type = ComputeTypes.TSTENCIL
-        else:
+        if self._compute_type is None:
             raise TypeError("unknown compute object function type:\n"
                             "Given: %s\n"
                             "nType: %s" % (self._func, type(self.function)))
