@@ -34,8 +34,6 @@ poly_sched_logger.setLevel(logging.INFO)
 LOG = poly_sched_logger.log
 
 def format_schedule_constraints(dim_in, dim_out, align, scale, level_no):
-    print("inside format_schedule_constraints()> dim_in: %s | dim_out: %s | align: %s | scale: %s" %
-          (dim_in, dim_out, align, scale))
     ineq_coeff = []
     eq_coeff   = []
     dim_set = [ False for i in range(0, dim_out) ]
@@ -78,14 +76,12 @@ def base_schedule(group):
     for part in parts:
         dim_in = part.sched.dim(isl._isl.dim_type.in_)
         dim_out = part.sched.dim(isl._isl.dim_type.out)
-        print("in base_schedule() | part: %s || compute object: %s" % (part, part.comp.func))
         [ineqs, eqs] = format_schedule_constraints(dim_in, dim_out,
                                                    part.align,
                                                    part.scale,
                                                    part.level)
         part.sched = add_constraints(part.sched, ineqs, eqs)
-        print(">>>in base_sched(): constrained schedule: %s" % part.sched)
-  
+
     return parts
 
 def stripMineSchedule(sched, dim, size):
@@ -360,32 +356,28 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
 
     if group.comps[0].is_tstencil_type:
 
-        print(">>DEBUG: diamond tiling pass")
-        
-        assert(len(group.comps) == 1, ("Tstencil must be in a "
-                                       "separate group."))
-        ffi = libpluto.PlutoFFI()
-        options = ffi.create_options()
-        # enable concurrent start
-        options.partlbtile = True
-
-        tstencil = group.comps[0]
-        poly_parts = g_poly_parts[tstencil]
-        assert(len(poly_parts) == 1, ("a tstencil must have only one "
-                                     "poly part associated with it"))
-        poly_part = poly_parts[0]
-        domain = isl.UnionSet.from_basic_set(poly_part.sched.domain())
-        sched = isl.UnionMap.from_basic_map(poly_part.sched)
-
-        print("in fused_schedule():\n\tdomain: %s\n\tsched: %s" % (domain, sched))
-        optimised_sched = ffi.schedule(isl_ctx, domain, 
-                                       sched,
-                                       options)
-
-        poly_part.sched = optimised_sched
-
-        print("in fused_schedule(): optimised schedule: %s" % (poly_part.sched))
-
+        # print(">>DEBUG: diamond tiling pass")
+        #
+        # assert(len(group.comps) == 1, ("Tstencil must be in a "
+        #                                "separate group."))
+        # ffi = libpluto.PlutoFFI()
+        # options = ffi.create_options()
+        # # enable concurrent start
+        # options.partlbtile = True
+        #
+        # tstencil = group.comps[0]
+        # poly_parts = g_poly_parts[tstencil]
+        # assert(len(poly_parts) == 1, ("a tstencil must have only one "
+        #                              "poly part associated with it"))
+        # poly_part = poly_parts[0]
+        # domain = isl.UnionSet.from_basic_set(poly_part.sched.domain())
+        # sched = isl.UnionMap.from_basic_map(poly_part.sched)
+        #
+        # optimised_sched = ffi.schedule(isl_ctx, domain,
+        #                                sched,
+        #                                options)
+        #
+        # poly_part.sched = optimised_sched
         return
     else:
         g_all_parts = []
@@ -436,11 +428,7 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
             for p in g_all_parts:
                 skewed_schedule(p)
             '''
-        # HACK: uncomment this
-        # return
-    for p in g_all_parts:
-        print("in fused_schedule(): part: %s" % (p, ))
-
+        return
 def move_independent_dim(dim, group_parts, stageDim):
     # Move the independent dimensions outward of the stage dimension.
     for part in group_parts:

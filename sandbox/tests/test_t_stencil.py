@@ -8,7 +8,49 @@ sys.path.insert(0, '../')
 from compiler import *
 from constructs import *
 
-def test_t_stencil():
+
+def test_t_stencil_1d():
+
+    R = Parameter(Int, "R")
+    T = Parameter(Int, "T")
+    x = Variable(Int, "x")
+
+    xrow = Interval(Int, 1, R)
+
+    bounds = Condition(x, '>=', 1) & Condition(x, '<=', R)
+
+    img = Image(Float, "input", [R+1])
+
+    kernel = [[1, 1, 1]]
+    stencil = TStencil(img, ([x], [xrow]), kernel, "S_1", None, T)
+    print(stencil)
+
+
+    groups = [stencil]
+
+    p_est = [ (R, 1024)]
+
+    # build the pipeline
+    pipeline = buildPipeline([stencil],
+                             grouping = groups,
+                             param_estimates = p_est,
+                             pipe_name = "blur")
+
+    filename = "blur_graph"
+    dot_file = filename+".dot"
+    png_file = filename+".png"
+    g = pipeline.pipeline_graph
+    g.write(filename+".dot")
+    dotty_str = "dot -Tpng "+dot_file+" -o "+png_file
+    subprocess.check_output(dotty_str, shell=True)
+
+    filename = 'blur_naive.cpp'
+    c_file = open(filename, 'w')
+    c_file.write(pipeline.generate_code().__str__())
+    c_file.close()
+
+
+def test_t_stencil_2d():
 
     R = Parameter(Int, "R")
     C = Parameter(Int, "C")

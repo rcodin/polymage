@@ -623,16 +623,16 @@ class PolyRep(object):
                                       param_constraints):
         self.poly_doms[comp] = \
             self.extract_poly_dom_from_comp(comp, param_constraints)
-        print("poly dom: %s" % self.poly_doms[comp])
+        print(">>>poly dom: %s" % self.poly_doms[comp])
         sched_map = self.create_sched_space(comp.func.variables,
                                             comp.func.domain,
                                             schedule_names, param_names,
                                             context_conds)
-        print("sched_map: %s" % sched_map)
+        print(">>>sched_map: %s" % sched_map)
         self.create_poly_parts_from_definition(comp, max_dim, sched_map,
                                                level_no, schedule_names,
                                                comp.func.domain)
-        print("poly parts: %s" % "\n\t".join(map(str, self.poly_parts[comp])))
+        print(">>>poly parts: %s" % "\n\t".join(map(str, self.poly_parts[comp])))
 
     def extract_polyrep_from_reduction(self, comp, max_dim,
                                        schedule_names, param_names,
@@ -657,6 +657,11 @@ class PolyRep(object):
         self.create_poly_parts_from_default(comp, max_dim, dom_map, level_no,
                                             schedule_names)
 
+    def add_tstenil_kernel_constraints(self, sched_map, comp):
+        tstencil_ineqs = []
+        tstencil_eqs = []
+        return add_constraints(sched_map, tstencil_ineqs, tstencil_eqs)
+
     def extract_polyrep_from_tstencil(self, comp, max_dim,
                                       schedule_names, param_names,
                                       context_conds, level_no,
@@ -673,15 +678,13 @@ class PolyRep(object):
         # EXTRACT POLY DOM FROM COMP
 
         tstencil = comp.func
-        tstencil_vars = tstencil.variables + [tstencil.time_var]
-        tstencil_domains = tstencil.domain + [Interval(Int, 0, tstencil.timesteps)]
+        tstencil_vars = [tstencil.time_var] + tstencil.variables
+        tstencil_domains = [Interval(Int, 0, tstencil.timesteps)]+ tstencil.domain
 
         # HACK: we need to forcibly add a variable for our schedule name of "time"
         schedule_names.append(self.getVarName())
 
-        var_names = [ var.name for var in  tstencil_vars]
-        
-        print("var_names: %s" % var_names)
+        var_names = [var.name for var in  tstencil_vars]
         dom_map_names = [ name +'\'' for name in var_names ]
 
         params = []
@@ -699,7 +702,9 @@ class PolyRep(object):
         space = isl.Space.create_from_names(self.ctx, in_ = var_names,
                                                       out = dom_map_names,
                                                       params = param_names)
+        print(">>>(TSTENCIL) Space: %s" % space)
         dom_map = isl.BasicMap.universe(space)
+        print(">>>(TSTENCIL) domain map (on creation): %s" % dom_map)
         [ineqs, eqs] = format_domain_constraints(tstencil_domains, var_names)
         dom_map = add_constraints(dom_map, ineqs, eqs)
 
@@ -713,6 +718,7 @@ class PolyRep(object):
         isl_set_id_user(id_, poly_dom)
 
         self.poly_doms[comp] = poly_dom
+        print(">>>(TSTENCIL) domain map (final): %s" % dom_map)
 
 
         # -----
@@ -721,6 +727,12 @@ class PolyRep(object):
                                             tstencil_domains,
                                             schedule_names, param_names,
                                             context_conds)
+
+        # add Tstencil kernel constraints
+        sched_map = self.add_tstenil_kernel_constraints(sched_map, comp)
+        print(">>>(TSTENCIL) ----")
+        print(">>>(TSTENCIL) schedule domain: %s" % sched_map.domain()  )
+        print(">>>(TSTENCIL) schedule map: %s" % sched_map)
 
        # ------
        # CREATE POLY PARTS FOR T STENCIL
@@ -734,14 +746,20 @@ class PolyRep(object):
                              None, comp,
                              align, scale, level_no-1)
 
-        id_ = isl_alloc_id_for(self.ctx, comp.func.name, poly_part)
+        # Add names to domain and range
+        id_domain = isl_alloc_id_for(self.ctx, comp.func.name + "_domain", poly_part)
         poly_part.sched = \
-                poly_part.sched.set_tuple_id(isl._isl.dim_type.in_, id_)
-        isl_set_id_user(id_, poly_part)
+                poly_part.sched.set_tuple_id(isl._isl.dim_type.in_, id_domain)
+        isl_set_id_user(id_domain, poly_part)
 
-        print(">polypart: %s | self-dep: %s" % (poly_part, poly_part.check_self_dep())) 
+        id_range = isl_alloc_id_for(self.ctx, comp.func.name + "_range", poly_part)
+        poly_part.sched = \
+            poly_part.sched.set_tuple_id(isl._isl.dim_type.out, id_range)
+        isl_set_id_user(id_range, poly_part)
+
         self.poly_parts[comp] = []
         self.poly_parts[comp].append(poly_part)
+        print(">>>(TSTENCIL) poly parts: %s" % "\n\t".join(map(str, self.poly_parts[comp])))
 
 
     def create_sched_space(self, variables, domains,
