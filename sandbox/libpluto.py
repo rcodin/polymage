@@ -329,7 +329,13 @@ class PlutoFFI(object):
         """
         self.sharedobj.pluto_options_free(raw_options_ptr)
 
+    def rename_map_variables(map):
+
     def schedule(self, ctx, domains, dependences, options):
+        self.map_input_translation = {}
+        self.map_domain_tuples_translation = {}
+        self.map_output_translations = {}
+
         assert isinstance(domains, isl.UnionSet)
         assert isinstance(dependences, isl.UnionMap)
         assert isinstance(options, PlutoOptions)

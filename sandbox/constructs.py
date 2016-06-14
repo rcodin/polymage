@@ -772,6 +772,10 @@ class TStencil(object):
     def ndims(self):
         return self._ndims
 
+    @property
+    def typ(self):
+        return self._input_fn.typ
+
     def hasBoundedIntegerDomain(self):
         boundedIntegerDomain = True
         for var_dom in self._var_domain:

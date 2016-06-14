@@ -356,28 +356,28 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
 
     if group.comps[0].is_tstencil_type:
 
-        # print(">>DEBUG: diamond tiling pass")
-        #
-        # assert(len(group.comps) == 1, ("Tstencil must be in a "
-        #                                "separate group."))
-        # ffi = libpluto.PlutoFFI()
-        # options = ffi.create_options()
-        # # enable concurrent start
-        # options.partlbtile = True
-        #
-        # tstencil = group.comps[0]
-        # poly_parts = g_poly_parts[tstencil]
-        # assert(len(poly_parts) == 1, ("a tstencil must have only one "
-        #                              "poly part associated with it"))
-        # poly_part = poly_parts[0]
-        # domain = isl.UnionSet.from_basic_set(poly_part.sched.domain())
-        # sched = isl.UnionMap.from_basic_map(poly_part.sched)
-        #
-        # optimised_sched = ffi.schedule(isl_ctx, domain,
-        #                                sched,
-        #                                options)
-        #
-        # poly_part.sched = optimised_sched
+        print(">>DEBUG: diamond tiling pass")
+
+        assert(len(group.comps) == 1, ("Tstencil must be in a "
+                                       "separate group."))
+        ffi = libpluto.PlutoFFI()
+        options = ffi.create_options()
+        # enable concurrent start
+        options.partlbtile = True
+
+        tstencil = group.comps[0]
+        poly_parts = g_poly_parts[tstencil]
+        assert(len(poly_parts) == 1, ("a tstencil must have only one "
+                                      "poly part associated with it"))
+        poly_part = poly_parts[0]
+        domain = isl.UnionSet.from_basic_set(poly_part.sched.domain())
+        sched = isl.UnionMap.from_basic_map(poly_part.sched)
+
+        optimised_sched = ffi.schedule(isl_ctx, domain,
+                                       sched,
+                                       options)
+
+        poly_part.sched = optimised_sched
         return
     else:
         g_all_parts = []

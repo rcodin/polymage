@@ -21,7 +21,7 @@ def test_t_stencil_1d():
 
     img = Image(Float, "input", [R+1])
 
-    kernel = [1, 0, 1]
+    kernel = [0, 0, 1]
     stencil = TStencil(img, ([x], [xrow]), kernel, "S_1", None, T)
     print(stencil)
 
@@ -34,9 +34,9 @@ def test_t_stencil_1d():
     pipeline = buildPipeline([stencil],
                              grouping = groups,
                              param_estimates = p_est,
-                             pipe_name = "blur")
+                             pipe_name = "tstencil_1d")
 
-    filename = "blur_graph"
+    filename = "test_t_stencil_1d_graph"
     dot_file = filename+".dot"
     png_file = filename+".png"
     g = pipeline.pipeline_graph
@@ -44,7 +44,7 @@ def test_t_stencil_1d():
     dotty_str = "dot -Tpng "+dot_file+" -o "+png_file
     subprocess.check_output(dotty_str, shell=True)
 
-    filename = 'blur_naive.cpp'
+    filename = 'test_t_stencil_1d.cpp'
     c_file = open(filename, 'w')
     c_file.write(pipeline.generate_code().__str__())
     c_file.close()
@@ -84,7 +84,7 @@ def test_t_stencil_2d():
                              param_estimates = p_est,
                              pipe_name = "blur")
 
-    filename = "blur_graph"
+    filename = "test_t_stencil_2d_graph"
     dot_file = filename+".dot"
     png_file = filename+".png"
     g = pipeline.pipeline_graph
@@ -92,9 +92,7 @@ def test_t_stencil_2d():
     dotty_str = "dot -Tpng "+dot_file+" -o "+png_file
     subprocess.check_output(dotty_str, shell=True)
 
-    filename = 'blur_naive.cpp'
+    filename = 'test_t_stencil_2d.cpp'
     c_file = open(filename, 'w')
     c_file.write(pipeline.generate_code().__str__())
     c_file.close()
-
-
