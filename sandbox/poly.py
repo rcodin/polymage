@@ -687,24 +687,27 @@ class PolyRep(object):
         print(">>>(TSTENCIL): kernel:")
         pp.pprint(kernel)
 
-        for (indexing_list, _weight) in kernel:
-            constraint_space = isl.BasicMap.copy(original_basic_map)
-            tstencil_eqs = []
-            for (i, (var_index, origin_dist)) in enumerate(indexing_list):
-                var_name = str(comp.func.variables[i])
-                out_var_name = "_i" + str(var_index + 1)
-                tstencil_eqs.append({
-                    ('constant', 0): -1 * origin_dist,
-                    ('in', var_name): 1,
-                    ('out', out_var_name): -1
-                })
-            print(">>>(TSTENCIL) eqs:%s" % tstencil_eqs)
-            constraint_space = add_constraints(constraint_space, ineqs=[], eqs=tstencil_eqs)
-            print(">>>(TSTENCIL) partial constraint space: %s" % constraint_space)
-            # FIXME?
-            new_constraints_union = constraints_union.union(constraint_space)
-            constraints_union = new_constraints_union
-            print(">>>(TSTENCIL) final constraints union: %s" % constraints_union)
+        for (indexing_list, weight) in kernel:
+            # do not generate constraints if the weight is 0
+            if weight == 0:
+                continue
+            else:
+                constraint_space = isl.BasicMap.copy(original_basic_map)
+                tstencil_eqs = []
+                for (i, (var_index, origin_dist)) in enumerate(indexing_list):
+                    var_name = str(comp.func.variables[i])
+                    out_var_name = "_i" + str(var_index + 1)
+                    tstencil_eqs.append({
+                        ('constant', 0): -1 * origin_dist,
+                        ('in', var_name): 1,
+                        ('out', out_var_name): -1
+                    })
+                print(">>>(TSTENCIL) eqs:%s" % tstencil_eqs)
+                constraint_space = add_constraints(constraint_space, ineqs=[], eqs=tstencil_eqs)
+                print(">>>(TSTENCIL) partial constraint space: %s" % constraint_space)
+                new_constraints_union = constraints_union.union(constraint_space)
+                constraints_union = new_constraints_union
+                print(">>>(TSTENCIL) final constraints union: %s" % constraints_union)
 
         return constraints_union
 
