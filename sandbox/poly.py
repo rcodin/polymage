@@ -658,9 +658,55 @@ class PolyRep(object):
                                             schedule_names)
 
     def add_tstenil_kernel_constraints(self, sched_map, comp):
-        tstencil_ineqs = []
+        # Quick note on naming convention between domain and range:
+        # The domain will have the input tuple as  [time, x, y, z, ...]
+        # The range will have outputs as [_t, _i0, _i1]
+        # _t is untouched by us, since it is used later in the pipeline to resolve
+        # ordering during grouping.
+        # We will associate:
+        # time -> _i0 | x -> _i1 | y -> _i2 | ... | (nth_dim) -> _in
+        original_basic_map = sched_map.copy()
         tstencil_eqs = []
-        return add_constraints(sched_map, tstencil_ineqs, tstencil_eqs)
+        # add constraint corresponding to time = time + 1
+        tstencil_eqs.append({
+            ('constant', 0): -1,
+            ('in', 'time'): -1,
+            ('out', '_i0'): 1
+        })
+        original_basic_map = add_constraints(original_basic_map, ineqs=[], eqs=tstencil_eqs)
+        print(">>>(TSTENCIL) original basic map: %s" % original_basic_map)
+
+        # create the UnionMap that corresponds to the union of all constraints
+        constraints_union = isl.UnionMap.empty(sched_map.get_space().copy())
+        print(">>>(TSTENCIL): original constraints union: %s" % constraints_union)
+
+        # build an indexed kernel 
+        kernel = comp.func._build_indexed_kernel()
+        import pprint
+        pp = pprint.PrettyPrinter(indent=4)
+        print(">>>(TSTENCIL): kernel:")
+        pp.pprint(kernel)
+
+        for (indexing_list, _weight) in kernel:
+            constraint_space = isl.BasicMap.copy(original_basic_map)
+            tstencil_eqs = []
+            for (i, (var_index, origin_dist)) in enumerate(indexing_list):
+                var_name = str(comp.func.variables[i])
+                out_var_name = "_i" + str(var_index + 1)
+                tstencil_eqs.append({
+                    ('constant', 0): -1 * origin_dist,
+                    ('in', var_name): 1,
+                    ('out', out_var_name): -1
+                })
+            print(">>>(TSTENCIL) eqs:%s" % tstencil_eqs)
+            constraint_space = add_constraints(constraint_space, ineqs=[], eqs=tstencil_eqs)
+            print(">>>(TSTENCIL) partial constraint space: %s" % constraint_space)
+            # FIXME?
+            new_constraints_union = constraints_union.union(constraint_space)
+            constraints_union = new_constraints_union
+            print(">>>(TSTENCIL) final constraints union: %s" % constraints_union)
+
+        return constraints_union
 
     def extract_polyrep_from_tstencil(self, comp, max_dim,
                                       schedule_names, param_names,
@@ -710,8 +756,7 @@ class PolyRep(object):
 
         param_conds = self.format_param_constraints(param_constraints, params)
         [param_ineqs, param_eqs] = format_conjunct_constraints(param_conds)
-        dom_map = add_constraints(dom_map, param_ineqs, param_eqs)
-
+        dom_map = add_constraints(dom_map, param_ineqs, param_eqs) 
         poly_dom = PolyDomain(dom_map.domain(), comp)
         id_ = isl_alloc_id_for(self.ctx, comp.func.name, poly_dom)
         poly_dom.set_tuple_id(id_)

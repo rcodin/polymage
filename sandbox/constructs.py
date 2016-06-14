@@ -337,6 +337,8 @@ class Variable(AbstractExpression):
     def __str__(self):
         return self._name.__str__()
 
+    __repr__ = __str__
+
     def macro_expand(self):
         return self
 
@@ -712,7 +714,7 @@ class TStencil(object):
         # dimensionality of the Function
         self._ndims = len(self._variables)
 
-        assert is_valid_kernel(_kernel, len(_var_domain))
+        assert is_valid_kernel(_kernel, len(self._var_domain))
         self._kernel = _kernel
 
         size = get_valid_kernel_sizes(self._kernel)
@@ -785,11 +787,16 @@ class TStencil(object):
         return boundedIntegerDomain
 
     @staticmethod
-    def _build_indexed_kernel_recur(origin_vector, iter_vars, chosen_indeces,
+    def _build_indexed_kernel_recur(origin_vector, iter_var_indeces, chosen_indeces,
                                     to_choose_sizes, subkernel):
         """
         Builds a list [([variable index], kernel weight] by taking the kernel,
         origin offset, and list of variables as parameters
+
+        NOTE:
+        Stencil and Tstencil have different implementations because they
+        need different outputs. Stencil needs indexing *expressions*, while
+        TStencil needs indexing *indeces*.
 
         Parameters
         ----------
@@ -800,13 +807,12 @@ class TStencil(object):
         kernel.
         Usually, the origin is (w/2, h/2, ...)
 
-        iter_vars: [Variable]
-        Variables that represnt the iteration axes to
-        index the source function
-        Usually x, y, z, ...
+        iter_var_indeces: [Int]
+        Integers that index the iteration axes variables
+        Usually x -> 0, y -> 1, z -> 2, ...
 
-        chosen_indeces: [Expression]
-        pass "frozen" incdeces that have already been chosen. The function
+        chosen_indeces: [(var: Variable, origin_delta: Int)]
+        pass "frozen" indeces that have already been chosen. The function
         is now expected to generate all sub-indeces for these chosen
         indeces. One way to look at this is that chosen_indeces represents the
         chosen vector components of the final index.
@@ -832,16 +838,34 @@ class TStencil(object):
 
         Returns
         -------
-        indexed_kernel: [([index_expr: Expression], kernel_weight : Int)]
+        indexed_kernel: [(Total_Index, kernel_weight: Int)]
+            type Total_Index = [(var_index: Int, origin_delta: Int)]
+        
+        indexed_kernel: [
+                (
+                    [(var: Variable, origin_delta: Int)],
+                    kernel_weight : Int
+                )
+            ]
 
         Returns a list of tuples
         Each tuple has a list of indexing expressions, used to index the
         Kernel outermost to innerpost, along with the corresponding kernel
         weight at that index.
+
+        total index allows us to index the kernel exactly.
+        For example, given total index [(0, 0), (1, -1), (2, 1)]
+        we know that:
+            0th variable is at the local origin
+            1st variable is at (-1) from the origin along its axis
+            2nd variable is at (2) from the origin along its axis.
+        NOTE: we label variables from outside to inside.
+              Outermost: 0
+              Innermost: n - 1
         """
         chosen = []
         for i in range(to_choose_sizes[0]):
-            index_wrt_origin = iter_vars[0] + (i - origin_vector[0])
+            index_wrt_origin = (iter_var_indeces[0], (i - origin_vector[0]))
 
             if len(to_choose_sizes) == 1:
                 # TODO: time (or) time - 1?
@@ -850,7 +874,7 @@ class TStencil(object):
             else:
                 indexed = \
                     TStencil._build_indexed_kernel_recur(origin_vector[1:],
-                                                        iter_vars[1:],
+                                                        iter_var_indeces[1:],
                                                         chosen_indeces +
                                                         [index_wrt_origin],
                                                         to_choose_sizes[1:],
@@ -861,8 +885,9 @@ class TStencil(object):
     def _build_indexed_kernel(self):
         assert is_valid_kernel(self._kernel, num_dimensions=len(self.variables))
         kernel_sizes = get_valid_kernel_sizes(self._kernel)
+        iter_var_indeces = range(0, len(self._variables))
         return self._build_indexed_kernel_recur(self._origin,
-                                                self.variables,
+                                                iter_var_indeces,
                                                 [],
                                                 kernel_sizes,
                                                 self._kernel)
