@@ -268,6 +268,10 @@ class PlutoOptions(object):
     def __init__(self, pluto_ffi, raw_options_ptr):
         self._pluto_ffi = pluto_ffi
         self._raw_options_ptr = raw_options_ptr
+        self._raw_options_ptr.parallel = 1
+        self._raw_options_ptr.partlbtile = 1
+        self._raw_options_ptr.lbtile = 1
+        self._raw_options_ptr.tile = 1
 
     @property
     def partlbtile(self):
@@ -291,7 +295,7 @@ class PlutoOptions(object):
         self._pluto_ffi._destroy_raw_options_ptr(self._raw_options_ptr)
 
 
-class PlutoFFI(object):
+class LibPluto(object):
     """
     Represents the FFI to libpluto. On construction, this loads
     libpluto.so and maintains a reference to it as long as it lives
@@ -327,19 +331,25 @@ class PlutoFFI(object):
         This function is internal, and should *only* be called by
         PlutoOptions
         """
-        self.sharedobj.pluto_options_free(raw_options_ptr)
-
-    def rename_map_variables(map):
+        # HACK: don't free, try to figure out why there's a segfault
+        # self.sharedobj.pluto_options_free(raw_options_ptr)
 
     def schedule(self, ctx, domains, dependences, options):
         self.map_input_translation = {}
         self.map_domain_tuples_translation = {}
         self.map_output_translations = {}
 
+        if isinstance(domains, isl.BasicSet):
+            domains = isl.UnionSet.from_basic_set(domains)
+
         assert isinstance(domains, isl.UnionSet)
+
+        if isinstance(dependences, isl.BasicMap):
+            dependences = isl.UnionMap.from_basic_map(dependences)
         assert isinstance(dependences, isl.UnionMap)
         assert isinstance(options, PlutoOptions)
 
+        print(">>>(TSTENCIL) domains:\n%s\ndeps:\n%s" % (domains, dependences))
         domains_str = domains.to_str().encode('utf-8')
         dependences_str = dependences.to_str().encode('utf-8')
         schedule_strbuf_ptr = self.ffi.new("char **")
@@ -364,12 +374,12 @@ class PlutoFFI(object):
 # executed separately.
 # TODO: move this to a separate file
 if __name__ == "__main__":
-    ffi = PlutoFFI()
+    pluto = LibPluto()
 
     ctx = isl.Context.alloc()
-    opts = ffi.create_options()
+    opts = pluto.create_options()
     opts.partlbtile = 1
     domains = isl.UnionSet.read_from_str(ctx, "[p_0, p_1, p_2, p_3, p_4, p_5, p_7] -> { S_1[i0, i1] : i0 >= 0 and i0 <= p_0 and i1 >= 0 and i1 <= p_3 and p_2 >= 0; S_0[i0] : i0 >= 0 and i0 <= p_0}")
     deps = isl.UnionMap.read_from_str(ctx, "[p_0, p_1, p_2, p_3, p_4, p_5, p_7] -> { S_0[i0] -> S_1[o0, o1] : (exists (e0 = [(p_7)/8]: 8o1 = -p_5 + p_7 + 8192i0 - 8192o0 and 8e0 = p_7 and i0 >= 0 and o0 <= p_0 and 8192o0 >= -8p_3 - p_5 + p_7 + 8192i0 and 8192o0 <= -p_5 + p_7 + 8192i0 and p_2 >= 0 and o0 >= 1 + i0)); S_1[i0, i1] -> S_0[o0] : (exists (e0 = [(p_1)/8], e1 = [(p_4)/8], e2 = [(-p_1 + p_7)/8184]: 8192o0 = p_5 - p_7 + 8192i0 + 8i1 and 8e0 = p_1 and 8e1 = p_4 and 8184e2 = -p_1 + p_7 and i1 >= 0 and 8i1 <= 8192p_0 - p_5 + p_7 - 8192i0 and 8184i1 >= 1024 + 1024p_1 - 1023p_5 - p_7 - 8380416i0 and p_2 >= 0 and p_7 <= -1 + p_5 and 8i1 >= 1 + 8p_3 + p_4 - p_5 - 8192i0 and i1 <= p_3 and i0 >= 0 and 8i1 >= 8192 - p_5 + p_7))}")
-    sched = ffi.schedule(ctx, domains, deps, opts)
+    sched = pluto.schedule(ctx, domains, deps, opts)
     print("schedule: %s" % sched)

@@ -665,20 +665,37 @@ class PolyRep(object):
         # ordering during grouping.
         # We will associate:
         # time -> _i0 | x -> _i1 | y -> _i2 | ... | (nth_dim) -> _in
-        original_basic_map = sched_map.copy()
-        tstencil_eqs = []
+        # original_basic_map = sched_map.copy()
+
+        # the domain where constraints will be created
+        # (which is the range of the schedule map)
+
+        # HACK: Until I figure out how to create reflexive constraints, this
+        # will be here this way
+        sched_space = sched_map.space
+
+        constraint_space = isl.Space.map_from_domain_and_range(sched_space.domain(),
+            sched_space.domain());
+        constraint_map = isl.BasicMap.universe(constraint_space)
+
         # add constraint corresponding to time = time + 1
-        tstencil_eqs.append({
+        equalities = []
+        equalities.append({
             ('constant', 0): -1,
             ('in', 'time'): -1,
-            ('out', '_i0'): 1
+            ('out', 'time'): 1,
         })
-        original_basic_map = add_constraints(original_basic_map, ineqs=[], eqs=tstencil_eqs)
-        # print(">>>(TSTENCIL) original basic map: %s" % original_basic_map)
-
+        time_constraint_map = add_constraints(constraint_map,
+                                                  ineqs=[],
+                                                  eqs=equalities)
+        
         # create the UnionMap that corresponds to the union of all constraints
-        constraints_union = isl.BasicMap.empty(sched_map.get_space().copy())
-        # print(">>>(TSTENCIL): original constraints union: %s" % constraints_union)
+        constraints_union = isl.UnionMap.empty(sched_space)
+        constraints_union = constraints_union.union(isl.UnionMap.from_basic_map(sched_map))
+        constraints_union = constraints_union.union(isl.UnionMap.from_basic_map(time_constraint_map))
+
+        print(">>>(TSTENCIL) constraints union: %s" % constraints_union)
+        
 
         # build an indexed kernel 
         kernel = comp.func._build_indexed_kernel()
@@ -692,26 +709,36 @@ class PolyRep(object):
             if weight == 0:
                 continue
             else:
-                constraint_space = isl.BasicMap.copy(original_basic_map)
+                index_constraint_map = isl.BasicMap.copy(time_constraint_map)
                 tstencil_eqs = []
                 # for each indexing variable, generate a cone constraint
                 # for time (t + 1), from the variable to its output
                 for (i, (var_index, origin_dist)) in enumerate(indexing_list):
                     var_name = str(comp.func.variables[i])
-                    out_var_name = "_i" + str(var_index + 1)
                     tstencil_eqs.append({
                         ('constant', 0): -1 * origin_dist,
                         ('in', var_name): 1,
-                        ('out', out_var_name): -1
+                        ('out', var_name): -1
                     })
                 # print(">>>(TSTENCIL) eqs:%s" % tstencil_eqs)
-                constraint_space = add_constraints(constraint_space, ineqs=[], eqs=tstencil_eqs)
+                index_constraint_map = add_constraints(index_constraint_map, ineqs=[], eqs=tstencil_eqs)
                 # print(">>>(TSTENCIL) partial constraint space: %s" % constraint_space)
-                constraints_union = constraints_union.union(constraint_space)
+                index_constraint_map = isl.UnionMap.from_basic_map(index_constraint_map)
+                constraints_union = constraints_union.union(index_constraint_map)
                 # print(">>>(TSTENCIL) final constraints union: %s" % constraints_union)
 
         return constraints_union
-       
+    
+    @staticmethod
+    def set_map_tuple_id(id_map, dimension, mid):
+        if isinstance(id_map, (isl.UnionMap, isl.Map, isl.BasicMap)):
+            id_map.foreach_map(lambda m: m.set_tuple_id(dimension, mid))
+        else:
+            raise RuntimeError("unknown map type:\nmap: %s\ntype:%s" %
+                (id_map, str(type(id_map))))
+
+        return id_map
+        
     def extract_polyrep_from_tstencil(self, comp, max_dim,
                                       schedule_names, param_names,
                                       context_conds, level_no,
@@ -777,11 +804,11 @@ class PolyRep(object):
                                             schedule_names, param_names,
                                             context_conds)
 
+        print(">>>(TSTENCIL) raw schedule domain: %s" % sched_map)
         # add Tstencil kernel constraints
         sched_map = self.add_tstenil_kernel_constraints(sched_map, comp)
         print(">>>(TSTENCIL) ----")
-        print(">>>(TSTENCIL) schedule domain: %s" % sched_map.domain()  )
-        print(">>>(TSTENCIL) schedule map: %s" % sched_map)
+        print(">>>(TSTENCIL) bounded schedule map: %s" % sched_map)
 
        # ------
        # CREATE POLY PARTS FOR T STENCIL
@@ -799,18 +826,22 @@ class PolyRep(object):
         id_domain = isl_alloc_id_for(self.ctx, comp.func.name + "_domain", poly_part)
         isl_set_id_user(id_domain, poly_part)
 
-        poly_part.sched = poly_part.sched.set_tuple_id(isl._isl.dim_type.in_, 
-                                                       id_domain)
+        # poly_part.sched = PolyRep.set_map_tuple_id(poly_part.sched,
+        #                                           isl.dim_type.in_,
+        #                                           id_domain)
+        poly_part.sched.foreach_map(lambda m: 
+                m.set_tuple_id(isl._isl.dim_type.in_, id_domain))
         
         
-        id_range = isl_alloc_id_for(self.ctx, comp.func.name + "_range", poly_part)
-        poly_part.sched = poly_part.sched.set_tuple_id(isl._isl.dim_type.out, 
-                                                       id_range)
+        # id_range = isl_alloc_id_for(self.ctx, comp.func.name + "_range", poly_part)
+        # poly_part.sched = PolyRep.set_map_tuple_id(poly_part.sched,
+        #                                            isl.dim_type.out,
+        #                                           id_range)
         
         
         self.poly_parts[comp] = []
         self.poly_parts[comp].append(poly_part)
-        print(">>>(TSTENCIL) poly parts: %s" % "\n\t".join(map(str, self.poly_parts[comp])))
+        print(">>>(TSTENCIL) poly parts: \n%s" % "\n\t".join(map(str, self.poly_parts[comp])))
 
 
     def create_sched_space(self, variables, domains,

@@ -21,7 +21,7 @@ def test_t_stencil_1d():
 
     img = Image(Float, "input", [R+1])
 
-    kernel = [0, 0, 1]
+    kernel = [1, 1, 1]
     stencil = TStencil(img, ([x], [xrow]), kernel, "S_1", None, T)
     print(stencil)
 

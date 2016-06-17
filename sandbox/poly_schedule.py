@@ -73,6 +73,12 @@ def base_schedule(group):
     for sublist in group.polyRep.poly_parts.values():
         parts.extend(sublist)
 
+    # #HACK: this depends on the fact that a group will have at least
+    # #one element to check if it has a Tstencil object.
+    # if group.comps[0].is_tstencil_type:
+    #     print (">>>(TSTENCIL): quitting base_schedule")
+    #     return parts
+
     for part in parts:
         dim_in = part.sched.dim(isl._isl.dim_type.in_)
         dim_out = part.sched.dim(isl._isl.dim_type.out)
@@ -350,7 +356,6 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
     """Generate an optimized schedule for the stage."""
 
     g_poly_parts = group.polyRep.poly_parts
-    
     # NOTE: we assume that group has >= 1 compute objects in it.
     # diamond tile if group is tstencil
 
@@ -358,26 +363,56 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
 
         print(">>DEBUG: diamond tiling pass")
 
-        assert(len(group.comps) == 1, ("Tstencil must be in a "
-                                       "separate group."))
-        ffi = libpluto.PlutoFFI()
-        options = ffi.create_options()
-        # enable concurrent start
-        options.partlbtile = True
-
+        assert len(group.comps) == 1, ("Tstencil must be in a "
+                                       "separate group.")
         tstencil = group.comps[0]
+
         poly_parts = g_poly_parts[tstencil]
-        assert(len(poly_parts) == 1, ("a tstencil must have only one "
-                                      "poly part associated with it"))
+        assert len(poly_parts) == 1, ("a tstencil must have only one "
+                                      "poly part associated with it")
+
         poly_part = poly_parts[0]
-        domain = isl.UnionSet.from_basic_set(poly_part.sched.domain())
-        sched = isl.UnionMap.from_basic_map(poly_part.sched)
+        print(">>>(TSTENCIL)actual sched:\n%s" % poly_part.sched)
 
-        optimised_sched = ffi.schedule(isl_ctx, domain,
-                                       sched,
-                                       options)
+        # sched_map = poly_part.sched HACK: enable this line
+        sched_map = isl.UnionMap.read_from_str(isl_ctx, "[R, T] -> {"
+        # "S_0[i0, i1] -> S_1[i0, i1, 2] : 0 <= i0 <= T and 0 <= i1 <= R - 1;"
+        "S_0[2, i0, i1] -> S_0[i0 + 1, i1 - 1] : 0 <= i0 <= T - 1 and 1 <= i1 <= R - 2;"
+        "S_0[2, i0, i1] -> S_0[i0 + 1, i1 + 1] : 0 <= i0 <= T - 1 and 1 <= i1 <= R - 2 }")
+        # sched_map = sched_map.set_tuple_name(isl.dim_type.in_, "S_0")
+        # sched_map = sched_map.set_tuple_name(isl.dim_type.out, "S_1")
 
-        poly_part.sched = optimised_sched
+        # domain_set = isl.UnionSet.from_basic_set(sched_map.domain())
+        # domain_set = domain_set.union(sched_map.range())
+        domain_set = isl.BasicSet.read_from_str(isl_ctx, "[R, T] -> "
+            "{ S_0[2, i0, i1] : 0 <= i0 <= T and 0 <= i1 <= R - 1;}")
+            # "{ S_0[i0, i1] : 0 <= i0 <= T and 0 <= i1 <= R - 1;"
+            #"S_1[i0, i1, 2] : 0 <= i0 <= T and 0 <= i1 <= R - 1 }")
+
+        # -- project out first dimension
+        pluto = libpluto.LibPluto()
+        options = pluto.create_options()
+        options.partlbtile = True
+        optimised_sched = pluto.schedule(isl_ctx, domain_set,
+                                         sched_map,
+                                         options).copy()
+
+        print(">>>(TSTENCIL) raw pluto optimised schedule: %s" %
+              optimised_sched)
+        basic_maps_in_sched = []
+        optimised_sched.foreach_map(lambda m:
+                                    basic_maps_in_sched.append(m.copy()))
+        assert len(basic_maps_in_sched) == 1, \
+            ("the optimised schedule must have "
+             "only one corresponding BasicMap "
+             "for the one statement it owns")
+        print(">>>(TSTENCIL) basic maps in optimised sched:\n%s" %
+              "\n".join(map(str, basic_maps_in_sched)))
+        poly_part.sched = basic_maps_in_sched[0].copy()
+
+        # -- Add time dimensions for staging
+        poly_part.sched.set_dim_name()
+        print(">>>(TSTNEICL) after adding time dimension: %s" % poly_part.sched)
         return
     else:
         g_all_parts = []
