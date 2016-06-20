@@ -437,10 +437,12 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         s0_to_optimised_map = s0_to_s1_map.apply_range(s0_to_pluto_s1_map).apply_range(pluto_s1_to_optimised_map)
         print(">>>(TSTENCIL) applied map: %s" % s0_to_optimised_map)
 
-        poly_part.sched = basic_maps_in_sched[1].copy()
-        poly_part.sched = poly_part.sched.set_dim_name(isl._isl.dim_type.in_, 0, "_t")
+        poly_part.sched = s0_to_optimised_map
+        num_out_dims = len(poly_part.sched.get_var_names(isl._isl.dim_type.out))
+        print(">>>(TSTENCIL) num out dims: %s" % num_out_dims)
+        poly_part.sched = poly_part.sched.set_dim_name(isl._isl.dim_type.out, num_out_dims - 1, "_t")
         print(">>>(TSTENCIL) chosen optimised schedule: %s" % poly_part.sched)
-        
+
         # -- Add time dimensions for staging
         # poly_part.sched.set_dim_name()
         # print(">>>(TSTNEICL) after adding time dimension: %s" % poly_part.sched)

@@ -100,9 +100,9 @@ def schedule_parts(group, sorted_comps):
     pi = 0
     for comp in sorted_comps:
         for p in part_comp_map[comp]:
-            import pudb
-            pudb.set_trace()
-            print(">>>(TSTENCIL)\npart: %s\n sched: %s" % (p, p.sched))
+            # import pudb
+            # pudb.set_trace()
+            # print(">>>(TSTENCIL)\npart: %s\n sched: %s" % (p, p.sched))
             time_dim = \
               p.sched.find_dim_by_name(isl._isl.dim_type.out, '_t')
             p.sched = \
