@@ -374,18 +374,30 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         poly_part = poly_parts[0]
         print(">>>(TSTENCIL)actual sched:\n%s" % poly_part.sched)
 
+
+        s0_to_s1_map = isl.Map.from_basic_map(poly_part.sched)
+
+        sched_map = PolyRep.add_tstenil_kernel_constraints(poly_part.sched, tstencil)
+        
+
+        domain_set = sched_map.domain()
+        domain_set = domain_set.union(sched_map.range())
+        print(">>>(TSTENCIL) fused schedule, time sched domain set:\n %s" % domain_set)
+        # -- Add the time it eration into the given schedule
+    
+
         # sched_map = poly_part.sched HACK: enable this line
-        sched_map = isl.UnionMap.read_from_str(isl_ctx, "[R, T] -> {"
+        # sched_map = isl.UnionMap.read_from_str(isl_ctx, "[R, T] -> {"
         # "S_0[i0, i1] -> S_1[i0, i1, 2] : 0 <= i0 <= T and 0 <= i1 <= R - 1;"
-        "S_0[2, i0, i1] -> S_0[i0 + 1, i1 - 1] : 0 <= i0 <= T - 1 and 1 <= i1 <= R - 2;"
-        "S_0[2, i0, i1] -> S_0[i0 + 1, i1 + 1] : 0 <= i0 <= T - 1 and 1 <= i1 <= R - 2 }")
+        # "S_0[2, i0, i1] -> S_0[2, i0 + 1, i1 - 1] : 0 <= i0 <= T - 1 and 1 <= i1 <= R - 2;"
+        # "S_0[2, i0, i1] -> S_0[2, i0 + 1, i1 + 1] : 0 <= i0 <= T - 1 and 1 <= i1 <= R - 2 }")
         # sched_map = sched_map.set_tuple_name(isl.dim_type.in_, "S_0")
         # sched_map = sched_map.set_tuple_name(isl.dim_type.out, "S_1")
 
         # domain_set = isl.UnionSet.from_basic_set(sched_map.domain())
         # domain_set = domain_set.union(sched_map.range())
-        domain_set = isl.BasicSet.read_from_str(isl_ctx, "[R, T] -> "
-            "{ S_0[2, i0, i1] : 0 <= i0 <= T and 0 <= i1 <= R - 1;}")
+        # domain_set = isl.BasicSet.read_from_str(isl_ctx, "[R, T] -> "
+            # "{ S_0[2, i0, i1] : 0 <= i0 <= T and 0 <= i1 <= R - 1;}")
             # "{ S_0[i0, i1] : 0 <= i0 <= T and 0 <= i1 <= R - 1;"
             #"S_1[i0, i1, 2] : 0 <= i0 <= T and 0 <= i1 <= R - 1 }")
 
@@ -397,22 +409,44 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
                                          sched_map,
                                          options).copy()
 
-        print(">>>(TSTENCIL) raw pluto optimised schedule: %s" %
-              optimised_sched)
+        print(">>>(TSTENCIL) raw pluto optimised schedule: %s" %optimised_sched)
+
         basic_maps_in_sched = []
         optimised_sched.foreach_map(lambda m:
                                     basic_maps_in_sched.append(m.copy()))
-        assert len(basic_maps_in_sched) == 1, \
-            ("the optimised schedule must have "
-             "only one corresponding BasicMap "
-             "for the one statement it owns")
-        print(">>>(TSTENCIL) basic maps in optimised sched:\n%s" %
-              "\n".join(map(str, basic_maps_in_sched)))
-        poly_part.sched = basic_maps_in_sched[0].copy()
 
+        print(">>>(TSTENCIL) basic maps in optimised schedule:\n%s" % \
+              "\n>>".join(list(map(str, basic_maps_in_sched))))
+
+        assert len(basic_maps_in_sched) == 2, \
+            ("the optimised schedule must have "
+             "only two corresponding BasicMaps "
+             "for the statements it owns")
+
+        # We care about S_1, which is the range of the transform
+        pluto_s1_to_optimised_map  = basic_maps_in_sched[1].copy()
+        print(">>>(TSTENCIL) COMPOSING MAPS:\n%s\n%s" % (s0_to_s1_map, pluto_s1_to_optimised_map))
+
+        s0_to_pluto_s1_map = isl.Map.from_domain_and_range(s0_to_s1_map.range(),
+                                                          pluto_s1_to_optimised_map.domain())
+        s0_to_ps1_sp = s0_to_pluto_s1_map.space
+        s0_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_ps1_sp, {'_t': -1, 'i0' : 1}))
+        s0_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_ps1_sp, {'_i0': -1, 'i1' : 1}))
+        s0_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_ps1_sp, {'_i1': -1, 'i2' : 1}))
+
+        s0_to_optimised_map = s0_to_s1_map.apply_range(s0_to_pluto_s1_map).apply_range(pluto_s1_to_optimised_map)
+        print(">>>(TSTENCIL) applied map: %s" % s0_to_optimised_map)
+
+        poly_part.sched = basic_maps_in_sched[1].copy()
+        poly_part.sched = poly_part.sched.set_dim_name(isl._isl.dim_type.in_, 0, "_t")
+        print(">>>(TSTENCIL) chosen optimised schedule: %s" % poly_part.sched)
+        
         # -- Add time dimensions for staging
-        poly_part.sched.set_dim_name()
-        print(">>>(TSTNEICL) after adding time dimension: %s" % poly_part.sched)
+        # poly_part.sched.set_dim_name()
+        # print(">>>(TSTNEICL) after adding time dimension: %s" % poly_part.sched)
+
+        import pudb
+        pudb.set_trace()
         return
     else:
         g_all_parts = []

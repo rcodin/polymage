@@ -656,8 +656,8 @@ class PolyRep(object):
         # Initializing the reduction earlier than any other function
         self.create_poly_parts_from_default(comp, max_dim, dom_map, level_no,
                                             schedule_names)
-
-    def add_tstenil_kernel_constraints(self, sched_map, comp):
+    @staticmethod
+    def add_tstenil_kernel_constraints(sched_map, comp):
         # Quick note on naming convention between domain and range:
         # The domain will have the input tuple as  [time, x, y, z, ...]
         # The range will have outputs as [_t, _i0, _i1]
@@ -669,15 +669,17 @@ class PolyRep(object):
 
         # the domain where constraints will be created
         # (which is the range of the schedule map)
+        sched_map = sched_map.set_tuple_name(isl._isl.dim_type.in_, "S_0")
+        sched_map = sched_map.set_tuple_name(isl._isl.dim_type.out, "S_1")
 
-        # HACK: Until I figure out how to create reflexive constraints, this
-        # will be here this way
         sched_space = sched_map.space
 
-        constraint_space = isl.Space.map_from_domain_and_range(sched_space.domain(),
-            sched_space.domain());
-        constraint_map = isl.BasicMap.universe(constraint_space)
+        # create the UnionMap that corresponds to the union of all constraints
+        constraints_union = isl.UnionMap.empty(sched_space)
+        constraints_union = constraints_union.union(isl.UnionMap.from_basic_map(sched_map))
 
+        # time_constraint_map is used by everyone else
+        # to create relationships between t -> t + 1
         # add constraint corresponding to time = time + 1
         equalities = []
         equalities.append({
@@ -685,17 +687,19 @@ class PolyRep(object):
             ('in', 'time'): -1,
             ('out', 'time'): 1,
         })
-        time_constraint_map = add_constraints(constraint_map,
+
+        constraint_space = isl.Space.map_from_domain_and_range(sched_space.domain(),
+            sched_space.domain());
+        time_constraint_map = isl.BasicMap.universe(constraint_space)
+        time_constraint_map = add_constraints(time_constraint_map,
                                                   ineqs=[],
                                                   eqs=equalities)
-        
-        # create the UnionMap that corresponds to the union of all constraints
-        constraints_union = isl.UnionMap.empty(sched_space)
-        constraints_union = constraints_union.union(isl.UnionMap.from_basic_map(sched_map))
-        constraints_union = constraints_union.union(isl.UnionMap.from_basic_map(time_constraint_map))
 
+        # return constraints_union
+
+        # return constraints_union
         print(">>>(TSTENCIL) constraints union: %s" % constraints_union)
-        
+
 
         # build an indexed kernel 
         kernel = comp.func._build_indexed_kernel()
@@ -806,7 +810,7 @@ class PolyRep(object):
 
         print(">>>(TSTENCIL) raw schedule domain: %s" % sched_map)
         # add Tstencil kernel constraints
-        sched_map = self.add_tstenil_kernel_constraints(sched_map, comp)
+        # sched_map = self.add_tstenil_kernel_constraints(sched_map, comp)
         print(">>>(TSTENCIL) ----")
         print(">>>(TSTENCIL) bounded schedule map: %s" % sched_map)
 
@@ -826,13 +830,12 @@ class PolyRep(object):
         id_domain = isl_alloc_id_for(self.ctx, comp.func.name + "_domain", poly_part)
         isl_set_id_user(id_domain, poly_part)
 
-        # poly_part.sched = PolyRep.set_map_tuple_id(poly_part.sched,
-        #                                           isl.dim_type.in_,
-        #                                           id_domain)
-        poly_part.sched.foreach_map(lambda m: 
-                m.set_tuple_id(isl._isl.dim_type.in_, id_domain))
-        
-        
+        poly_part.sched = PolyRep.set_map_tuple_id(poly_part.sched,
+                                                   isl.dim_type.in_,
+                                                   id_domain)
+        # poly_part.sched.foreach_map(lambda m:
+        #        m.set_tuple_id(isl._isl.dim_type.in_, id_domain))
+
         # id_range = isl_alloc_id_for(self.ctx, comp.func.name + "_range", poly_part)
         # poly_part.sched = PolyRep.set_map_tuple_id(poly_part.sched,
         #                                            isl.dim_type.out,
