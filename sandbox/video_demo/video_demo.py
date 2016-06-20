@@ -7,9 +7,9 @@ from common import clock, draw_str
 from PIL import Image, ImageFilter
 from numba import jit
 
-@jit("uint8[::](uint8[::],int64,float64,int64,int64)",cache=True,nogil=True)
+@jit("float32[::](float32[::],int64,float64,int64,int64)",cache=True,nogil=True)
 def unsharp_mask_cv(image,weight,thresh,rows,cols):
-    mask = image
+    mask=image
     kernelx = np.array([1,4,6,4,1],np.float32) / 16
     kernely = np.array([[1],[4],[6],[4],[1]],np.float32) / 16
     blury = sepFilter2D(image,-1,kernelx,kernely)
@@ -201,6 +201,7 @@ while(cap.isOpened()):
 
     elif unsharp_mode:
         if cv_mode:
+            frame = np.float32(frame) / 255.0
             res = unsharp_mask_cv(frame,weight,thresh,rows,cols)
         elif pil_mode:
             res = unsharp_mask_pil(frame)
