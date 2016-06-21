@@ -390,27 +390,11 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
 
         sched_map = PolyRep.add_tstenil_kernel_constraints(poly_part.sched.copy(), tstencil)
         
-
+        # the domain set that we pass to PLUTO needs information about
+        # both spaces - the domain and the range of our map
         domain_set = sched_map.copy().domain()
         domain_set = domain_set.union(sched_map.range())
         print(">>>(TSTENCIL) fused schedule, time sched domain set:\n %s" % domain_set)
-        # -- Add the time it eration into the given schedule
-    
-
-        # sched_map = poly_part.sched HACK: enable this line
-        # sched_map = isl.UnionMap.read_from_str(isl_ctx, "[R, T] -> {"
-        # "S_0[i0, i1] -> S_1[i0, i1, 2] : 0 <= i0 <= T and 0 <= i1 <= R - 1;"
-        # "S_0[2, i0, i1] -> S_0[2, i0 + 1, i1 - 1] : 0 <= i0 <= T - 1 and 1 <= i1 <= R - 2;"
-        # "S_0[2, i0, i1] -> S_0[2, i0 + 1, i1 + 1] : 0 <= i0 <= T - 1 and 1 <= i1 <= R - 2 }")
-        # sched_map = sched_map.set_tuple_name(isl.dim_type.in_, "S_0")
-        # sched_map = sched_map.set_tuple_name(isl.dim_type.out, "S_1")
-
-        # domain_set = isl.UnionSet.from_basic_set(sched_map.domain())
-        # domain_set = domain_set.union(sched_map.range())
-        # domain_set = isl.BasicSet.read_from_str(isl_ctx, "[R, T] -> "
-            # "{ S_0[2, i0, i1] : 0 <= i0 <= T and 0 <= i1 <= R - 1;}")
-            # "{ S_0[i0, i1] : 0 <= i0 <= T and 0 <= i1 <= R - 1;"
-            #"S_1[i0, i1, 2] : 0 <= i0 <= T and 0 <= i1 <= R - 1 }")
 
         # -- project out first dimension
         pluto = libpluto.LibPluto()
@@ -438,15 +422,42 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         pluto_s1_to_optimised_map  = basic_maps_in_sched[1].copy()
         print(">>>(TSTENCIL) COMPOSING MAPS:\n%s\n%s" % (s0_to_s1_map, pluto_s1_to_optimised_map))
 
-        s0_to_pluto_s1_map = isl.Map.from_domain_and_range(s0_to_s1_map.copy().range().copy(),
+
+        # Make sure that we have the same number of variables
+        # That is, PLUTO did not add any new variables into S1
+        # before transforming it
+        assert s0_to_s1_map.range().n_dim() == \
+                pluto_s1_to_optimised_map.domain().n_dim(), ("PLUTO should not "
+                                                             "have added extra "
+                                                             "dimensions into "
+                                                             "S1")
+
+        # Create a map that matches our S1 variables to that of
+        # PLUTO's renamed S1 variables
+        s1_to_pluto_s1_map = isl.Map.from_domain_and_range(s0_to_s1_map.copy().range().copy(),
                                                            pluto_s1_to_optimised_map.copy().domain().copy())
-        s0_to_pluto_s1_space = s0_to_pluto_s1_map.space.copy()
-        s0_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_pluto_s1_space.copy(), {'_t': -1, 'i0' : 1}))
-        s0_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_pluto_s1_space.copy(), {'_i0': -1, 'i1' : 1}))
-        s0_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_pluto_s1_space.copy(), {'_i1': -1, 'i2' : 1}))
+        
+
+        # print(">>>(TSTENCIL) number of variables in S1: %s" % var_count)
+        s1_to_pluto_s1_space = s1_to_pluto_s1_map.space.copy()
+        s1_to_pluto_s1_map =  s1_to_pluto_s1_map.add_constraint(
+            isl.Constraint.eq_from_names(s1_to_pluto_s1_space.copy(),
+                                         {'_t': -1, 'i0' : 1}))
+
+        var_count = s0_to_s1_map.range().n_dim()
+        for i in range (1, var_count):
+            s1_var_name = '_i' + str(i - 1)
+            pluto_s1_var_name = 'i' + str(i)
+            equate_vals = isl.Constraint.eq_from_names(s1_to_pluto_s1_space,
+            {s1_var_name: -1, pluto_s1_var_name: 1})
+            s1_to_pluto_s1_map = s1_to_pluto_s1_map.add_constraint(equate_vals)
+
+        print(">>> (TSTENCIL) s1_to_pluto_s1: %s" % s1_to_pluto_s1_map)
+            # s1_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_pluto_s1_space.copy(), {'_i0': -1, 'i1' : 1}))
+        # s0_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_pluto_s1_space.copy(), {'_i1': -1, 'i2' : 1}))
         
         s0_to_optimised_map = s0_to_s1_map\
-                             .apply_range(s0_to_pluto_s1_map.copy())\
+                             .apply_range(s1_to_pluto_s1_map.copy())\
                              .copy()\
                              .apply_range(pluto_s1_to_optimised_map.copy()).copy()
 
@@ -459,16 +470,7 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         
         poly_part.sched = poly_part.sched.set_dim_name(isl._isl.dim_type.out, num_out_dims - 1, "_t")
         print(">>>(TSTENCIL) chosen optimised schedule: %s" % poly_part.sched)
-
-        # -- Add time dimensions for staging
-        # poly_part.sched.set_dim_name()
-        # print(">>>(TSTNEICL) after adding time dimension: %s" % poly_part.sched)
-        import pudb
-        pudb.set_trace()
         
-        import faulthandler
-        faulthandler.enable()
-
         poly_part.sched.find_dim_by_name(isl.dim_type.out, '_t')
         return
     else:
