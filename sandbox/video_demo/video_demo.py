@@ -13,11 +13,15 @@ from unsharp_process import *
 from bilateral_process import *
 from laplacian_process import *
 
+def none_app_process(frame, lib_func):
+    return frame
+
 def add_none_app(app_id):
-    modes = []
+    modes = [ModeType.NONE]
     lib_modes = []
-    app_func_map = {}
     app_dir = None
+    app_func_map = {}
+    app_func_map[modes[0]] = none_app_process
 
     app = App(app_id, app_dir, modes, lib_modes, app_func_map)
 

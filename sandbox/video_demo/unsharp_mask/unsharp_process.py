@@ -12,14 +12,15 @@ weight = 3
 
 def unsharp_cv(frame, lib_func):
     kernel = np.array([[1,4,6,4,1]], np.float32) / 16.0
-    blurx = filter2D(image, -1, kernel)
+    blurx = filter2D(frame, -1, kernel)
     kernel = np.array([[0,0,1,0,0], [0,0,4,0,0], [0,0,6,0,0], [0,0,4,0,0], [0,0,1,0,0]], np.float32) / 16.0
     blury = filter2D(blurx, -1, kernel)
-    sharpen = addWeighted(image, (1+weight), blury, (-weight), 0)
-    th, mask = threshold(absdiff(image, blury), thresh, 1, THRESH_BINARY)
+    sharpen = addWeighted(frame, (1+weight), blury, (-weight), 0)
+    th, mask = threshold(absdiff(frame, blury), thresh, 1, THRESH_BINARY)
     mask = mask.astype(bool)
-    res = image
+    res = frame
     np.copyto(res, sharpen, 'same_kind', mask)
+
     return res
 
 def unsharp_polymage(frame, lib_func):

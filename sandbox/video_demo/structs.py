@@ -33,8 +33,9 @@ class AppType():
     file_name[LAPLACIAN] = 'laplacian'
 
 class ModeType():
-    QUIT = -2
-    PREV = -1
+    QUIT = -3
+    PREV = -2
+    NONE = -1
     CURRENT = 0
     CV2 = 1
     P_NAIVE = 2
@@ -52,11 +53,13 @@ class ModeType():
     all_modes = set([])
     all_modes.add(QUIT)
     all_modes.add(PREV)
+    all_modes.add(NONE)
     all_modes.add(CURRENT)
     all_modes.union(modes_list)
 
     name = {}
     name[QUIT] = ''
+    name[NONE] = ''
     name[CV2] = 'OpenCV'
     name[P_NAIVE] = 'PolyMage Naive'
     name[P_OPT] = 'PolyMage Opt'
@@ -86,20 +89,21 @@ class ModeType():
 
 class Mode:
     def __init__(self, _mode_id, _app_file, _py_func, _has_lib=False):
-        assert _mode_id in ModeType.modes_list, \
-                "Mode type must be one of: %s" % ModeType.modes_list + \
+        modes_list = ModeType.modes_list.union([ModeType.NONE])
+        assert _mode_id in modes_list, \
+                "Mode type must be one of: %s" % modes_list + \
                 "\nGiven: %s" % _mode_id
         self._mode_id = _mode_id
         self._app_file = _app_file
         self._py_func = _py_func
         self._has_lib = _has_lib
-        self._frames = 0
-        self._time = 0.0
 
         self._lib_file = None
         self._lib = None
         self._lib_func = None
+
         self._init_libs()
+        self._init_timers_frames()
 
     @property
     def mode_id(self):
@@ -123,7 +127,10 @@ class Mode:
         return self._frames
     @property
     def time_spent(self):
-        return self._time
+        return self._total_time_spent
+    @property
+    def process_time(self):
+        return self._process_time
 
     def _init_libs(self):
         self._lib_file = None
@@ -141,16 +148,40 @@ class Mode:
             self._lib = mode_lib
         return
 
+    def _init_timers_frames(self):
+        self._frames = 0
+        self._process_time = 0.0
+        self._total_time_spent = 0.0
+        self._timeron = False
+        return
+
+    def _start_clock(self):
+        if self._timeron == False:
+            self._start_time = clock()
+            self._timeron = True
+        return
+
+    def _stop_clock(self):
+        if self._timeron == True:
+            self._end_time = clock()
+            self._process_time = self._end_time*1000 - self._start_time*1000
+            self._timeron = False
+        return
+
     def _frames_update(self):
         self._frames += 1
         return
-    def time_update(self, _time):
-        self._time += _time
+    def _time_update(self, _time):
+        self._total_time_spent += _time
         return
 
     def process_frame(self, frame):
+        self._start_clock()
         res = self.py_func(frame, self._lib_func)
+        self._stop_clock()
+
         self._frames_update()
+        self._time_update(self._process_time)
         return res
 
     def avg_time_spent(self):
@@ -159,6 +190,7 @@ class Mode:
     def destroy(self):
         if self.has_lib:
             self._lib.pool_destroy()
+
 
 class App:
     def __init__(self, _app_id, _dir, _mode_ids, _lib_mode_ids, _py_func_map):
@@ -187,6 +219,8 @@ class App:
         self._init_modes(_mode_ids, _lib_mode_ids, _py_func_map)
         self._set_initial_mode()
 
+        self._process_time = 0.0
+
     @property
     def id_(self):
         return self._app_id
@@ -205,6 +239,9 @@ class App:
     @property
     def previous_mode(self):
         return self._prev_mode_id
+    @property
+    def process_time(self):
+        return self._process_time
 
     def _init_modes(self, _mode_ids, _lib_mode_ids, _py_func_map):
         self._modes = {}
@@ -217,10 +254,7 @@ class App:
         return
 
     def _set_initial_mode(self):
-        if self.id_ != AppType.NONE:
-            mode_id = self._modes.keys()[0]
-        else:
-            mode_id = None
+        mode_id = self._modes.keys()[0]
         self._cur_mode_id = mode_id
         self._prev_mode_id = mode_id
         return
@@ -231,18 +265,24 @@ class App:
         else:
             cur_mode = self.modes[self._cur_mode_id]
             result_frame = cur_mode.process_frame(frame)
+            self._process_time = cur_mode.process_time
         return result_frame
 
     def switch_mode(self, mode_id):
         if self.id_ == AppType.NONE:
             return
-        if mode_id == PREV:
+        if mode_id == ModeType.PREV:
+            print "Go To PREV"
             temp = self._cur_mode_id
             self._cur_mode_id = self._prev_mode_id
             self._prev_mode_id = temp
         elif mode_id in self._modes:
             self._prev_mode_id = self._cur_mode_id
             self._cur_mode_id = mode_id
+
+        print "----"
+        print "cur:", self._cur_mode_id
+        print "prev:", self._prev_mode_id
         return
 
     def destroy(self):
@@ -259,9 +299,6 @@ class VideoProcessor:
         self.set_initial_app(AppType.NONE)
 
         self._init_video()
-
-        # turn the timer on
-        self._set_timer()
 
     @property
     def apps_map(self):
@@ -294,34 +331,14 @@ class VideoProcessor:
     def process_time(self):
         return self._process_time
 
-    def change_app(self, app_id):
+    def _switch_app(self, app_id):
         if app_id in self.apps_map:
             self._current_app = app_id
         return
 
     def set_initial_app(self, app_id):
         self._current_app = AppType.NONE
-        self.change_app(app_id)
-        return
-
-    def _set_timer(self):
-        self._timer = True
-    def _unset_timer(self):
-        self._end_time = 0
-        self._start_time = 0
-        self._timer = False
-
-    def start_clock(self):
-        if not self.timer:
-            self._start_time = clock()
-            self._set_timer()
-        return
-
-    def stop_clock(self):
-        if self.timer:
-            self._end_time = clock()
-            self._process_time = self._end_time*1000 - self._start_time*1000
-            self._unset_timer()
+        self._switch_app(app_id)
         return
 
     def _init_video(self):
@@ -347,21 +364,30 @@ class VideoProcessor:
         return ch
 
     def _get_next_change(self):
+        '''
+        Get the user's keystroke and update the changes in app and/or mode.
+        Return bool if the next mode is to quit the video processing
+        '''
         ch = self._get_key_stroke()
-        app = self.current_app
-        mode = app.current_mode
-        next_change = self.key_bind[((app, mode), ch)]
+        app_id = self.current_app
+        app = self.apps_map[app_id]
+        mode_id = app.current_mode
+
+        if 
+        next_change = self.key_bind[((app_id, mode_id), ch)]
 
         # if app change is asked
-        if next_change[0] != app:
-            self.switch_app(next_change[0])
+        if next_change[0] != app_id:
+            self._switch_app(next_change[0])
+            ret = False
         else:
             # if app has not changed, look for the next mode change
             next_mode = next_change[1]
             if next_mode not in [ModeType.CURRENT, ModeType.QUIT]:
                 app.switch_mode(next_mode)
+            ret = next_mode == ModeType.QUIT
 
-        return next_mode == ModeType.QUIT
+        return ret
 
     def process(self, max_frames=0):
         stop = False
@@ -388,11 +414,11 @@ class VideoProcessor:
         label_start = (0, 0)
         label_end = (750, 150)
         colour = (255, 255, 255)
-        rectangle(frame, start, end, colour, thickness=cv.CV_FILLED)
+        rectangle(frame, label_start, label_end, colour, thickness=cv.CV_FILLED)
 
         # frame process time
         text1_start = (40, 40)
-        text1 = "frame interval :  %.1f ms" % self.process_time
+        text1 = "frame interval :  %.1f ms" % app.process_time
         draw_str(frame, text1_start, text1)
 
         # execution mode
