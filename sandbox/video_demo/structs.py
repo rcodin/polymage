@@ -369,25 +369,25 @@ class VideoProcessor:
         Return bool if the next mode is to quit the video processing
         '''
         ch = self._get_key_stroke()
-        app_id = self.current_app
-        app = self.apps_map[app_id]
-        mode_id = app.current_mode
+        if ch in self.key_bind[0]:
+            app_id = self.current_app
+            app = self.apps_map[app_id]
+            mode_id = app.current_mode
 
-        if 
-        next_change = self.key_bind[((app_id, mode_id), ch)]
+            next_change = self.key_bind[((app_id, mode_id), ch)]
+        else:
+            return False
 
         # if app change is asked
         if next_change[0] != app_id:
             self._switch_app(next_change[0])
-            ret = False
+            return False
         else:
             # if app has not changed, look for the next mode change
             next_mode = next_change[1]
             if next_mode not in [ModeType.CURRENT, ModeType.QUIT]:
                 app.switch_mode(next_mode)
-            ret = next_mode == ModeType.QUIT
-
-        return ret
+            return next_mode == ModeType.QUIT
 
     def process(self, max_frames=0):
         stop = False
@@ -439,15 +439,15 @@ class VideoProcessor:
         return
 
     def report_stats(self):
-        print("Average frame delays :")
+        print "Average frame delays :"
         for app_id in self.apps_map:
             app = self.apps_map[app_id]
             for mode_id in app.modes:
                 mode = app.modes[mode_id]
                 if mode.frames:
                     avg = mode.avg_time_spent()
-                    print("%s [%s] : %s ms" \
-                        % app.name % ModeType.name[mode_id] % avg)
+                    print "%s [%s] : %s ms" \
+                        % (app.name, ModeType.name[mode_id], avg)
         return
 
     def finish(self):

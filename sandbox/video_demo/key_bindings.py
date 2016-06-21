@@ -42,11 +42,6 @@ def generate_key_bindings(def_modes_map):
     b = ord('b')
     l = ord('l')
 
-    '''
-    for ch in ['n', 'q', ' ', 'p', 'j', '\x1b', 'u', 'h', 'b', 'l']:
-        print(ch, ":", ord(ch))
-    '''
-
     app_keys = {}
     # TODO : add key for NONE : ESC
     app_keys[NONE_APP] = esc
@@ -100,16 +95,9 @@ def generate_key_bindings(def_modes_map):
             key_bind[((app_id, mode_id), q)] = (app_id, QUIT)
             key_bind[((app_id, mode_id), none)] = (app_id, CURRENT)
 
-    #
-    def_keys = set([])
-    for key in key_bind.keys():
-        def_keys.add(key[0])
-
-    print "def_keys ="
-    print def_keys
-    print "def_modes_map :"
-    print def_modes_map
-    print "length of key_bind =", len(key_bind)
+    all_keys = app_keys.values()
+    all_keys.extend(mode_keys.values())
+    key_bind[0] = all_keys
 
     return key_bind
 
