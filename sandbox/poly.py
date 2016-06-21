@@ -669,14 +669,15 @@ class PolyRep(object):
 
         # the domain where constraints will be created
         # (which is the range of the schedule map)
+        sched_map = sched_map.copy()
         sched_map = sched_map.set_tuple_name(isl._isl.dim_type.in_, "S_0")
         sched_map = sched_map.set_tuple_name(isl._isl.dim_type.out, "S_1")
 
-        sched_space = sched_map.space
+        sched_space = sched_map.space.copy()
 
         # create the UnionMap that corresponds to the union of all constraints
-        constraints_union = isl.UnionMap.empty(sched_space)
-        constraints_union = constraints_union.union(isl.UnionMap.from_basic_map(sched_map))
+        constraints_union = isl.UnionMap.empty(sched_space.copy())
+        constraints_union = constraints_union.union(isl.UnionMap.from_basic_map(sched_map.copy()))
 
         # time_constraint_map is used by everyone else
         # to create relationships between t -> t + 1
@@ -688,9 +689,9 @@ class PolyRep(object):
             ('out', 'time'): 1,
         })
 
-        constraint_space = isl.Space.map_from_domain_and_range(sched_space.domain(),
-            sched_space.domain());
-        time_constraint_map = isl.BasicMap.universe(constraint_space)
+        constraint_space = isl.Space.map_from_domain_and_range(sched_space.copy().domain(),
+            sched_space.copy().domain());
+        time_constraint_map = isl.BasicMap.universe(constraint_space.copy())
         time_constraint_map = add_constraints(time_constraint_map,
                                                   ineqs=[],
                                                   eqs=equalities)
@@ -701,7 +702,7 @@ class PolyRep(object):
         print(">>>(TSTENCIL) constraints union: %s" % constraints_union)
 
 
-        # build an indexed kernel 
+        # build an indexed kernel
         kernel = comp.func._build_indexed_kernel()
         # import pprint
         # pp = pprint.PrettyPrinter(indent=4)
@@ -732,7 +733,7 @@ class PolyRep(object):
                 # print(">>>(TSTENCIL) final constraints union: %s" % constraints_union)
 
         return constraints_union
-    
+
     @staticmethod
     def set_map_tuple_id(id_map, dimension, mid):
         if isinstance(id_map, (isl.UnionMap, isl.Map, isl.BasicMap)):

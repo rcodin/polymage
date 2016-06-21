@@ -352,6 +352,16 @@ def enable_tile_scratchpad(group_parts):
 
     return
 
+def get_maps_from_union_map(union_map):
+    maps = []
+
+    def map_iterator(m):
+        maps.append(m.copy())
+        return 0
+
+    union_map.copy().foreach_map(map_iterator)
+    return maps
+
 def fused_schedule(pipeline, isl_ctx, group, param_estimates):
     """Generate an optimized schedule for the stage."""
 
@@ -374,13 +384,14 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         poly_part = poly_parts[0]
         print(">>>(TSTENCIL)actual sched:\n%s" % poly_part.sched)
 
+        # This is the map that knows how to map the smaller S0 space
+        # into the larger S1 space with the staging dimension
+        s0_to_s1_map = isl.Map.from_basic_map(poly_part.sched.copy()).copy()
 
-        s0_to_s1_map = isl.Map.from_basic_map(poly_part.sched)
-
-        sched_map = PolyRep.add_tstenil_kernel_constraints(poly_part.sched, tstencil)
+        sched_map = PolyRep.add_tstenil_kernel_constraints(poly_part.sched.copy(), tstencil)
         
 
-        domain_set = sched_map.domain()
+        domain_set = sched_map.copy().domain()
         domain_set = domain_set.union(sched_map.range())
         print(">>>(TSTENCIL) fused schedule, time sched domain set:\n %s" % domain_set)
         # -- Add the time it eration into the given schedule
@@ -411,11 +422,11 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
 
         print(">>>(TSTENCIL) raw pluto optimised schedule: %s" %optimised_sched)
 
-        basic_maps_in_sched = []
-        optimised_sched.foreach_map(lambda m:
-                                    basic_maps_in_sched.append(m.copy()))
+        basic_maps_in_sched = get_maps_from_union_map(optimised_sched)
+        # optimised_sched.foreach_map(lambda m:
+        #                             basic_maps_in_sched.append(m.copy()))
 
-        print(">>>(TSTENCIL) basic maps in optimised schedule:\n%s" % \
+        print(">>>(TSTENCIL) basic maps in optimised schedule:\n%s" %
               "\n>>".join(list(map(str, basic_maps_in_sched))))
 
         assert len(basic_maps_in_sched) == 2, \
@@ -427,18 +438,22 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         pluto_s1_to_optimised_map  = basic_maps_in_sched[1].copy()
         print(">>>(TSTENCIL) COMPOSING MAPS:\n%s\n%s" % (s0_to_s1_map, pluto_s1_to_optimised_map))
 
-        s0_to_pluto_s1_map = isl.Map.from_domain_and_range(s0_to_s1_map.range(),
-                                                          pluto_s1_to_optimised_map.domain())
-        s0_to_ps1_sp = s0_to_pluto_s1_map.space
-        s0_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_ps1_sp, {'_t': -1, 'i0' : 1}))
-        s0_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_ps1_sp, {'_i0': -1, 'i1' : 1}))
-        s0_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_ps1_sp, {'_i1': -1, 'i2' : 1}))
+        s0_to_pluto_s1_map = isl.Map.from_domain_and_range(s0_to_s1_map.copy().range().copy(),
+                                                           pluto_s1_to_optimised_map.copy().domain().copy())
+        s0_to_pluto_s1_space = s0_to_pluto_s1_map.space.copy()
+        s0_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_pluto_s1_space.copy(), {'_t': -1, 'i0' : 1}))
+        s0_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_pluto_s1_space.copy(), {'_i0': -1, 'i1' : 1}))
+        s0_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_pluto_s1_space.copy(), {'_i1': -1, 'i2' : 1}))
+        
+        s0_to_optimised_map = s0_to_s1_map\
+                             .apply_range(s0_to_pluto_s1_map.copy())\
+                             .copy()\
+                             .apply_range(pluto_s1_to_optimised_map.copy()).copy()
 
-        s0_to_optimised_map = s0_to_s1_map.apply_range(s0_to_pluto_s1_map).apply_range(pluto_s1_to_optimised_map)
         print(">>>(TSTENCIL) applied map: %s" % s0_to_optimised_map)
 
         poly_part.sched = s0_to_optimised_map
-        num_out_dims = len(poly_part.sched.get_var_names(isl._isl.dim_type.out))
+        num_out_dims = len(poly_part.sched.copy().get_var_names(isl._isl.dim_type.out))
         print(">>>(TSTENCIL) num out dims: %s" % num_out_dims)
 
         
@@ -448,9 +463,13 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         # -- Add time dimensions for staging
         # poly_part.sched.set_dim_name()
         # print(">>>(TSTNEICL) after adding time dimension: %s" % poly_part.sched)
-
         import pudb
         pudb.set_trace()
+        
+        import faulthandler
+        faulthandler.enable()
+
+        poly_part.sched.find_dim_by_name(isl.dim_type.out, '_t')
         return
     else:
         g_all_parts = []
