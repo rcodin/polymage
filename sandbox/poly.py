@@ -673,11 +673,11 @@ class PolyRep(object):
         sched_map = sched_map.set_tuple_name(isl._isl.dim_type.in_, "S_0")
         sched_map = sched_map.set_tuple_name(isl._isl.dim_type.out, "S_1")
 
-        sched_space = sched_map.space.copy()
+        sched_space = sched_map.space
 
         # create the UnionMap that corresponds to the union of all constraints
-        constraints_union = isl.UnionMap.empty(sched_space.copy())
-        constraints_union = constraints_union.union(isl.UnionMap.from_basic_map(sched_map.copy()))
+        constraints_union = isl.UnionMap.empty(sched_space)
+        constraints_union = constraints_union.union(isl.UnionMap.from_basic_map(sched_map))
 
         # time_constraint_map is used by everyone else
         # to create relationships between t -> t + 1
@@ -689,9 +689,9 @@ class PolyRep(object):
             ('out', 'time'): 1,
         })
 
-        constraint_space = isl.Space.map_from_domain_and_range(sched_space.copy().domain(),
-            sched_space.copy().domain());
-        time_constraint_map = isl.BasicMap.universe(constraint_space.copy())
+        constraint_space = isl.Space.map_from_domain_and_range(sched_space.domain(),
+            sched_space.domain());
+        time_constraint_map = isl.BasicMap.universe(constraint_space)
         time_constraint_map = add_constraints(time_constraint_map,
                                                   ineqs=[],
                                                   eqs=equalities)

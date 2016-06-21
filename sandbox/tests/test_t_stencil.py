@@ -97,4 +97,3 @@ def test_t_stencil_2d():
     c_file.write(pipeline.generate_code().__str__())
     c_file.close()
 
-test_t_stencil_1d()

@@ -434,14 +434,14 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
 
         # Create a map that matches our S1 variables to that of
         # PLUTO's renamed S1 variables
-        s1_to_pluto_s1_map = isl.Map.from_domain_and_range(s0_to_s1_map.copy().range().copy(),
-                                                           pluto_s1_to_optimised_map.copy().domain().copy())
+        s1_to_pluto_s1_map = isl.Map.from_domain_and_range(s0_to_s1_map.range(),
+                                                           pluto_s1_to_optimised_map.domain())
         
 
         # print(">>>(TSTENCIL) number of variables in S1: %s" % var_count)
-        s1_to_pluto_s1_space = s1_to_pluto_s1_map.space.copy()
+        s1_to_pluto_s1_space = s1_to_pluto_s1_map.space
         s1_to_pluto_s1_map =  s1_to_pluto_s1_map.add_constraint(
-            isl.Constraint.eq_from_names(s1_to_pluto_s1_space.copy(),
+            isl.Constraint.eq_from_names(s1_to_pluto_s1_space,
                                          {'_t': -1, 'i0' : 1}))
 
         var_count = s0_to_s1_map.range().n_dim()
@@ -453,22 +453,25 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
             s1_to_pluto_s1_map = s1_to_pluto_s1_map.add_constraint(equate_vals)
 
         print(">>> (TSTENCIL) s1_to_pluto_s1: %s" % s1_to_pluto_s1_map)
-            # s1_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_pluto_s1_space.copy(), {'_i0': -1, 'i1' : 1}))
-        # s0_to_pluto_s1_map =  s0_to_pluto_s1_map.add_constraint(isl.Constraint.eq_from_names(s0_to_pluto_s1_space.copy(), {'_i1': -1, 'i2' : 1}))
-        
+
         s0_to_optimised_map = s0_to_s1_map\
-                             .apply_range(s1_to_pluto_s1_map.copy())\
-                             .copy()\
-                             .apply_range(pluto_s1_to_optimised_map.copy()).copy()
+                             .apply_range(s1_to_pluto_s1_map)\
+                             .apply_range(pluto_s1_to_optimised_map)
 
         print(">>>(TSTENCIL) applied map: %s" % s0_to_optimised_map)
 
         poly_part.sched = s0_to_optimised_map
-        num_out_dims = len(poly_part.sched.copy().get_var_names(isl._isl.dim_type.out))
+
+        # We know that the final out dimension will correspond to _t
+        # Rename the final out dimensions to '_t' to match polymage
+        # convention of having the staging dimension
+        num_out_dims = len(poly_part.sched.get_var_names(isl._isl.dim_type.out))
         print(">>>(TSTENCIL) num out dims: %s" % num_out_dims)
 
         
-        poly_part.sched = poly_part.sched.set_dim_name(isl._isl.dim_type.out, num_out_dims - 1, "_t")
+        poly_part.sched = poly_part.sched.set_dim_name(isl._isl.dim_type.out,
+                                                       num_out_dims - 1,
+                                                       "_t")
         print(">>>(TSTENCIL) chosen optimised schedule: %s" % poly_part.sched)
         
         poly_part.sched.find_dim_by_name(isl.dim_type.out, '_t')
