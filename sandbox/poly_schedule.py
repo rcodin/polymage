@@ -440,6 +440,8 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         poly_part.sched = s0_to_optimised_map
         num_out_dims = len(poly_part.sched.get_var_names(isl._isl.dim_type.out))
         print(">>>(TSTENCIL) num out dims: %s" % num_out_dims)
+
+        
         poly_part.sched = poly_part.sched.set_dim_name(isl._isl.dim_type.out, num_out_dims - 1, "_t")
         print(">>>(TSTENCIL) chosen optimised schedule: %s" % poly_part.sched)
 
