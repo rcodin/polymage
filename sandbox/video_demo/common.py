@@ -7,8 +7,9 @@ import os
 def draw_str(dst, pixel, s):
     x = pixel[0]
     y = pixel[1]
-    cv2.putText(dst, s, (x+1, y+1), cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 0), thickness = 3)
-    cv2.putText(dst, s, (x, y), cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), thickness = 3)
+    cv2.putText(dst, s, (x, y), cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 0), thickness = 13)
+    cv2.putText(dst, s, (x, y), cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), thickness = 2)
+    return
 
 def clock():
     return cv2.getTickCount() / cv2.getTickFrequency()
@@ -55,3 +56,5 @@ def image_clamp(image_in, image_out, \
             image_out[left+R-1, 0:left]
         image_out[left+R:R+total, left+C:C+total] = \
             image_out[left+R-1, left+C:C+total]
+
+    return

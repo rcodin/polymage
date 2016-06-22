@@ -150,7 +150,8 @@ class Mode:
             file_name = ModeType.get_file_name(self.app_file, self.mode_id)
             self._lib_file = file_name+".so"
             assert os.path.exists(self._lib_file), \
-                "\n\nShared library :\n\"%s\"\n  does not exist\n" % self._lib_file
+                "\n\nShared library :\n\"%s\"\n  does not exist\n" \
+                % self._lib_file
             mode_lib = ctypes.cdll.LoadLibrary(self._lib_file)
             # init memory pool pool
             mode_lib.pool_init()
@@ -269,8 +270,8 @@ class App:
             assert mode_id in _py_func_map, \
                 "\n\nNo frame processor function specified " + \
                 "for mode:\n\t%s\n" % mode_id
-            py_func = _py_func_map[mode_id]
-            self._modes[mode_id] = Mode(mode_id, self.file_name, py_func, has_lib)
+            py_f = _py_func_map[mode_id]
+            self.modes[mode_id] = Mode(mode_id, self.file_name, py_f, has_lib)
         return
 
     def _set_initial_mode(self):
@@ -364,7 +365,11 @@ class VideoProcessor:
     def _init_video(self):
         # get video stream capturer
         assert os.path.exists(self.file_name), \
-                "File (%s) not found" % self.file_name
+            "\n\nVideo file:\n\t\"%s\"" % self.file_name + \
+            "\nnot found\n"
+        assert self.file_name not in ["/", "//"], \
+            "\n\nVideo file path:\n\t\"%s\"\nsounds fishy -_o\n" \
+            % self.file_name
         self._cap = VideoCapture(self.file_name)
 
         return
@@ -432,23 +437,23 @@ class VideoProcessor:
         app = self.apps_map[self.current_app]
 
         label_start = (0, 0)
-        label_end = (750, 150)
+        label_end = (700, 100)
         colour = (255, 255, 255)
-        rectangle(frame, label_start, label_end, colour, thickness=cv.CV_FILLED)
+        #rectangle(frame, label_start, label_end, colour, thickness=cv.CV_FILLED)
 
         # frame process time
         text1_start = (40, 40)
-        text1 = "frame interval :  %.1f ms" % app.process_time
+        text1 = "%-15s: %.1f ms" % ("frame interval", app.process_time)
         draw_str(frame, text1_start, text1)
 
         # execution mode
         text2_start = (40, 80)
-        text2 = "Pipeline       :  %s" % ModeType.name[app.current_mode]
+        text2 = "%-15s : %s" % ("Pipeline", ModeType.name[app.current_mode])
         draw_str(frame, text2_start, text2)
 
         # app
         text3_start = (40, 120)
-        text3 = "Benchmark      :  %s" % app.name
+        text3 = "%-12s : %s" % ("Benchmark", app.name)
         draw_str(frame, text3_start, text3)
 
         return frame
@@ -479,7 +484,7 @@ class VideoProcessor:
             app_rows = sorted(app_rows, key=lambda row: float(row[2]))
             rows += app_rows
 
-        print tabulate(rows, headers=["App", "Mode", "Average", "Min", "Max"])
+        print tabulate(rows, headers=["App", "Mode", "Average (ms)", "Min (ms)", "Max (ms)"])
         print
         return
 

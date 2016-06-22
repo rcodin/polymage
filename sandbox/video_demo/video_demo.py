@@ -69,7 +69,8 @@ def app_destroy(apps_map):
     return
 
 def main():
-    assert len(sys.argv) >= 2, "Video file path not specifed"
+    assert len(sys.argv) >= 2, \
+        "\n\nVideo file path not specifed\n"
     video_file = sys.argv[1]
 
     # initialize all apps
