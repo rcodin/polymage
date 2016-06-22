@@ -3,6 +3,7 @@ from common import clock, draw_str
 from enum import Enum
 import os.path
 import ctypes
+from tabulate import tabulate
 
 class AppType():
     NONE = -1
@@ -72,6 +73,8 @@ class ModeType():
             return '_naive'
         elif mode_id == ModeType.P_OPT:
             return ''
+        else:
+            return '_not_this_app_'
 
     @staticmethod
     def get_file_name(app_file, mode_id):
@@ -91,8 +94,8 @@ class Mode:
     def __init__(self, _mode_id, _app_file, _py_func, _has_lib=False):
         modes_list = ModeType.modes_list.union([ModeType.NONE])
         assert _mode_id in modes_list, \
-                "Mode type must be one of: %s" % modes_list + \
-                "\nGiven: %s" % _mode_id
+                "\n\nMode type must be one of:\n\t%s" % list(modes_list) + \
+                "\nGiven:\n\t%s\n" % _mode_id
         self._mode_id = _mode_id
         self._app_file = _app_file
         self._py_func = _py_func
@@ -131,6 +134,12 @@ class Mode:
     @property
     def process_time(self):
         return self._process_time
+    @property
+    def min_time(self):
+        return self._min_time
+    @property
+    def max_time(self):
+        return self._max_time
 
     def _init_libs(self):
         self._lib_file = None
@@ -140,6 +149,8 @@ class Mode:
             # load the corresponding shared library
             file_name = ModeType.get_file_name(self.app_file, self.mode_id)
             self._lib_file = file_name+".so"
+            assert os.path.exists(self._lib_file), \
+                "\n\nShared library :\n\"%s\"\n  does not exist\n" % self._lib_file
             mode_lib = ctypes.cdll.LoadLibrary(self._lib_file)
             # init memory pool pool
             mode_lib.pool_init()
@@ -152,6 +163,8 @@ class Mode:
         self._frames = 0
         self._process_time = 0.0
         self._total_time_spent = 0.0
+        self._min_time = float(10000000)
+        self._max_time = float(0)
         self._timeron = False
         return
 
@@ -173,6 +186,8 @@ class Mode:
         return
     def _time_update(self, _time):
         self._total_time_spent += _time
+        self._min_time = self._min_time if self._min_time < _time else _time
+        self._max_time = self._max_time if self._max_time > _time else _time
         return
 
     def process_frame(self, frame):
@@ -195,26 +210,30 @@ class Mode:
 class App:
     def __init__(self, _app_id, _dir, _mode_ids, _lib_mode_ids, _py_func_map):
         assert _app_id in AppType.apps_list, \
-                "App ID must be one of %s" % AppType.apps_list
+            "\n\nApp ID must be one of:\n\t%s" % list(AppType.apps_list) + \
+            "\nGiven:\n\t%s\n" % _app_id
         self._app_id = _app_id
         self._name = AppType.name[_app_id]
 
         if self._app_id != AppType.NONE:
-            assert os.path.exists(_dir), "%s : path does not exist" % _dir
+            assert os.path.exists(_dir), \
+                "\n\nApp directory path:\n\t\"%s\"\ndoes not exist\n" % _dir
             assert (len(_mode_ids) > 0), \
-                "Apps can be run in at least one recognized mode"
+                "\n\nApps should be run in at least one of the " + \
+                "recognized modes:\n\t%s" % list(AppType.apps_list) + \
+                "\nGiven:\n\t%s\n" % _mode_ids
 
         self._dir = _dir
         self._file = str(self._dir) + "/" + AppType.file_name[_app_id]
 
-        assert self._file not in ["/"], \
-            "path %s sounds fishy -_o" % self._file
+        assert self._file not in ["/", "//", "///"], \
+            "\n\nApp files path:\n\t\"%s\"\nsounds fishy -_o\n" % self._file
 
         if _lib_mode_ids == None:
             _lib_mode_ids = []
         assert set(_lib_mode_ids).issubset(set(_mode_ids)), \
-            "_lib_mode_ids (%s) should be a subset of " + \
-            "allowed _mode_ids (%s)" % _lib_mode_ids % _mode_ids
+            "\n\nlib_modes:\n\t%s\nshould be a subset of " + \
+            "allowed _mode_ids:\n\t%s\n" % (_lib_mode_ids, _mode_ids)
 
         self._init_modes(_mode_ids, _lib_mode_ids, _py_func_map)
         self._set_initial_mode()
@@ -248,7 +267,8 @@ class App:
         for mode_id in _mode_ids:
             has_lib = mode_id in _lib_mode_ids
             assert mode_id in _py_func_map, \
-                "No frame processor function specified for mode %s" % mode_id
+                "\n\nNo frame processor function specified " + \
+                "for mode:\n\t%s\n" % mode_id
             py_func = _py_func_map[mode_id]
             self._modes[mode_id] = Mode(mode_id, self.file_name, py_func, has_lib)
         return
@@ -272,7 +292,7 @@ class App:
         if self.id_ == AppType.NONE:
             return
         if mode_id == ModeType.PREV:
-            print "Go To PREV"
+            # print "Go To PREV"
             temp = self._cur_mode_id
             self._cur_mode_id = self._prev_mode_id
             self._prev_mode_id = temp
@@ -280,9 +300,9 @@ class App:
             self._prev_mode_id = self._cur_mode_id
             self._cur_mode_id = mode_id
 
-        print "----"
-        print "cur:", self._cur_mode_id
-        print "prev:", self._prev_mode_id
+        #print "----"
+        #print "cur:", self._cur_mode_id
+        #print "prev:", self._prev_mode_id
         return
 
     def destroy(self):
@@ -439,15 +459,28 @@ class VideoProcessor:
         return
 
     def report_stats(self):
-        print "Average frame delays :"
+        print "\nAverage time spent in each mode [per frame]:\n"
+        rows = []
         for app_id in self.apps_map:
             app = self.apps_map[app_id]
+            app_rows = []
             for mode_id in app.modes:
                 mode = app.modes[mode_id]
                 if mode.frames:
+                    name = app.name
+                    mode_name = '['+ModeType.name[mode_id]+']'
                     avg = mode.avg_time_spent()
-                    print "%s [%s] : %s ms" \
-                        % (app.name, ModeType.name[mode_id], avg)
+                    min_ = mode.min_time
+                    max_ = mode.max_time
+                    #print "%20s %-20s : %20s ms" \
+                    #    % (app.name, '['+ModeType.name[mode_id]+']', avg)
+                    row = [name, mode_name, str(avg), str(min_), str(max_)]
+                    app_rows.append(row)
+            app_rows = sorted(app_rows, key=lambda row: float(row[2]))
+            rows += app_rows
+
+        print tabulate(rows, headers=["App", "Mode", "Average", "Min", "Max"])
+        print
         return
 
     def finish(self):

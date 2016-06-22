@@ -7,8 +7,8 @@ import os
 def draw_str(dst, pixel, s):
     x = pixel[0]
     y = pixel[1]
-    cv2.putText(dst, s, (x+1, y+1), cv2.FONT_HERSHEY_PLAIN, 2.5, (0, 0, 0), thickness = 3)
-    cv2.putText(dst, s, (x, y), cv2.FONT_HERSHEY_PLAIN, 2.5, (0, 0, 255), thickness = 3)
+    cv2.putText(dst, s, (x+1, y+1), cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 0), thickness = 3)
+    cv2.putText(dst, s, (x, y), cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), thickness = 3)
 
 def clock():
     return cv2.getTickCount() / cv2.getTickFrequency()
