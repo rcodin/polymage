@@ -86,7 +86,7 @@ def unsharp_numba(frame, lib_func):
             for i0 in range(3):
                 for i1 in range(ct13, ct12 + 1):
                     for i2 in range(ct15, ct14 + 1):
-                        res[i1,i2,i0] = im[i0, i1, i2] \
+                        res[i1, i2, i0] = im[i0, i1, i2] \
                             if im[i0, i1, i2] - \
                                 blury[i0, (-T_x*ti1) + i1, (-T_y*ti2) + i2] < thresh \
                         else sharpen[i0, (-T_x*ti1) + i1, (-T_y*ti2) + i2]
