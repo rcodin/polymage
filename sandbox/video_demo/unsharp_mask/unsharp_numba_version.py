@@ -1,19 +1,19 @@
 import numpy as np
-#from numpy import jit
+from numba import jit
 
 # unsharp mask parameters
 thresh = 0.001
 weight = 3
 
-#@jit(nogil = True, cache = True, nopython = True)
+@jit(nogil = True, cache = True, nopython = True)
 def mini(x, y):
     return x if x < y else y
 
-#@jit(nogil = True, cache = True, nopython = True)
+@jit(nogil = True, cache = True, nopython = True)
 def maxi(x, y):
     return x if x > y else y
 
-#@jit("float32[::](uint8[::], int64)", nogil = True, cache = True)
+@jit("float32[::](uint8[::], int64)", nogil = True, cache = True)
 def unsharp_numba(frame, lib_func):
     r = frame.shape[0] - 4
     c = frame.shape[1] - 4
