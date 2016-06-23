@@ -2,57 +2,46 @@ import ctypes
 import numpy as np
 from cv2 import *
 import sys
-
-sys.path.insert(0, "../")
 from structs import *
 
 from PIL import Image, ImageFilter
 from unsharp_numba_version import unsharp_numba
+from numba import jit
 
-#from numpy import jit
+sys.path.insert(0, "../")
 
 # unsharp mask parameters
 thresh = 0.001
 weight = 3
 
 # PIL version
-#@jit("uint8[::](uint8[::], int64)", cache = True, nogil = True)
+@jit("uint8[::](uint8[::], int64)", cache = True, nogil = True)
 def unsharp_pil(frame, lib_func):
     im = Image.fromarray(frame)
-    m = im.filter(ImageFilter.UnsharpMask(radius = 2, \
-            percent = 130, threshold = 1))
-    res = np.array(m)
-
+    kernelx = (0,0,0,0,0,0,0,0,0,0,1,4,6,4,1,0,0,0,0,0,0,0,0,0,0)
+    kernely = (0,0,1,0,0,0,0,4,0,0,0,0,6,0,0,0,0,4,0,0,0,0,1,0,0)
+    blurx = im.filter(ImageFilter.Kernel((5,5),kernelx,scale = None, offset = 0))
+    blury = blurx.filter(ImageFilter.Kernel((5,5),kernely,scale = None, offset = 0))
+    sharpen = Image.blend(im,blury,-weight)
+    #diff = ImageChops.difference(im,blury)
+    """m = im.filter(ImageFilter.UnsharpMask(radius = 2, \
+            percent = 130, threshold = 1))"""
+    res = np.array(sharpen)
     return res
 
 # OpenCV version
-#@jit("float32[::](float32[::], int64)", cache = True, nogil = True)
+@jit("float32[::](uint8[::], int64)", cache = True, nogil = True)
 def unsharp_cv(frame, lib_func):
-    res = frame
+    frame_f = np.float32(frame) / 255.0
+    res = frame_f
     kernelx = np.array([1, 4, 6, 4, 1], np.float32) / 16
     kernely = np.array([[1], [4], [6], [4], [1]], np.float32) / 16
-    blury = sepFilter2D(frame, -1, kernelx, kernely)
-    sharpen = addWeighted(frame, (1 + weight), blury, (-weight), 0)
-    th, choose = threshold(absdiff(frame, blury), thresh, 1, THRESH_BINARY)
+    blury = sepFilter2D(frame_f, -1, kernelx, kernely)
+    sharpen = addWeighted(frame_f, (1 + weight), blury, (-weight), 0)
+    th, choose = threshold(absdiff(frame_f, blury), thresh, 1, THRESH_BINARY)
     choose = choose.astype(bool)
     np.copyto(res, sharpen, 'same_kind', choose)
-
     return res
-
-'''
-def unsharp_cv(frame, lib_func):
-    kernel = np.array([[1,4,6,4,1]], np.float32) / 16.0
-    blurx = filter2D(frame, -1, kernel)
-    kernel = np.array([[0,0,1,0,0], [0,0,4,0,0], [0,0,6,0,0], [0,0,4,0,0], [0,0,1,0,0]], np.float32) / 16.0
-    blury = filter2D(blurx, -1, kernel)
-    sharpen = addWeighted(frame, (1+weight), blury, (-weight), 0)
-    th, mask = threshold(absdiff(frame, blury), thresh, 1, THRESH_BINARY)
-    mask = mask.astype(bool)
-    res = frame
-    np.copyto(res, sharpen, 'same_kind', mask)
-
-    return res
-'''
 
 def unsharp_polymage(frame, lib_func):
     rows = frame.shape[0]
@@ -86,4 +75,3 @@ def add_unsharp_app(app_id):
     app = App(app_id, app_dir, modes, lib_modes, app_func_map)
 
     return app
-
