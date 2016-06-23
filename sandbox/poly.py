@@ -656,8 +656,20 @@ class PolyRep(object):
         # Initializing the reduction earlier than any other function
         self.create_poly_parts_from_default(comp, max_dim, dom_map, level_no,
                                             schedule_names)
+
+
     @staticmethod
-    def add_tstenil_kernel_constraints(sched_map, comp):
+    def set_map_pluto_names(sched_map):
+        """Configure a BasicMap to have PLUTO's naming convention for
+        dimensions"""
+        sched_map = sched_map.copy()
+        sched_map = sched_map.set_tuple_name(isl._isl.dim_type.in_, "S_0")
+        sched_map = sched_map.set_tuple_name(isl._isl.dim_type.out, "S_1")
+
+        return sched_map
+
+    @staticmethod
+    def add_tstencil_kernel_constraints(sched_map, comp):
         # Quick note on naming convention between domain and range:
         # The domain will have the input tuple as  [time, x, y, z, ...]
         # The range will have outputs as [_t, _i0, _i1]
@@ -666,18 +678,18 @@ class PolyRep(object):
         # We will associate:
         # time -> _i0 | x -> _i1 | y -> _i2 | ... | (nth_dim) -> _in
         # original_basic_map = sched_map.copy()
+        
+        if isinstance(sched_map, isl.BasicMap):
+            sched_map = isl.Map.from_basic_map(sched_map)
 
         # the domain where constraints will be created
         # (which is the range of the schedule map)
-        sched_map = sched_map.copy()
-        sched_map = sched_map.set_tuple_name(isl._isl.dim_type.in_, "S_0")
-        sched_map = sched_map.set_tuple_name(isl._isl.dim_type.out, "S_1")
-
+        sched_map = PolyRep.set_map_pluto_names(sched_map)
         sched_space = sched_map.space
-
+    
         # create the UnionMap that corresponds to the union of all constraints
         constraints_union = isl.UnionMap.empty(sched_space)
-        constraints_union = constraints_union.union(isl.UnionMap.from_basic_map(sched_map))
+        constraints_union = constraints_union.union(isl.UnionMap.from_map(sched_map))
 
         # time_constraint_map is used by everyone else
         # to create relationships between t -> t + 1
