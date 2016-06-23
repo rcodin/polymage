@@ -11,18 +11,40 @@ $ python video_demo.py path/to/video/file
 
 The implementations work for a generic resolution.
 
-For a sample video, try: https://peach.blender.org/download/ or
+For a sample video, try:
+https://peach.blender.org/download/
+or
 http://www.divx.com/en/devices/profiles/video
 
 
-Options (key strokes)
+Switch Options (key strokes)
 
-h - to switch to harris corner detection
-u - to switch to unsharp mask
-b - to switch to bilateral grid
-l - to switch to local laplacian filters
+Toggle between apps:
+===================
+'h'   - Harris Corner Detection
+'u'   - Unsharp Mask
+'b'   - Bilateral Grid
+'l'   - Local Laplacian Filters
+'ESC' - Original
 
-space - to toggle between OpenCV and PolyMage mode
-        (applies only to 'harris' and 'unsharp mask' modes)
+Toggle between modes:
+====================
+' ' - OpenCV (*1)
+'n' - PolyMage Naive
+'o' - PolyMage Opt
+'p' - PIL (*2)
+'j' - Numba [Numpy jit] (*2)
 
-n - to toggle between naive and optimized PolyMage code
+'q' - QUIT
+
+
+--------------------------------
+* currently available for :
+--------------------------------
+*1 : Unsharp Mask, Harris Corner
+*2 : Unsharp Mask
+--------------------------------
+
+
+-- To be able to toggle between two modes in an app, visit at least
+   two modes of the app.
