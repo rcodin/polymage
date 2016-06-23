@@ -2,28 +2,29 @@
 
 * python-2.7
 * ctypes
- * <span style="color:lime; background-color:black; font-family:Courier; font-size:1em"> ** $ sudo apt-get install python-ctypeslib**</span>
+ * ** $ sudo apt-get install python-ctypeslib**
 * numpy
- * <span style="color:lime; background-color:black; font-family:Courier; font-size:1em"> ** $ sudo apt-get install python-numpy**</span>
+ * ** $ sudo apt-get install python-numpy**
 * numba
  * Get 32 or 64 bit version of [Anaconda](https://continuum.io/downloads.html)
- * <span style="color:lime; background-color:black; font-family:Courier; font-size:1em"> **$ bash Anaconda2-4.0.0-Linux-x86_64.sh**</span>  [... _follow instructions_]
- * <span style="color:lime; background-color:black; font-family:Courier; font-size:1em"> **$ conda install numba**</span>
+ * **$ bash Anaconda2-4.0.0-Linux-x86_64.sh**  [... _follow instructions_]
+ * **$ conda install numba**
 * OpenCV
- * Install Library [<sup>instructions for ubuntu users</sup>](https://help.ubuntu.com/community/OpenCV)
- * Install cv2 <span style="color:lime; background-color:black; font-family:Courier; font-size:1em"> **$ sudo apt-get install python-opencv**</span>
+ * Install Library [[instructions for installation on ubuntu]](https://help.ubuntu.com/community/OpenCV)
+ * Install cv2
+  * **$ sudo apt-get install python-opencv**
 * PIL (Python Imaging Library)
- * <span style="color:lime; background-color:black; font-family:Courier; font-size:1em"> **$ pip install pillow**</span>
+ * **$ pip install pillow**
 * tabulate
- * <span style="color:lime; background-color:black; font-family:Courier; font-size:1em"> **$ pip install tabulate**</span>
+ * **$ pip install tabulate**
 
 ### How To Use The Video Demo
 
 ##### To compile all the demo apps, run :
-> <span style="color:lime; background-color:black; font-family:Courier; font-size:1em"> **$ make** </span>
+> **$ make**
 
 ##### To play the video demo, run the python script as :
-> <span style="color:lime; background-color:black; font-family:Courier; font-size:1em"> **$ python video_demo.py /path/to/video/file** </span>
+> **$ python video_demo.py /path/to/video/file**
 
 The implementations work for a generic resolution.  
 For a sample video, try:
@@ -43,19 +44,19 @@ or
 * **'ESC'** : Original
 
 #### Toggle between app modes:
-* **' '** : OpenCV <sup>1</sup>
+* **' '** : OpenCV [1]
  * (_space_)
 * **'n'** : PolyMage **N**aive
 * **'o'** : PolyMage **O**pt
-* **'p'** : **P**IL <sup>2</sup>
-* **'j'** : Numba <sup>2</sup>
+* **'p'** : **P**IL [2]
+* **'j'** : Numba [2]
  *  Numpy **J**it
 * **'q'** - **Q**UIT
 
 --
 #####Currently available for :
-<sup>1</sup> Unsharp Mask, Harris Corner  
-<sup>2</sup> Unsharp Mask
+[1] Unsharp Mask, Harris Corner  
+[2] Unsharp Mask
 
 
 #####To be able to toggle between modes in an app, at least two modes of the app must be visited.
