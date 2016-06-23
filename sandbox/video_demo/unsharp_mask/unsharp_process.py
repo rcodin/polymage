@@ -14,17 +14,13 @@ thresh = 0.001
 weight = 3
 
 # PIL version
-@jit("uint8[::](uint8[::], int64)", cache = True, nogil = True)
 def unsharp_pil(frame, lib_func):
     im = Image.fromarray(frame)
     kernelx = (0,0,0,0,0,0,0,0,0,0,1,4,6,4,1,0,0,0,0,0,0,0,0,0,0)
     kernely = (0,0,1,0,0,0,0,4,0,0,0,0,6,0,0,0,0,4,0,0,0,0,1,0,0)
-    blurx = im.filter(ImageFilter.Kernel((5,5),kernelx,scale = None, offset = 0))
-    blury = blurx.filter(ImageFilter.Kernel((5,5),kernely,scale = None, offset = 0))
-    sharpen = Image.blend(im,blury,-weight)
-    #diff = ImageChops.difference(im,blury)
-    """m = im.filter(ImageFilter.UnsharpMask(radius = 2, \
-            percent = 130, threshold = 1))"""
+    blurx = im.filter(ImageFilter.Kernel((5, 5), kernelx, scale = None, offset = 0))
+    blury = blurx.filter(ImageFilter.Kernel((5, 5), kernely, scale = None, offset = 0))
+    sharpen = Image.blend(im, blury, -weight)
     res = np.array(sharpen)
     return res
 
