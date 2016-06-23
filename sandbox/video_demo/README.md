@@ -2,21 +2,22 @@
 
 * python-2.7
 * ctypes
-  * ** $ sudo apt-get install python-ctypeslib**
+    * ** $ sudo apt-get install python-ctypeslib**
 * numpy
-  * ** $ sudo apt-get install python-numpy**
+    * ** $ sudo apt-get install python-numpy**
 * numba
-  * Get 32 or 64 bit version of [Anaconda](https://continuum.io/downloads.html)
-    * **$ bash Anaconda2-4.0.0-Linux-x86_64.sh**  [... _follow instructions_]
-    * **$ conda install numba**
+    * Get 32 or 64 bit version of [Anaconda](https://continuum.io/downloads.html)
+        * **$ bash Anaconda2-4.0.0-Linux-x86_64.sh**  [... _follow instructions_]
+        * **$ conda install numba**
 * OpenCV
-  * Install Library [[instructions for installation on ubuntu]](https://help.ubuntu.com/community/OpenCV)
+    * Install Library
+        * [[instructions for installation on ubuntu]](https://help.ubuntu.com/community/OpenCV)
     * Install cv2
-    * **$ sudo apt-get install python-opencv**
+        * **$ sudo apt-get install python-opencv**
 * PIL (Python Imaging Library)
-  * **$ pip install pillow**
+    * **$ pip install pillow**
 * tabulate
-  * **$ pip install tabulate**
+    * **$ pip install tabulate**
 
 ### How To Use The Video Demo
 
@@ -40,17 +41,17 @@ or
 * **'u'**   : **U**nsharp Mask
 * **'b'**   : **B**ilateral Grid
 * **'l'**   : **L**ocal Laplacian Filters
-  * _lowercase **L**_
+    * _lowercase **L**_
 * **'ESC'** : Original
 
 #### Toggle between app modes:
 * **' '** : OpenCV [1]
-  * (_space_)
+    * (_space_)
 * **'n'** : PolyMage **N**aive
 * **'o'** : PolyMage **O**pt
 * **'p'** : **P**IL [2]
 * **'j'** : Numba [2]
-  *  Numpy **J**it
+    *  Numpy **J**it
 * **'q'** - **Q**UIT
 
 --
