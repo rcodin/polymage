@@ -3,7 +3,6 @@ import numpy as np
 from cv2 import *
 import sys
 from structs import *
-
 from PIL import Image, ImageFilter
 from unsharp_numba_version import unsharp_numba
 from numba import jit
