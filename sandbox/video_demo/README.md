@@ -1,4 +1,4 @@
-### Requirements
+## Requirements
 
 * python-2.7
 * ctypes
@@ -19,7 +19,7 @@
 * tabulate
     * **$ pip install tabulate**
 
-### How To Use The Video Demo
+## How To Use The Video Demo
 
 ##### To compile all the demo apps, run :
 > **$ make**
@@ -34,7 +34,7 @@ or
 [DivX Video Samples](http://www.divx.com/en/devices/profiles/video)
 
 
-### How To Switch Between Video Modes
+## How To Switch Between Video Modes
 
 #### Toggle between apps:
 * **'h'**   : **H**arris Corner Detection
