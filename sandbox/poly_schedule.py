@@ -399,7 +399,6 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         domain_set = domain_set.union(unconstrained_s0_to_s1.range().copy())
         autolog("domain set:\n %s" % domain_set, TAG)
 
-        # -- project out first dimension
         pluto = libpluto.LibPluto()
         options = pluto.create_options()
         options.partlbtile = True
@@ -464,15 +463,30 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
                              .apply_range(pluto_s1_to_optimised_map)
 
 
+        import pudb
+        pudb.set_trace()
         # Note, this has a problem: This will create a UnionMap,
         # when what we want is a BasicMap
         # The output of the combined map is a UnionMap, which is
-        import pudb; pudb.set_trace()
         # stripped of the diamond tiling information. I'm adding it back
         # to have information about the diamond tiling dependencies
-        s0_to_optimised_map = get_maps_from_union_map(s0_to_optimised_map)[0]
+        s0_to_optimised_map = get_maps_from_union_map(s0_to_optimised_map)[0].\
+            get_basic_maps()[0]
+        # set the names of in and out spaces
+        s0_to_optimised_map = PolyRep.set_map_pluto_names(s0_to_optimised_map)
+        
+        var_count = s0_to_optimised_map.range().n_dim()
+    
+        # some of the out dimensions may have no name at all, since they
+        # will be copies of the in dimension. However, we need names
+        # for all out dimensions during codegen, so we manually assign the name
+        for i in range(0, var_count):
+            s0_to_optimised_map = \
+                s0_to_optimised_map.set_dim_name(isl.dim_type.out, i, 'o' + str(i))
         # s0_to_optimised_map = PolyRep.add_tstencil_kernel_constraints(s0_to_optimised_map, tstencil)
 
+        import pudb
+        pudb.set_trace()
         autolog("Final chosen schedule: %s" % s0_to_optimised_map, TAG)
 
         poly_part.sched = s0_to_optimised_map
