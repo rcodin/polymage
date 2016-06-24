@@ -465,12 +465,15 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
 
 
         # Note, this has a problem: This will create a UnionMap,
-        # when what we want is a BasicMap
-        # The output of the combined map is a UnionMap, which is
-        import pudb; pudb.set_trace()
-        # stripped of the diamond tiling information. I'm adding it back
-        # to have information about the diamond tiling dependencies
+        # when what we want is a BasicMap. So, take the only BasicMap
+        # that is present in the union map
         s0_to_optimised_map = get_maps_from_union_map(s0_to_optimised_map)[0]
+        
+        # TODO, HACK: Check why the range has the name stripped out
+        s0_to_optimised_map = PolyRep.set_map_pluto_names(s0_to_optimised_map)
+
+        import pudb
+        pudb.set_trace()
         # s0_to_optimised_map = PolyRep.add_tstencil_kernel_constraints(s0_to_optimised_map, tstencil)
 
         autolog("Final chosen schedule: %s" % s0_to_optimised_map, TAG)
