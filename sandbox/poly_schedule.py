@@ -77,7 +77,6 @@ def base_schedule(group):
     # #HACK: this depends on the fact that a group will have at least
     # #one element to check if it has a Tstencil object.
     # if group.comps[0].is_tstencil_type:
-    #     print (">>>(TSTENCIL): quitting base_schedule")
     #     return parts
 
     for part in parts:
@@ -371,8 +370,9 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
     # diamond tile if group is tstencil
 
     if group.comps[0].is_tstencil_type:
+        TAG = "Tstencil"
 
-        autolog("diamond tiling pass")
+        autolog("diamond tiling pass", TAG)
 
         assert len(group.comps) == 1, ("Tstencil must be in a "
                                        "separate group.")
@@ -391,13 +391,13 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         # into the larger S1 space with the staging dimension
         s0_to_s1_map = isl.Map.from_basic_map(poly_part.sched)
         s0_to_s1_map = PolyRep.add_tstencil_kernel_constraints(poly_part.sched.copy(), tstencil)
-        autolog("s0 to s1 map:\n %s" % s0_to_s1_map)
+        autolog("s0 to s1 map:\n %s" % s0_to_s1_map, TAG)
         # the domain set that we pass to PLUTO needs information about
         # both spaces - the domain and the range of our map
 
         domain_set = isl.UnionSet.from_basic_set(unconstrained_s0_to_s1.domain().copy())
         domain_set = domain_set.union(unconstrained_s0_to_s1.range().copy())
-        autolog("domain set:\n %s" % domain_set)
+        autolog("domain set:\n %s" % domain_set, TAG)
 
         # -- project out first dimension
         pluto = libpluto.LibPluto()
@@ -407,14 +407,14 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
                                          s0_to_s1_map,
                                          options).copy()
 
-        autolog(">>>(TSTENCIL) raw pluto optimised schedule: %s" %optimised_sched)
+        autolog("pluto optimised schedule: %s" % optimised_sched, TAG)
 
         basic_maps_in_sched = get_maps_from_union_map(optimised_sched)
         # optimised_sched.foreach_map(lambda m:
         #                             basic_maps_in_sched.append(m.copy()))
 
-        autolog(">>>(TSTENCIL) basic maps in optimised schedule:\n%s" %
-              "\n".join(list(map(str, basic_maps_in_sched))))
+        autolog("basic maps in PLUTO optimised schedule:\n%s" %
+              "\n".join(list(map(str, basic_maps_in_sched))), TAG)
 
         assert len(basic_maps_in_sched) == 2, \
             ("the optimised schedule must have "
@@ -423,7 +423,8 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
 
         # We care about S_1, which is the range of the transform
         pluto_s1_to_optimised_map  = basic_maps_in_sched[1].copy()
-        autolog(">>>(TSTENCIL) COMPOSING MAPS:\ns0_to_s1_map:\n%s\n\npluto_s1_to_optimised_map:\n%s" % (s0_to_s1_map, pluto_s1_to_optimised_map))
+        autolog("Composing Maps:\ns0_to_s1_map:\n%s\n\npluto_s1_to_optimised_map:\n%s" % 
+                (s0_to_s1_map, pluto_s1_to_optimised_map), TAG)
 
 
         # Make sure that we have the same number of variables
@@ -455,38 +456,26 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
             {s1_var_name: -1, pluto_s1_var_name: 1})
             s1_to_pluto_s1_map = s1_to_pluto_s1_map.add_constraint(equate_vals)
 
-        autolog(">>> (TSTENCIL) s1_to_pluto_s1: %s" % s1_to_pluto_s1_map)
+        autolog("s1_to_pluto_s1: %s" % s1_to_pluto_s1_map, TAG)
 
 
         s0_to_optimised_map = s0_to_s1_map\
                              .apply_range(s1_to_pluto_s1_map)\
                              .apply_range(pluto_s1_to_optimised_map)
 
-        import pudb
-        pudb.set_trace()
-        
-        # The output of the combined map is a UnionMap, which is 
-        # stripped of the diamond tiling information. I'm adding it back
-        # to have information about the diamond tiling dependences 
-        s0_to_optimised_map = get_maps_from_union_map(s0_to_optimised_map)[0]
-        s0_to_optimised_map = PolyRep.add_tstencil_kernel_constraints(s0_to_optimised_map, tstencil)
 
-        autolog(">>>Final chosen schedule: %s" % s0_to_optimised_map)
+        # Note, this has a problem: This will create a UnionMap,
+        # when what we want is a BasicMap
+        # The output of the combined map is a UnionMap, which is
+        import pudb; pudb.set_trace()
+        # stripped of the diamond tiling information. I'm adding it back
+        # to have information about the diamond tiling dependencies
+        s0_to_optimised_map = get_maps_from_union_map(s0_to_optimised_map)[0]
+        # s0_to_optimised_map = PolyRep.add_tstencil_kernel_constraints(s0_to_optimised_map, tstencil)
+
+        autolog("Final chosen schedule: %s" % s0_to_optimised_map, TAG)
 
         poly_part.sched = s0_to_optimised_map
-
-        # We know that the final out dimension will correspond to _t
-        # Rename the final out dimensions to '_t' to match polymage
-        # convention of having the staging dimension
-        # num_out_dims = len(xxxxxx.get_var_names(isl._isl.dim_type.out))
-        # autolog(">>>(TSTENCIL) num out dims: %s" % num_out_dims)
-
-        # poly_part.sched = poly_part.sched.set_dim_name(isl._isl.dim_type.out,
-        #                                                num_out_dims - 1,
-        #                                                  "_t")
-        # autolog(">>>(TSTENCIL) chosen optimised schedule: %s" % poly_part.sched)
-
-        # poly_part.sched.find_dim_by_name(isl.dim_type.out, '_t')
         return
     else:
         g_all_parts = []
