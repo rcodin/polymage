@@ -9,7 +9,7 @@ import libpluto
 import islpy as isl
 
 def test_pluto_schedule():
-    pluto = libpluto.PlutoFFI()
+    pluto = libpluto.LibPluto()
 
     print(pluto)
     ctx = isl.Context()
@@ -18,13 +18,9 @@ def test_pluto_schedule():
     schedule = isl.UnionSet.read_from_str(ctx, schedule_str)
     deps = isl.UnionMap.read_from_str(ctx, deps_str)
 
-    opts = pluto.options_alloc()
-    opts.tile = 0;
-    opts.parallel = 0;
-    opts.efup = 0;
-    opts.debug = 0;
-    opts.islsolve = 1;
-    opts.glpksolve = 1;
+    opts = pluto.create_options()
+    opts.partlbtile = 1
 
-    out_schedule = pluto.schedule(schedule, deps, opts)
+    out_schedule = pluto.schedule(ctx, schedule, deps, opts)
     print(out_schedule)
+    # assert out schedule is what we expect
