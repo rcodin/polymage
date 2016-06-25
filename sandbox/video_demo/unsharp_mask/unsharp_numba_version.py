@@ -23,11 +23,7 @@ def unsharp_numba(frame, lib_func):
     T_y = 256
     im = np.zeros((3, (r+4), (c+4)), np.float32)
 
-    # TODO: copy numpy style
-    for i in range(r+4):
-        for j in range(c+4):
-            for k in range(3):
-                im[k,i,j] = image_f[i,j,k]
+    im = np.rollaxis(image_f,2)
 
     blurx = np.zeros((3, T_x, T_y + 10), dtype=np.float32)
     blury = np.zeros((3, T_x, T_y + 10), dtype=np.float32)

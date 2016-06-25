@@ -27,6 +27,12 @@
 ##### To play the video demo, run the python script as :
 > **$ python video_demo.py /path/to/video/file**
 
+**Sample (1) from Demo**  
+![Sample 1][pic1]  
+
+**Sample (2) from Demo**  
+![Sample 2][pic2]
+
 The implementations work for a generic resolution.  
 For a sample video, try:
 [Big Buck Bunny](https://peach.blender.org/download/)
@@ -61,3 +67,6 @@ or
 
 
 #####To be able to toggle between modes in an app, at least two modes of the app must be visited.
+
+[pic1]: https://bytebucket.org/vinay_vasista/test_markdown/raw/a435ceb8536690f8ac94d4b8d0d0702aea2de67b/video_demo_screenshot1.png?token=c4a083c54fddaee9492a26278d7e59f37b8d1907
+[pic2]: https://bytebucket.org/vinay_vasista/test_markdown/raw/a435ceb8536690f8ac94d4b8d0d0702aea2de67b/video_demo_screenshot2.png?token=211da87dc246f7ab76a8595a0faa6ba60468e23a
