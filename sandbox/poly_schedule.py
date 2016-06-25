@@ -384,6 +384,11 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
 
         poly_part = poly_parts[0]
 
+        autolog("original poly_part sched:\n%s" % poly_part.sched, TAG)
+        # save the original name of the domain, so we can rename the domain
+        # once it passes through PLUTO
+        original_sched_domain_name = poly_part.sched.get_tuple_name(isl.dim_type.in_)
+
         unconstrained_s0_to_s1 = poly_part.sched.copy()
         unconstrained_s0_to_s1 = PolyRep.set_map_pluto_names(unconstrained_s0_to_s1)
 
@@ -422,8 +427,8 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
 
         # We care about S_1, which is the range of the transform
         pluto_s1_to_optimised_map  = basic_maps_in_sched[1].copy()
-        autolog("Composing Maps:\ns0_to_s1_map:\n%s\n\npluto_s1_to_optimised_map:\n%s" % 
-                (s0_to_s1_map, pluto_s1_to_optimised_map), TAG)
+        autolog("Composing Maps:\nunconstrained_s0_to_s1_map:\n%s\n\npluto_s1_to_optimised_map:\n%s" % 
+                (unconstrained_s0_to_s1, pluto_s1_to_optimised_map), TAG)
 
 
         # Make sure that we have the same number of variables
@@ -446,7 +451,7 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         s1_to_pluto_s1_map =  s1_to_pluto_s1_map.add_constraint(
             isl.Constraint.eq_from_names(s1_to_pluto_s1_space,
                                          {'_t': -1, 'i0' : 1}))
-
+        
         var_count = unconstrained_s0_to_s1.range().n_dim()
         for i in range (1, var_count):
             s1_var_name = '_i' + str(i - 1)
@@ -462,9 +467,6 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
                              .apply_range(s1_to_pluto_s1_map)\
                              .apply_range(pluto_s1_to_optimised_map)
 
-
-        import pudb
-        pudb.set_trace()
         # Note, this has a problem: This will create a UnionMap,
         # when what we want is a BasicMap
         # The output of the combined map is a UnionMap, which is
@@ -472,8 +474,9 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         # to have information about the diamond tiling dependencies
         s0_to_optimised_map = get_maps_from_union_map(s0_to_optimised_map)[0].\
             get_basic_maps()[0]
+        
         # set the names of in and out spaces
-        s0_to_optimised_map = PolyRep.set_map_pluto_names(s0_to_optimised_map)
+        s0_to_optimised_map = s0_to_optimised_map.set_tuple_name(isl.dim_type.in_, original_sched_domain_name)
         
         var_count = s0_to_optimised_map.range().n_dim()
     
@@ -483,13 +486,12 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         for i in range(0, var_count):
             s0_to_optimised_map = \
                 s0_to_optimised_map.set_dim_name(isl.dim_type.out, i, 'o' + str(i))
-        # s0_to_optimised_map = PolyRep.add_tstencil_kernel_constraints(s0_to_optimised_map, tstencil)
 
-        import pudb
-        pudb.set_trace()
+
         autolog("Final chosen schedule: %s" % s0_to_optimised_map, TAG)
 
         poly_part.sched = s0_to_optimised_map
+        # TODO: rename the poly part schedule with original name
         return
     else:
         g_all_parts = []

@@ -31,6 +31,9 @@ from expression import *
 from utils import *
 import pipe
 import align_scale as aln_scl
+from debug_log import *
+
+TAG = "Poly"
 
 # Static method 'alloc' for isl Id does not allow the user to be
 # not None, as of now. We need an exclusive dictionary to map the
@@ -679,6 +682,7 @@ class PolyRep(object):
         # time -> _i0 | x -> _i1 | y -> _i2 | ... | (nth_dim) -> _in
         # original_basic_map = sched_map.copy()
         
+
         if isinstance(sched_map, isl.BasicMap):
             sched_map = isl.Map.from_basic_map(sched_map)
 
@@ -746,16 +750,6 @@ class PolyRep(object):
 
         return constraints_union
 
-    @staticmethod
-    def set_map_tuple_id(id_map, dimension, mid):
-        if isinstance(id_map, (isl.UnionMap, isl.Map, isl.BasicMap)):
-            id_map.foreach_map(lambda m: m.set_tuple_id(dimension, mid))
-        else:
-            raise RuntimeError("unknown map type:\nmap: %s\ntype:%s" %
-                (id_map, str(type(id_map))))
-
-        return id_map
-        
     def extract_polyrep_from_tstencil(self, comp, max_dim,
                                       schedule_names, param_names,
                                       context_conds, level_no,
@@ -821,11 +815,9 @@ class PolyRep(object):
                                             schedule_names, param_names,
                                             context_conds)
 
-        print(">>>(TSTENCIL) raw schedule domain: %s" % sched_map)
+
         # add Tstencil kernel constraints
         # sched_map = self.add_tstenil_kernel_constraints(sched_map, comp)
-        print(">>>(TSTENCIL) ----")
-        print(">>>(TSTENCIL) bounded schedule map: %s" % sched_map)
 
        # ------
        # CREATE POLY PARTS FOR T STENCIL
@@ -843,18 +835,10 @@ class PolyRep(object):
         id_domain = isl_alloc_id_for(self.ctx, comp.func.name + "_domain", poly_part)
         isl_set_id_user(id_domain, poly_part)
 
-        poly_part.sched = PolyRep.set_map_tuple_id(poly_part.sched,
-                                                   isl.dim_type.in_,
-                                                   id_domain)
-        # poly_part.sched.foreach_map(lambda m:
-        #        m.set_tuple_id(isl._isl.dim_type.in_, id_domain))
+        poly_part.sched = poly_part.sched.set_tuple_id(isl.dim_type.in_, id_domain)
 
-        # id_range = isl_alloc_id_for(self.ctx, comp.func.name + "_range", poly_part)
-        # poly_part.sched = PolyRep.set_map_tuple_id(poly_part.sched,
-        #                                            isl.dim_type.out,
-        #                                           id_range)
-        
-        
+        autolog("sched_map before adding kernel constraints:\n%s" % poly_part.sched, TAG)
+                
         self.poly_parts[comp] = []
         self.poly_parts[comp].append(poly_part)
         print(">>>(TSTENCIL) poly parts: \n%s" % "\n\t".join(map(str, self.poly_parts[comp])))
