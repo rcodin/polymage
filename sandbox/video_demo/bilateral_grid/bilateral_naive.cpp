@@ -3,11 +3,11 @@
 #include <malloc.h>
 #include <cmath>
 #include <string.h>
-#include "simple_pool_allocator.h"
+#include "../simple_pool_allocator.h"
 #define isl_min(x,y) ((x) < (y) ? (x) : (y))
 #define isl_max(x,y) ((x) > (y) ? (x) : (y))
 #define isl_floord(n,d) (((n)<0) ? -((-(n)+(d)-1)/(d)) : (n)/(d))
-extern "C" void  pipeline_bilateral_naive(int  C, int  R, void * input_void_arg, void * filtered_void_arg)
+extern "C" void  pipeline_naive(int  C, int  R, void * input_void_arg, void * filtered_void_arg)
 {
   unsigned char * input_orig;
   input_orig = (unsigned char *) (input_void_arg);

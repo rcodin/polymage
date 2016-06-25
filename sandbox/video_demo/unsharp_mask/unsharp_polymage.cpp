@@ -3,11 +3,11 @@
 #include <malloc.h>
 #include <cmath>
 #include <string.h>
-#include "simple_pool_allocator.h"
+#include "../simple_pool_allocator.h"
 #define isl_min(x,y) ((x) < (y) ? (x) : (y))
 #define isl_max(x,y) ((x) > (y) ? (x) : (y))
 #define isl_floord(n,d) (((n)<0) ? -((-(n)+(d)-1)/(d)) : (n)/(d))
-extern "C" void  pipeline_mask(int  C, int  R, float  threshold, float  weight, void * img_void_arg, void * mask_void_arg)
+extern "C" void  pipeline_opt(int  C, int  R, float  threshold, float  weight, void * img_void_arg, void * mask_void_arg)
 {
   unsigned char * img_flip;
   img_flip = (unsigned char *) (img_void_arg);
