@@ -58,9 +58,6 @@ def app_init():
     assert app_id in apps_list
     app_map[app_id] = add_none_app(app_id)
 
-modes = ['Unsharp Mask (Naive)','Unsharp Mask (Opt)','Laplacian (Naive)','Laplacian (Opt)',\
-            'Bilateral (Naive)','Bilateral (Opt)','Harris (OpenCV)','Unsharp Mask (OpenCV)', \
-            'Harris (Naive)','Harris (Opt)', 'Unsharp Mask (PIL)', 'Unsharp Mask (Numba)']
     for app_id in app_map.keys():
         app_modes_map[app_id] = app_map[app_id].modes.keys()
 
@@ -95,4 +92,3 @@ def main():
     app_destroy(apps_map)
 
 main()
->>>>>>> restructure_video_demo
