@@ -487,7 +487,6 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
             s0_to_optimised_map = \
                 s0_to_optimised_map.set_dim_name(isl.dim_type.out, i, 'o' + str(i))
 
-
         autolog("Final chosen schedule: %s" % s0_to_optimised_map, TAG)
 
         poly_part.sched = s0_to_optimised_map
