@@ -68,5 +68,5 @@ or
 
 #####To be able to toggle between modes in an app, at least two modes of the app must be visited.
 
-[pic1]: https://bytebucket.org/vinay_vasista/test_markdown/raw/a435ceb8536690f8ac94d4b8d0d0702aea2de67b/video_demo_screenshot1.png?token=c4a083c54fddaee9492a26278d7e59f37b8d1907
-[pic2]: https://bytebucket.org/vinay_vasista/test_markdown/raw/a435ceb8536690f8ac94d4b8d0d0702aea2de67b/video_demo_screenshot2.png?token=211da87dc246f7ab76a8595a0faa6ba60468e23a
+[pic1]: https://bytebucket.org/udayb/polymage/raw/3cc5b191d0e4b8c4f85bbae2253d56b697c723f8/sandbox/video_demo/screenshots/video_demo_screenshot1.png
+[pic2]: https://bytebucket.org/udayb/polymage/raw/3cc5b191d0e4b8c4f85bbae2253d56b697c723f8/sandbox/video_demo/screenshots/video_demo_screenshot2.png
