@@ -392,6 +392,11 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         unconstrained_s0_to_s1 = poly_part.sched.copy()
         unconstrained_s0_to_s1 = PolyRep.set_map_pluto_names(unconstrained_s0_to_s1)
 
+        tstencil_vars = [tstencil.time_var] + tstencil.variables
+        tstencil_domains = [Interval(Int, 0, tstencil.timesteps)] + tstencil.domain
+
+        #ADD CODE HERE
+        import pudb; pudb.set_trace()
         # This is the map that knows how to map the smaller S0 space
         # into the larger S1 space with the staging dimension
         s0_to_s1_map = isl.Map.from_basic_map(poly_part.sched)
