@@ -396,13 +396,13 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         # into the larger S1 space with the staging dimension
         s0_to_s1_map = isl.Map.from_basic_map(poly_part.sched)
         s0_to_s1_map = PolyRep.add_tstencil_kernel_constraints(poly_part.sched.copy(), tstencil)
-        autolog("s0 to s1 map:\n %s" % s0_to_s1_map, TAG)
+        autolog("%s" % s0_to_s1_map, TAG + " s0 to s1 map")
         # the domain set that we pass to PLUTO needs information about
         # both spaces - the domain and the range of our map
 
         domain_set = isl.UnionSet.from_basic_set(unconstrained_s0_to_s1.domain().copy())
-        domain_set = domain_set.union(unconstrained_s0_to_s1.range().copy())
-        autolog("domain set:\n %s" % domain_set, TAG)
+        # domain_set = domain_set.union(unconstrained_s0_to_s1.range().copy())
+        autolog("%s" % domain_set, TAG + " domain set")
 
         pluto = libpluto.LibPluto()
         options = pluto.create_options()
@@ -420,66 +420,74 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         autolog("basic maps in PLUTO optimised schedule:\n%s" %
               "\n".join(list(map(str, basic_maps_in_sched))), TAG)
 
-        assert len(basic_maps_in_sched) == 2, \
+        assert len(basic_maps_in_sched) == 1, \
             ("the optimised schedule must have "
-             "only two corresponding BasicMaps "
-             "for the statements it owns")
+             "only one  corresponding BasicMap "
+             "for the statement it owns")
+
+        pluto_s0_to_optimised_map = basic_maps_in_sched[0].copy()
 
         # We care about S_1, which is the range of the transform
-        pluto_s1_to_optimised_map  = basic_maps_in_sched[1].copy()
-        autolog("Composing Maps:\nunconstrained_s0_to_s1_map:\n%s\n\npluto_s1_to_optimised_map:\n%s" % 
-                (unconstrained_s0_to_s1, pluto_s1_to_optimised_map), TAG)
+        # pluto_s1_to_optimised_map  = basic_maps_in_sched[1].copy()
+        # autolog("Composing Maps:\nunconstrained_s0_to_s1_map:\n%s\n\npluto_s1_to_optimised_map:\n%s" % 
+        #         (unconstrained_s0_to_s1, pluto_s1_to_optimised_map), TAG)
 
 
         # Make sure that we have the same number of variables
         # That is, PLUTO did not add any new variables into S1
         # before transforming it
-        assert unconstrained_s0_to_s1.range().n_dim() == \
-                pluto_s1_to_optimised_map.domain().n_dim(), ("PLUTO should not "
-                                                             "have added extra "
-                                                             "dimensions into "
-                                                             "S1")
+        # assert unconstrained_s0_to_s1.range().n_dim() == \
+        #        pluto_s1_to_optimised_map.domain().n_dim(), ("PLUTO should not "
+        #                                                     "have added extra "
+        #                                                     "dimensions into "
+        #                                                     "S1")
 
         # Create a map that matches our S1 variables to that of
         # PLUTO's renamed S1 variables
-        s1_to_pluto_s1_map = isl.Map.from_domain_and_range(unconstrained_s0_to_s1.range(),
-                                                           pluto_s1_to_optimised_map.domain())
+        # s1_to_pluto_s1_map = isl.Map.from_domain_and_range(unconstrained_s0_to_s1.range(),
+        #                                                   pluto_s1_to_optimised_map.domain())
 
 
         # autolog(">>>(TSTENCIL) number of variables in S1: %s" % var_count)
-        s1_to_pluto_s1_space = s1_to_pluto_s1_map.space
-        s1_to_pluto_s1_map =  s1_to_pluto_s1_map.add_constraint(
-            isl.Constraint.eq_from_names(s1_to_pluto_s1_space,
-                                         {'_t': -1, 'i0' : 1}))
-        
-        var_count = unconstrained_s0_to_s1.range().n_dim()
-        for i in range (1, var_count):
-            s1_var_name = '_i' + str(i - 1)
-            pluto_s1_var_name = 'i' + str(i)
-            equate_vals = isl.Constraint.eq_from_names(s1_to_pluto_s1_space,
-            {s1_var_name: -1, pluto_s1_var_name: 1})
-            s1_to_pluto_s1_map = s1_to_pluto_s1_map.add_constraint(equate_vals)
-
-        autolog("s1_to_pluto_s1: %s" % s1_to_pluto_s1_map, TAG)
+        # s1_to_pluto_s1_space = s1_to_pluto_s1_map.space
+        # s1_to_pluto_s1_map =  s1_to_pluto_s1_map.add_constraint(
+        #    isl.Constraint.eq_from_names(s1_to_pluto_s1_space,
+        #                                 {'_t': -1, 'i0' : 1}))
 
 
-        s0_to_optimised_map = s0_to_s1_map\
-                             .apply_range(s1_to_pluto_s1_map)\
-                             .apply_range(pluto_s1_to_optimised_map)
+        # var_count = unconstrained_s0_to_s1.range().n_dim()
+        # for i in range (1, var_count):
+        #     s1_var_name = '_i' + str(i - 1)
+        #     pluto_s1_var_name = 'i' + str(i)
+        #     equate_vals = isl.Constraint.eq_from_names(s1_to_pluto_s1_space,
+        #     {s1_var_name: -1, pluto_s1_var_name: 1})
+        #     s1_to_pluto_s1_map = s1_to_pluto_s1_map.add_constraint(equate_vals)
+
+        # autolog("s1_to_pluto_s1: %s" % s1_to_pluto_s1_map, TAG)
+
+
+        # s0_to_optimised_map = s0_to_s1_map\
+        #                      .apply_range(s1_to_pluto_s1_map)\
+        #                     .apply_range(pluto_s1_to_optimised_map)
 
         # Note, this has a problem: This will create a UnionMap,
         # when what we want is a BasicMap
         # The output of the combined map is a UnionMap, which is
         # stripped of the diamond tiling information. I'm adding it back
         # to have information about the diamond tiling dependencies
-        s0_to_optimised_map = get_maps_from_union_map(s0_to_optimised_map)[0].\
-            get_basic_maps()[0]
-        
+
+        # For now, take out a Map so we can add a dimension to it, and then lower it to a
+        # BasicMap
+        s0_to_optimised_map = get_maps_from_union_map(pluto_s0_to_optimised_map)[0]
+
         # set the names of in and out spaces
         s0_to_optimised_map = s0_to_optimised_map.set_tuple_name(isl.dim_type.in_, original_sched_domain_name)
-        
+
         var_count = s0_to_optimised_map.range().n_dim()
-    
+
+        s0_to_optimised_map =  s0_to_optimised_map.add_dims(isl.dim_type.out, 1)
+        s0_to_optimised_map = s0_to_optimised_map.set_dim_name(isl.dim_type.out, var_count, "_t")
+        
         # some of the out dimensions may have no name at all, since they
         # will be copies of the in dimension. However, we need names
         # for all out dimensions during codegen, so we manually assign the name
@@ -489,6 +497,7 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
 
         autolog("Final chosen schedule: %s" % s0_to_optimised_map, TAG)
 
+        s0_to_optimised_map = add_constraints(s0_to_optimised_map, ineqs=[], eqs=[{('out', '_t'): -1, ('constant', 0): 100}])
         poly_part.sched = s0_to_optimised_map
         # TODO: rename the poly part schedule with original name
         return

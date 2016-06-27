@@ -749,7 +749,7 @@ class PolyRep(object):
                 # constraint_map = add_constraints(constraint_map, ineqs=[], eqs=tstencil_eqs)
                 index_constraint_map = isl.UnionMap.from_basic_map(index_constraint_map)
                 constraints_union = constraints_union.union(index_constraint_map)
-
+    
                 # print(">>>(TSTENCIL) final constraints union: %s" % constraints_union)
 
         # return constraint_map
