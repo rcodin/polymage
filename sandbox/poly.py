@@ -690,10 +690,13 @@ class PolyRep(object):
         # (which is the range of the schedule map)
         sched_map = PolyRep.set_map_pluto_names(sched_map)
         sched_space = sched_map.space
-    
+
+        constraint_space = isl.Space.map_from_domain_and_range(sched_space.domain(),
+            sched_space.domain());
+
         # create the UnionMap that corresponds to the union of all constraints
-        constraints_union = isl.UnionMap.empty(sched_space)
-        constraints_union = constraints_union.union(isl.UnionMap.from_map(sched_map))
+        # constraints_union = isl.BasicMap.empty(sched_space)
+        # constraints_union = constraints_union.union(isl.UnionMap.from_map(sched_map))
 
         # time_constraint_map is used by everyone else
         # to create relationships between t -> t + 1
@@ -705,17 +708,17 @@ class PolyRep(object):
             ('out', 'time'): 1,
         })
 
-        constraint_space = isl.Space.map_from_domain_and_range(sched_space.domain(),
-            sched_space.domain());
+
         time_constraint_map = isl.BasicMap.universe(constraint_space)
         time_constraint_map = add_constraints(time_constraint_map,
-                                                  ineqs=[],
-                                                  eqs=equalities)
+                                         ineqs=[],
+                                         eqs=equalities)
 
+        constraints_union = isl.UnionMap.from_basic_map(isl.BasicMap.empty(constraint_space))
         # return constraints_union
 
         # return constraints_union
-        print(">>>(TSTENCIL) constraints union: %s" % constraints_union)
+        autolog("constraints union (new)): %s" % constraints_union, TAG)
 
 
         # build an indexed kernel
@@ -743,13 +746,14 @@ class PolyRep(object):
                     })
                 # print(">>>(TSTENCIL) eqs:%s" % tstencil_eqs)
                 index_constraint_map = add_constraints(index_constraint_map, ineqs=[], eqs=tstencil_eqs)
-                # print(">>>(TSTENCIL) partial constraint space: %s" % constraint_space)
+                # constraint_map = add_constraints(constraint_map, ineqs=[], eqs=tstencil_eqs)
                 index_constraint_map = isl.UnionMap.from_basic_map(index_constraint_map)
                 constraints_union = constraints_union.union(index_constraint_map)
+
                 # print(">>>(TSTENCIL) final constraints union: %s" % constraints_union)
 
+        # return constraint_map
         return constraints_union
-
     def extract_polyrep_from_tstencil(self, comp, max_dim,
                                       schedule_names, param_names,
                                       context_conds, level_no,
