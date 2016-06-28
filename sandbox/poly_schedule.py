@@ -26,6 +26,8 @@ import logging
 from grouping import get_group_dep_vecs
 from utils import *
 from poly import *
+import libpluto
+from debug_log import *
 
 # LOG CONFIG #
 poly_sched_logger = logging.getLogger("poly_schedule.py")
@@ -71,6 +73,12 @@ def base_schedule(group):
     parts = []
     for sublist in group.polyRep.poly_parts.values():
         parts.extend(sublist)
+
+    # #HACK: this depends on the fact that a group will have at least
+    # #one element to check if it has a Tstencil object.
+    # if group.comps[0].is_tstencil_type:
+    #     print (">>>(TSTENCIL): quitting base_schedule")
+    #     return parts
 
     for part in parts:
         dim_in = part.sched.dim(isl._isl.dim_type.in_)
@@ -345,61 +353,191 @@ def enable_tile_scratchpad(group_parts):
 
     return
 
-def fused_schedule(pipeline, group, param_estimates):
+def get_maps_from_union_map(union_map):
+    maps = []
+
+    def map_iterator(m):
+        maps.append(m.copy())
+        return 0
+
+    union_map.copy().foreach_map(map_iterator)
+    return maps
+
+def fused_schedule(pipeline, isl_ctx, group, param_estimates):
     """Generate an optimized schedule for the stage."""
 
     g_poly_parts = group.polyRep.poly_parts
-    g_all_parts = []
-    for comp in g_poly_parts:
-        g_all_parts.extend(g_poly_parts[comp])
+    # NOTE: we assume that group has >= 1 compute objects in it.
+    # diamond tile if group is tstencil
 
-    # get dependence vectors between each part of the group and each of its
-    # parents' part
-    comp_deps = get_group_dep_vecs(pipeline, group, g_all_parts)
+    if group.comps[0].is_tstencil_type:
 
-    # No point in tiling a group that has no dependencies
-    is_stencil = len(comp_deps) > 0 and len(g_all_parts) > 1
-    for dep, h in comp_deps:
-        # Skips groups which have self deps
-        if dep[0] == 0:
-            is_stencil = False
+        autolog("diamond tiling pass")
 
-    # threshold for parallelism
-    if not is_stencil:
+        assert len(group.comps) == 1, ("Tstencil must be in a "
+                                       "separate group.")
+        tstencil = group.comps[0]
+
+        poly_parts = g_poly_parts[tstencil]
+        assert len(poly_parts) == 1, ("a tstencil must have only one "
+                                      "poly part associated with it")
+
+        poly_part = poly_parts[0]
+
+        unconstrained_s0_to_s1 = poly_part.sched.copy()
+        unconstrained_s0_to_s1 = PolyRep.set_map_pluto_names(unconstrained_s0_to_s1)
+
+        # This is the map that knows how to map the smaller S0 space
+        # into the larger S1 space with the staging dimension
+        s0_to_s1_map = isl.Map.from_basic_map(poly_part.sched)
+        s0_to_s1_map = PolyRep.add_tstencil_kernel_constraints(poly_part.sched.copy(), tstencil)
+        autolog("s0 to s1 map:\n %s" % s0_to_s1_map)
+        # the domain set that we pass to PLUTO needs information about
+        # both spaces - the domain and the range of our map
+
+        domain_set = isl.UnionSet.from_basic_set(unconstrained_s0_to_s1.domain().copy())
+        domain_set = domain_set.union(unconstrained_s0_to_s1.range().copy())
+        autolog("domain set:\n %s" % domain_set)
+
+        # -- project out first dimension
+        pluto = libpluto.LibPluto()
+        options = pluto.create_options()
+        options.partlbtile = True
+        optimised_sched = pluto.schedule(isl_ctx, domain_set,
+                                         s0_to_s1_map,
+                                         options).copy()
+
+        autolog(">>>(TSTENCIL) raw pluto optimised schedule: %s" %optimised_sched)
+
+        basic_maps_in_sched = get_maps_from_union_map(optimised_sched)
+        # optimised_sched.foreach_map(lambda m:
+        #                             basic_maps_in_sched.append(m.copy()))
+
+        autolog(">>>(TSTENCIL) basic maps in optimised schedule:\n%s" %
+              "\n".join(list(map(str, basic_maps_in_sched))))
+
+        assert len(basic_maps_in_sched) == 2, \
+            ("the optimised schedule must have "
+             "only two corresponding BasicMaps "
+             "for the statements it owns")
+
+        # We care about S_1, which is the range of the transform
+        pluto_s1_to_optimised_map  = basic_maps_in_sched[1].copy()
+        autolog(">>>(TSTENCIL) COMPOSING MAPS:\ns0_to_s1_map:\n%s\n\npluto_s1_to_optimised_map:\n%s" % (s0_to_s1_map, pluto_s1_to_optimised_map))
+
+
+        # Make sure that we have the same number of variables
+        # That is, PLUTO did not add any new variables into S1
+        # before transforming it
+        assert unconstrained_s0_to_s1.range().n_dim() == \
+                pluto_s1_to_optimised_map.domain().n_dim(), ("PLUTO should not "
+                                                             "have added extra "
+                                                             "dimensions into "
+                                                             "S1")
+
+        # Create a map that matches our S1 variables to that of
+        # PLUTO's renamed S1 variables
+        s1_to_pluto_s1_map = isl.Map.from_domain_and_range(unconstrained_s0_to_s1.range(),
+                                                           pluto_s1_to_optimised_map.domain())
+
+
+        # autolog(">>>(TSTENCIL) number of variables in S1: %s" % var_count)
+        s1_to_pluto_s1_space = s1_to_pluto_s1_map.space
+        s1_to_pluto_s1_map =  s1_to_pluto_s1_map.add_constraint(
+            isl.Constraint.eq_from_names(s1_to_pluto_s1_space,
+                                         {'_t': -1, 'i0' : 1}))
+
+        var_count = unconstrained_s0_to_s1.range().n_dim()
+        for i in range (1, var_count):
+            s1_var_name = '_i' + str(i - 1)
+            pluto_s1_var_name = 'i' + str(i)
+            equate_vals = isl.Constraint.eq_from_names(s1_to_pluto_s1_space,
+            {s1_var_name: -1, pluto_s1_var_name: 1})
+            s1_to_pluto_s1_map = s1_to_pluto_s1_map.add_constraint(equate_vals)
+
+        autolog(">>> (TSTENCIL) s1_to_pluto_s1: %s" % s1_to_pluto_s1_map)
+
+
+        s0_to_optimised_map = s0_to_s1_map\
+                             .apply_range(s1_to_pluto_s1_map)\
+                             .apply_range(pluto_s1_to_optimised_map)
+
+        import pudb
+        pudb.set_trace()
+        
+        # The output of the combined map is a UnionMap, which is 
+        # stripped of the diamond tiling information. I'm adding it back
+        # to have information about the diamond tiling dependences 
+        s0_to_optimised_map = get_maps_from_union_map(s0_to_optimised_map)[0]
+        s0_to_optimised_map = PolyRep.add_tstencil_kernel_constraints(s0_to_optimised_map, tstencil)
+
+        autolog(">>>Final chosen schedule: %s" % s0_to_optimised_map)
+
+        poly_part.sched = s0_to_optimised_map
+
+        # We know that the final out dimension will correspond to _t
+        # Rename the final out dimensions to '_t' to match polymage
+        # convention of having the staging dimension
+        # num_out_dims = len(xxxxxx.get_var_names(isl._isl.dim_type.out))
+        # autolog(">>>(TSTENCIL) num out dims: %s" % num_out_dims)
+
+        # poly_part.sched = poly_part.sched.set_dim_name(isl._isl.dim_type.out,
+        #                                                num_out_dims - 1,
+        #                                                  "_t")
+        # autolog(">>>(TSTENCIL) chosen optimised schedule: %s" % poly_part.sched)
+
+        # poly_part.sched.find_dim_by_name(isl.dim_type.out, '_t')
+        return
+    else:
+        g_all_parts = []
+        for comp in g_poly_parts:
+            g_all_parts.extend(g_poly_parts[comp])
+
+        # get dependence vectors between each part of the group and each of its
+        # parents' part
+        comp_deps = get_group_dep_vecs(pipeline, group, g_all_parts)
+
+        # No point in tiling a group that has no dependencies
+        is_stencil = len(comp_deps) > 0 and len(g_all_parts) > 1
+        for dep, h in comp_deps:
+            # Skips groups which have self deps
+            if dep[0] == 0:
+                is_stencil = False
+
+        # threshold for parallelism
+        if not is_stencil:
+            for p in g_all_parts:
+                part_size = p.get_size(param_estimates)
+                big_part = (part_size != '*' and \
+                            part_size > pipeline._size_threshold)
+                if not p.is_self_dependent and big_part:
+                    mark_par_and_vec(p, pipeline._param_estimates)
+
+        # Find the parts which are not liveout
         for p in g_all_parts:
-            part_size = p.get_size(param_estimates)
-            big_part = (part_size != '*' and \
-                        part_size > pipeline._size_threshold)
-            if not p.is_self_dependent and big_part:
-                mark_par_and_vec(p, pipeline._param_estimates)
+            is_liveout = not is_stencil
+            #is_liveout = True
+            p.set_liveness(p.is_liveout or is_liveout)
 
-    # Find the parts which are not liveout
-    for p in g_all_parts:
-        is_liveout = not is_stencil
-        #is_liveout = True
-        p.set_liveness(p.is_liveout or is_liveout)
+        if is_stencil:
+            assert(len(g_all_parts) > 1)
+            hmax = max( [ p.level for p in g_all_parts ] )
+            hmin = min( [ p.level for p in g_all_parts ] )
+            slope_min, slope_max = compute_tile_slope(comp_deps, hmax)
 
-    if is_stencil:
-        assert(len(g_all_parts) > 1)
-        hmax = max( [ p.level for p in g_all_parts ] )
-        hmin = min( [ p.level for p in g_all_parts ] )
-        slope_min, slope_max = compute_tile_slope(comp_deps, hmax)
+            #splitTile(stageGroups[gi], slopeMin, slopeMax)
+            overlap_tile(pipeline, g_all_parts, slope_min, slope_max)
 
-        #splitTile(stageGroups[gi], slopeMin, slopeMax)
-        overlap_tile(pipeline, g_all_parts, slope_min, slope_max)
+            enable_tile_scratchpad(g_all_parts)
 
-        enable_tile_scratchpad(g_all_parts)
+            for p in g_all_parts:
+                mark_par_and_vec_for_tile(p)
 
-        for p in g_all_parts:
-            mark_par_and_vec_for_tile(p)
-
-        '''
-        for p in g_all_parts:
-            skewed_schedule(p)
-        '''
-
-    return
-
+            '''
+            for p in g_all_parts:
+                skewed_schedule(p)
+            '''
+        return
 def move_independent_dim(dim, group_parts, stageDim):
     # Move the independent dimensions outward of the stage dimension.
     for part in group_parts:

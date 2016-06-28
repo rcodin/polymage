@@ -145,28 +145,35 @@ def auto_group(pipeline):
 
             is_small_grp = True
             is_reduction_grp = False
+            is_tstencil_grp = False
             is_const_grp = False
             for comp in group.comps:
                 if not comp in small_comps:
                     is_small_grp = False
                 if isinstance(comp.func, Reduction):
                     is_reduction_grp = True
+                elif isinstance(comp.func, TStencil):
+                    is_tstencil_grp = True
                 if comp.func.is_const_func:
                     is_const_grp = True
             for g_child in group.children:
                 for comp in g_child.comps:
                     if isinstance(comp.func, Reduction):
                         is_reduction_grp = True
+                    elif isinstance(comp.func, TStencil):
+                        is_tstencil_grp = True
                     if comp.func.is_const_func:
                         is_const_grp = True
 
             # merge if
             # 1. big enough
             # 2. does not contain reduction
-            # 3. does not contain const function
-            # 4. number of comps in group < grp_size
+            # 3. does not contain TStencil
+            # 4. does not contain const function
+            # 5. number of comps in group < grp_size
             if not is_small_grp and \
                not is_reduction_grp and \
+               not is_tstencil_grp and \
                not is_const_grp and \
                len(group.comps) < grp_size:
                 merge = True

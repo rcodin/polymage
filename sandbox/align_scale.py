@@ -29,7 +29,7 @@ from poly import *
 
 # LOG CONFIG #
 align_scale_logger = logging.getLogger("align_scale.py")
-align_scale_logger.setLevel(logging.INFO)
+align_scale_logger.setLevel(logging.DEBUG)
 LOG = align_scale_logger.log
 
 class ASPacket(object):
@@ -732,12 +732,16 @@ def align_and_scale(pipeline, group):
     max_dim = 0
     no_self_dep_parts = []
     for comp in comps:
-        for p in group_part_map[comp]:
-            p_dim = len(p.align)
-            if not p.is_self_dependent:
-                no_self_dep_parts.append(p)
-                if max_dim < p_dim:
-                    max_dim = p_dim
+        if comp.is_tstencil_type:
+            for p in group_part_map[comp]:
+                max_dim = max(max_dim, len(p.align))
+        else:
+            for p in group_part_map[comp]:
+                p_dim = len(p.align)
+                if not p.is_self_dependent:
+                    no_self_dep_parts.append(p)
+                    if max_dim < p_dim:
+                        max_dim = p_dim
 
     # begin from the topologically earliest comp parts as the base parts for
     # scaling and alignment reference
@@ -760,7 +764,7 @@ def align_and_scale(pipeline, group):
     base_part = None
     dim_max = 0
     for p in abs_min_parts:
-        p_dim_in = p.sched.dim(isl._isl.dim_type.in_)
+        p_dim_in = p.sched.dim(isl.dim_type.in_)
         if p_dim_in > dim_max:
             dim_max = p_dim_in
             base_part = p
@@ -791,6 +795,7 @@ def align_and_scale(pipeline, group):
     for part in group_part_map[base_comp]:
         # set default values for base parts
         align, scale = default_align_and_scale(part.sched, max_dim, shift=True)
+        print("inside align_scale(), default: comp: %s | align: %s | scale: %s" % (part.comp.func.name, part.align, part.scale))
         # update to the temporary info
         true_pack = ASPacket(align, scale)
         full_pack = ASPacket(align, scale)
@@ -824,6 +829,8 @@ def align_and_scale(pipeline, group):
             part.set_align(align)
             part.set_scale(scale)
 
+            print("inside align_scale(), processed: comp: %s | align: %s | scale: %s" % (part.comp.func.name, part.align, part.scale))
+
     ''' normalizing the scaling factors '''
     norm = find_scale_norm(info)
     normalize_scale(norm, info)
@@ -840,6 +847,7 @@ def align_and_scale(pipeline, group):
             LOG(log_level, part.comp.func.name)
             log_str1 = "part.align = "+str([i for i in part.align])
             log_str2 = "part.scale = "+str([i for i in part.scale])
+            print("inside align_scale(), final: comp: %s | align: %s | scale: %s" % (part.comp.func.name, part.align, part.scale))
             LOG(log_level, log_str1)
             LOG(log_level, log_str2)
     # ***

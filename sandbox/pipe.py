@@ -120,9 +120,37 @@ def get_funcs(outputs):
     return funcs
 
 
+class ComputeTypes:
+    FUNCTION = 1
+    IMAGE = 2
+    REDUCTION = 3
+    TSTENCIL = 4
+
+
 class ComputeObject:
     def __init__(self, _func, _is_output=False):
-        assert isinstance(_func, Function)
+
+        self._compute_type = None
+        # NOTE: do NOT change this to if-elif-elif...else
+        # since this is an _inheritance hierarchy. Somthing can be a
+        # Function AND a reduction.
+        if isinstance(_func, Function):
+            self._compute_type = ComputeTypes.FUNCTION
+        if isinstance(_func, Image):
+            self._compute_type = ComputeTypes.IMAGE
+        if isinstance(_func, Reduction):
+            self._compute_type = ComputeTypes.REDUCTION
+        if isinstance(_func, TStencil):
+            self._compute_type = ComputeTypes.TSTENCIL
+        if self._compute_type is None:
+            raise TypeError("unknown compute object function type:\n"
+                            "Given: %s\n"
+                            "nType: %s" % (self._func, type(self.function)))
+
+        self._is_parents_set = False
+        self._is_children_set = False
+        self._is_group_set = False
+
         self._func = _func
         self._parents = []
         self._children = []
@@ -133,7 +161,6 @@ class ComputeObject:
 
         self._is_output = _is_output
         self._is_liveout = True
-        self.set_flags()
 
         self._level_no = 0
         self._group_level_no = 0
@@ -151,30 +178,45 @@ class ComputeObject:
     @property
     def is_parents_set(self):
         return self._is_parents_set
+
     @property
     def is_children_set(self):
         return self._is_children_set
+
     @property
     def is_group_set(self):
         return self._is_group_set
+
+    @property
+    def is_func_type(self):
+        return self._compute_type == ComputeTypes.FUNCTION
+
     @property
     def is_image_typ(self):
-        return self._is_image_typ
+        return self._compute_type == ComputeTypes.IMAGE
+
     @property
     def is_reduction_typ(self):
-        return self._is_reduction_typ
+        return self._compute_type == ComputeTypes.REDUCTION
+
+    @property
+    def is_tstencil_type(self):
+        return self._compute_type == ComputeTypes.TSTENCIL
 
     @property
     def parents(self):
         assert self.is_parents_set
         return self._parents
+
     @property
     def children(self):
         assert self.is_children_set
         return self._children
+
     @property
     def size(self):
         return self._size
+
     @property
     def group(self):
         assert self.is_group_set
@@ -183,12 +225,15 @@ class ComputeObject:
     @property
     def level(self):
         return self._level_no
+
     @property
     def group_level(self):
         return self._group_level_no
+
     @property
     def is_output(self):
         return self._is_output
+
     @property
     def is_liveout(self):
         return self._is_liveout
@@ -196,23 +241,18 @@ class ComputeObject:
     @property
     def orig_storage_class(self):
         return self._orig_storage_class
+
     @property
     def storage_class(self):
         return self._storage_class
+
     @property
     def array(self):
         return self._array
+
     @property
     def scratch(self):
         return self._scratch_info
-
-    def set_flags(self):
-        self._is_parents_set = False
-        self._is_children_set = False
-        self._is_group_set = False
-        self._is_image_typ = isinstance(self.func, Image)
-        self._is_reduction_typ = isinstance(self.func, Reduction)
-        return
 
     def add_child(self, comp):
         assert isinstance(comp, ComputeObject)
@@ -220,6 +260,7 @@ class ComputeObject:
         self._children = list(set(self._children))
         self._is_children_set = True
         return
+
     def add_parent(self, comp):
         assert isinstance(comp, ComputeObject)
         self._parents.append(comp)
@@ -231,6 +272,7 @@ class ComputeObject:
         if comp in self._children:
             self._children.remove(comp)
         return
+
     def remove_parent(self, comp):
         if comp in self._parents:
             self._parents.remove(comp)
@@ -721,10 +763,9 @@ class Pipeline:
         for g in self.groups:
             # alignment and scaling
             align_and_scale(self, g)
-            # base schedule
             base_schedule(g)
             # grouping and tiling
-            fused_schedule(self, g, self._param_estimates)
+            fused_schedule(self, self._ctx, g, self._param_estimates)
 
         # group
         self._grp_schedule = schedule_groups(self)
