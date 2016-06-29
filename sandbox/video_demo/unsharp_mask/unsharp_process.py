@@ -4,7 +4,7 @@ from cv2 import *
 import sys
 from structs import *
 from PIL import Image, ImageFilter
-from unsharp_numba_version import unsharp_numba
+from numba_driver import unsharp_numba_driver
 from numba import jit
 
 sys.path.insert(0, "../")
@@ -63,7 +63,7 @@ def add_unsharp_app(app_id):
     app_func_map[ModeType.P_NAIVE] = unsharp_polymage
     app_func_map[ModeType.P_OPT] = unsharp_polymage
     app_func_map[ModeType.PIL] = unsharp_pil
-    app_func_map[ModeType.NUMBA] = unsharp_numba
+    app_func_map[ModeType.NUMBA] = unsharp_numba_driver
 
     # 4. create an App object
     app_dir = os.path.dirname(os.path.realpath(__file__))
