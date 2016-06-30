@@ -672,7 +672,7 @@ class PolyRep(object):
         return sched_map
 
     @staticmethod
-    def add_tstencil_kernel_constraints(sched_map, comp):
+    def add_tstencil_kernel_constraints(isl_ctx, sched_domain, sched_map, comp):
         # Quick note on naming convention between domain and range:
         # The domain will have the input tuple as  [time, x, y, z, ...]
         # The range will have outputs as [_t, _i0, _i1]
@@ -688,15 +688,15 @@ class PolyRep(object):
 
         # the domain where constraints will be created
         # (which is the range of the schedule map)
-        sched_map = PolyRep.set_map_pluto_names(sched_map)
-        sched_space = sched_map.space
+        time_constraint_map = isl.BasicMap.from_domain_and_range(sched_domain, 
+                sched_domain)
+        # in_sched_space = isl.Space.from_domain_and_range(sched_domain, 
+                sched_domain)
 
-        constraint_space = isl.Space.map_from_domain_and_range(sched_space.domain(),
-            sched_space.domain());
 
         # create the UnionMap that corresponds to the union of all constraints
-        # constraints_union = isl.BasicMap.empty(sched_space)
         # constraints_union = constraints_union.union(isl.UnionMap.from_map(sched_map))
+        # constraints_union = isl.BasicMap.empty(sched_space)
 
         # time_constraint_map is used by everyone else
         # to create relationships between t -> t + 1
@@ -709,12 +709,12 @@ class PolyRep(object):
         })
 
 
-        time_constraint_map = isl.BasicMap.universe(constraint_space)
         time_constraint_map = add_constraints(time_constraint_map,
                                          ineqs=[],
                                          eqs=equalities)
 
-        constraints_union = isl.UnionMap.from_basic_map(isl.BasicMap.empty(constraint_space))
+        # constraints_union = 
+        isl.UnionMap.from_basic_map(isl.BasicMap.empty(in_sched_space))
         # return constraints_union
 
         # return constraints_union
