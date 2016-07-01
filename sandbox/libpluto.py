@@ -1,7 +1,9 @@
 # from ctypes import cdll, Structure, c_int, c_double, c_uint
 from cffi import FFI
 import islpy as isl
+from debug_log import *
 
+TAG = "libpluto"
 _pluto_header_str = \
     """
     struct plutoOptions{
@@ -349,7 +351,9 @@ class LibPluto(object):
         assert isinstance(dependences, isl.UnionMap)
         assert isinstance(options, PlutoOptions)
 
-        print(">>>(TSTENCIL) domains:\n%s\ndeps:\n%s" % (domains, dependences))
+        autolog(header("domains") + str(domains), TAG)
+        autolog(header("depdendences") + str(dependences), TAG)
+
         domains_str = domains.to_str().encode('utf-8')
         dependences_str = dependences.to_str().encode('utf-8')
         schedule_strbuf_ptr = self.ffi.new("char **")
@@ -367,7 +371,6 @@ class LibPluto(object):
         self.sharedobj.pluto_schedules_strbuf_free(schedule_strbuf_ptr[0])
 
         return schedule
-
 
 
 # This is somewhat of a hack, just to run a "test" if this file is

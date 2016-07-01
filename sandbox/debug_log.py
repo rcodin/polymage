@@ -5,6 +5,12 @@ from colorama import init, Fore, Style
 # coloredlogs.install(level='DEBUG')
 
 
+def header(message):
+    message = str(message)
+    message = "%s" % message 
+    return (Fore.BLUE + "%s\n%s\n" % (message, '-' * len(message)) + 
+        Style.RESET_ALL)
+
 def autolog(message, tag=None):
     "Automatically log the current function details."
     import inspect
