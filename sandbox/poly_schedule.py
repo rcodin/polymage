@@ -489,8 +489,6 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         opt_schedule = opt_schedule.set_tuple_name(isl.dim_type.in_,
                 original_sched_domain_name)
         autolog(header("Final chosen schedule") +  str(opt_schedule), TAG)
-
-
         poly_part.sched = opt_schedule
         return
     else:
