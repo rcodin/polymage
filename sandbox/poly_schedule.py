@@ -364,6 +364,13 @@ def get_maps_from_union_map(union_map):
 
 
 def add_staging_dimension(schedule, staging_val):
+    """
+    :param schedule:
+    :param staging_val:
+    :return:
+     A new schedule with the staging dimension attached
+    """
+
     out_space = schedule.range().space.copy()
     # add a dimension for staging
     out_space = out_space.add_dims(isl.dim_type.out, 1)
@@ -470,8 +477,9 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         # ---
         # add the staging dimension into PLUTO's returned schedule
         opt_schedule = basic_maps_in_sched[0].copy().get_basic_maps()[0]
-        import pudb; pudb.set_trace()
-        staging_dim_value = -2 # HACK
+        # staging dimension calculation replicated from
+        # poly_schedule.py:format_schedule_constraints()
+        staging_dim_value = poly_part.level - 1
         opt_schedule = add_staging_dimension(opt_schedule, staging_dim_value)
         
         # ---
