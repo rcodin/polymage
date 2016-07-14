@@ -394,8 +394,12 @@ def remap_storage_for_comps(comps, storage_class_map, schedule,
 
     if not opt:
         for comp in comps:
-            array_count += 1
-            storage_map[comp] = array_count
+            if comp.is_tstencil_type:
+                array_count += 2
+                storage_map[comp] = (array_count-1, array_count)
+            else:
+                array_count += 1
+                storage_map[comp] = array_count
         return
 
     # sort comps according to their schedule
@@ -409,22 +413,48 @@ def remap_storage_for_comps(comps, storage_class_map, schedule,
 
     for comp in sorted_comps:
         stg_class = comp.storage_class
-        # if no array of stg_class is free as of now
-        if not array_pool[stg_class]:
-            array_count += 1
-            storage_map[comp] = array_count
-        # there is a free array of stg_class in the pool
-        else:
-            storage_map[comp] = array_pool[stg_class].pop()
 
-        # return free arrays to pool
+        # number of arrays required to realize the compute object
+        num_reqd = 2 if comp.is_tstencil_type else 1
+        # number of arrays avaiable in the pool
+        num_available = len(array_pool[stg_class])
+
+        # number of arrays that can be allocated from the pool
+        num_allocated = min(num_available, num_reqd)
+        allocated_arrays = [array_pool[stg_class].pop() \
+            for _ in range(num_allocated)]
+
+        # number of arrays yet to be allocated
+        deficit = num_reqd - num_allocated
+        if deficit > 0:
+            allocated_arrays += [array_count + 1 + i for i in range(deficit)]
+            array_count += deficit
+
+        print("-"*10)
+        print(allocated_arrays)
+
+        # Values of the storage_map dictionary are used as keys somewhere else
+        # (in array_writers dictionary). This forces us to have tuples that
+        # are of hashable type, and not lists.
+        storage_map[comp] = tuple(allocated_arrays) if comp.is_tstencil_type \
+            else allocated_arrays[0]
+
+        # Return the temporary buffer required by current comp - if tstencil.
+        # The result array of the comp will be returned to the pool once it is
+        # no more live.
+        if comp.is_tstencil_type:
+            array_pool[stg_class].append(allocated_arrays[0])
+
+        # return other free arrays to pool
         time = schedule[comp]
         # if any comp is not live after this point
         if time in liveness_map:
             free_comps = liveness_map[time]
             for free_comp in free_comps:
                 comp_stg_class = free_comp.storage_class
-                storage_index = storage_map[free_comp]
+                storage_index = storage_map[free_comp][1] \
+                    if free_comp.is_tstencil_type \
+                    else storage_map[free_comp]
                 array_pool[comp_stg_class].append(storage_index)
 
     # ***
@@ -466,7 +496,7 @@ def create_physical_arrays(pipeline):
 
     opt = 'optimize_storage' in pipeline.options
 
-    def create_new_array(comp, flat_scratch=False):
+    def create_new_array(comp, flat_scratch=False, identifier=""):
         '''
         Creates CArray for a given comp
         '''
@@ -495,7 +525,7 @@ def create_physical_arrays(pipeline):
             array_sizes.append(get_dim_size(dim_storage))
 
         # create CArray object
-        array = genc.CArray(array_type, array_name, array_sizes)
+        array = genc.CArray(array_type, array_name+identifier, array_sizes)
         array.layout = array_layout
 
         return array
@@ -505,12 +535,22 @@ def create_physical_arrays(pipeline):
         Set CArray for comp by newly creating it or finding the already created
         corresponding object.
         '''
-        if array_id in created:
-            array = created[array_id]
+        def set_array(comp, array_id, created, flat_scratch, identifier=""):
+            if array_id in created:
+                array = created[array_id]
+            else:
+                array = create_new_array(comp, flat_scratch, identifier)
+                # record the array creation
+                created[array_id] = array
+
+            return array
+
+        if comp.is_tstencil_type:
+            array1 = set_array(comp, array_id[0], created, flat_scratch, "_T0")
+            array2 = set_array(comp, array_id[1], created, flat_scratch, "_T1")
+            array = (array1, array2)
         else:
-            array = create_new_array(comp, flat_scratch)
-            # record the array creation
-            created[array_id] = array
+            array = set_array(comp, array_id, created, flat_scratch)
 
         return array
 
@@ -534,12 +574,26 @@ def create_physical_arrays(pipeline):
         outputs = pipeline.outputs
         for out in outputs:
             out_comp = func_map[out]
-            array = create_new_array(out_comp)
-            out_comp.set_storage_object(array)
-            # record array creation. Outputs may collide with non-output
-            # liveouts for reuse.
             array_id = pipeline.storage_map[out_comp]
-            created[array_id] = array
+
+            if out_comp.is_tstencil_type:
+                # assuming that the temporary buffer required for tstencils
+                # will be allocated in the 0'th element of the array list
+                array1 = create_new_array(out_comp, flat_scratch, "_T0")
+                array2 = create_new_array(out_comp)
+                array = (array1, array2)
+                # record array creation. Outputs may collide with non-output
+                # liveouts for reuse.
+                created[array_id[0]] = array[0]
+                created[array_id[1]] = array[1]
+            else:
+                array = create_new_array(out_comp)
+                # record array creation. Outputs may collide with non-output
+                # liveouts for reuse.
+                created[array_id] = array
+
+            out_comp.set_storage_object(array)
+
         return
 
     def set_arrays_for_comps(pipeline, created_arrays, flat_scratch):

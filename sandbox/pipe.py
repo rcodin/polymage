@@ -174,82 +174,63 @@ class ComputeObject:
     @property
     def func(self):
         return self._func
-
     @property
     def is_parents_set(self):
         return self._is_parents_set
-
     @property
     def is_children_set(self):
         return self._is_children_set
-
     @property
     def is_group_set(self):
         return self._is_group_set
-
     @property
     def is_func_type(self):
         return self._compute_type == ComputeTypes.FUNCTION
-
     @property
     def is_image_typ(self):
         return self._compute_type == ComputeTypes.IMAGE
-
     @property
     def is_reduction_typ(self):
         return self._compute_type == ComputeTypes.REDUCTION
-
     @property
     def is_tstencil_type(self):
         return self._compute_type == ComputeTypes.TSTENCIL
-
     @property
     def parents(self):
         assert self.is_parents_set
         return self._parents
-
     @property
     def children(self):
         assert self.is_children_set
         return self._children
-
     @property
     def size(self):
         return self._size
-
     @property
     def group(self):
         assert self.is_group_set
         return self._group
-
     @property
     def level(self):
         return self._level_no
-
     @property
     def group_level(self):
         return self._group_level_no
-
     @property
     def is_output(self):
         return self._is_output
-
     @property
     def is_liveout(self):
         return self._is_liveout
-
     @property
     def orig_storage_class(self):
         return self._orig_storage_class
-
     @property
     def storage_class(self):
         return self._storage_class
-
     @property
     def array(self):
         return self._array
-
     @property
     def scratch(self):
         return self._scratch_info
@@ -388,7 +369,14 @@ class ComputeObject:
         self._storage_class = _storage_class
 
     def set_storage_object(self, _array):
-        assert isinstance(_array, genc.CArray)
+        if self.is_tstencil_type:
+            assert isinstance(_array, tuple)
+            assert len(_array) == 2
+            assert isinstance(_array[0], genc.CArray)
+            assert isinstance(_array[1], genc.CArray)
+            self._array = _array
+        else:
+            assert isinstance(_array, genc.CArray)
         self._array = _array
     def set_scratch_info(self, _scratch_info):
         self._scratch_info = _scratch_info
@@ -949,15 +937,25 @@ class Pipeline:
                 # liveout or not
                 style = 'rounded'
                 if comp.is_liveout:
-                    style += ', bold'
+                    #style += ', bold'
+                    style += ', filled'
                 else:
                     style += ', filled'
+
+                colour_index = self.storage_map[comp]
                 # comp's array mapping
-                color_index = self.storage_map[comp]
-                gr.add_node(comp.func.name,
-                            color=X11Colours.colour(color_index),
-                            style=style,
-                            shape="box")
+                if comp.is_tstencil_type:
+                    gr.add_node(comp.func.name,
+                        color=X11Colours.colour(colour_index[0]) + ";0.5:" + \
+                              X11Colours.colour(colour_index[1]),
+                        style=style,
+                        gradientangle=90,
+                        shape="box")
+                else:
+                    gr.add_node(comp.func.name,
+                        color=X11Colours.colour(color_index),
+                        style=style,
+                        shape="box")
 
             # add group boundary
             gr.add_subgraph(nbunch = sub_graph_nodes,
