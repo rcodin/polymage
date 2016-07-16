@@ -130,22 +130,7 @@ class ComputeTypes:
 class ComputeObject:
     def __init__(self, _func, _is_output=False):
 
-        self._compute_type = None
-        # NOTE: do NOT change this to if-elif-elif...else
-        # since this is an _inheritance hierarchy. Somthing can be a
-        # Function AND a reduction.
-        if isinstance(_func, Function):
-            self._compute_type = ComputeTypes.FUNCTION
-        if isinstance(_func, Image):
-            self._compute_type = ComputeTypes.IMAGE
-        if isinstance(_func, Reduction):
-            self._compute_type = ComputeTypes.REDUCTION
-        if isinstance(_func, TStencil):
-            self._compute_type = ComputeTypes.TSTENCIL
-        if self._compute_type is None:
-            raise TypeError("unknown compute object function type:\n"
-                            "Given: %s\n"
-                            "nType: %s" % (self._func, type(self.function)))
+        self._set_type(_func)
 
         self._is_parents_set = False
         self._is_children_set = False
@@ -184,6 +169,10 @@ class ComputeObject:
     def is_group_set(self):
         return self._is_group_set
     @property
+    def compute_type(self):
+        return self._compute_type
+
+    @property
     def is_func_type(self):
         return self._compute_type == ComputeTypes.FUNCTION
     @property
@@ -195,6 +184,7 @@ class ComputeObject:
     @property
     def is_tstencil_type(self):
         return self._compute_type == ComputeTypes.TSTENCIL
+
     @property
     def parents(self):
         assert self.is_parents_set
@@ -234,6 +224,26 @@ class ComputeObject:
     @property
     def scratch(self):
         return self._scratch_info
+
+    def _set_type(self, _func):
+        self._compute_type = None
+        # NOTE: do NOT change this to if-elif-elif...else
+        # since this is an _inheritance hierarchy. Somthing can be a
+        # Function AND a reduction.
+        if isinstance(_func, Function):
+            self._compute_type = ComputeTypes.FUNCTION
+        if isinstance(_func, Image):
+            self._compute_type = ComputeTypes.IMAGE
+        if isinstance(_func, Reduction):
+            self._compute_type = ComputeTypes.REDUCTION
+        if isinstance(_func, TStencil):
+            self._compute_type = ComputeTypes.TSTENCIL
+
+        if self._compute_type is None:
+            raise TypeError("unknown compute object function type:\n"
+                            "Given: %s\n"
+                            "nType: %s" % (self._func, type(self.function)))
+        return
 
     def add_child(self, comp):
         assert isinstance(comp, ComputeObject)
@@ -408,6 +418,7 @@ class Group:
         self._parents = []
         self._children = []
 
+        self._set_type()
         self.set_comp_group()
 
         self._level_order_comps = self.order_compute_objs()
@@ -441,9 +452,23 @@ class Group:
     def children(self):
         return self._children
 
+    # NOTE: Current assumptions:
+    # (1). A Reduction group, TStencil group, and Image group has only one
+    # compute object of the respective kind.
+    # (2). If a group is of pure function type, all its compute objects are
+    # of Function type, and not one of the types listed in (1).
+    @property
+    def is_func_type(self):
+        return self._group_type == ComputeTypes.FUNCTION
     @property
     def is_image_typ(self):
-        return self._is_image_typ
+        return self._group_type == ComputeTypes.IMAGE
+    @property
+    def is_reduction_typ(self):
+        return self._group_type == ComputeTypes.REDUCTION
+    @property
+    def is_tstencil_type(self):
+        return self._group_type == ComputeTypes.TSTENCIL
 
     @property
     def polyRep(self):
@@ -478,6 +503,27 @@ class Group:
     @property
     def liveness_map(self):
         return self._liveness_map
+
+    def _set_type(self):
+        '''
+        Depends on how specifically the ComputeObject's type was set, since all
+        types inherit from Function type.
+        '''
+        group_type = ComputeTypes.FUNCTION
+        for comp in self._comps:
+            group_type = comp.compute_type
+            if not group_type == ComputeTypes.FUNCTION:
+            # Ideally this case won't occur when the list of group's comps has
+            # more than one compute object, since as of now, we group only a
+            # bunch of pure compute objects. Images need no fusion since they
+            # are program inputs. Fusion and/or tiling optimizations for
+            # Reductions is not yet covered. TStencils will be standalone
+            # groups if diamond tiling is enabled.
+            # TODO: add flag to decide if TStencils are to be Diamond tiled or
+            # Overlap tiled.
+                break
+        self._group_type = group_type
+        return
 
     def set_comp_group(self):
         for comp in self.comps:
