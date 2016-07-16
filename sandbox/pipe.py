@@ -934,34 +934,39 @@ class Pipeline:
         for i in range(0, len(self.groups)):
             sub_graph_nodes = [comp.func.name for comp in self.groups[i].comps]
             for comp in self.groups[i].comps:
-                # liveout or not
-                style = 'rounded'
-                if comp.is_liveout:
-                    #style += ', bold'
-                    style += ', filled'
-                else:
-                    style += ', filled'
-
                 colour_index = self.storage_map[comp]
                 # comp's array mapping
                 if comp.is_tstencil_type:
-                    gr.add_node(comp.func.name,
-                        color=X11Colours.colour(colour_index[0]) + ";0.5:" + \
-                              X11Colours.colour(colour_index[1]),
-                        style=style,
-                        gradientangle=90,
-                        shape="box")
+                    node_colour = X11Colours.colour(colour_index[1]) + ";0.5:" + \
+                        X11Colours.colour(colour_index[0])
                 else:
-                    gr.add_node(comp.func.name,
-                        color=X11Colours.colour(color_index),
-                        style=style,
-                        shape="box")
+                    node_colour = X11Colours.colour(colour_index)
+
+                # liveout or not
+                node_style = 'rounded,'
+                if comp.is_liveout:
+                    node_style += 'bold,'
+                    node_style += 'filled,'
+                    node_shape = 'doublecircle'
+                    node_fillcolor = node_colour
+                    node_colour = ''
+                else:
+                    node_style += 'filled,'
+                    node_shape = 'box'
+                    node_fillcolor = ''
+
+                gr.add_node(comp.func.name,
+                    fillcolor=node_fillcolor,
+                    color=node_colour,
+                    style=node_style,
+                    gradientangle=90,
+                    shape=node_shape)
 
             # add group boundary
             gr.add_subgraph(nbunch = sub_graph_nodes,
                             name = "cluster_" + str(i),
                             label=str(self.group_schedule[self.groups[i]]),
-                            style="dashed, rounded")
+                            style="dashed,rounded,")
 
         for comp in self.comps:
             for p_comp in comp.parents:
