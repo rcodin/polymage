@@ -349,6 +349,8 @@ def generate_c_naive_from_expression_node(pipe, polyrep, node, body,
     expr = generate_c_expr(pipe, poly_part.expr,
                            cparam_map, cvar_map,
                            scratch_map, prologue_stmts = prologue)
+    if isinstance(array, tuple):  # TStencil array tuple
+        array = array[1]  # Second entry is the output of TStencil
     assign = genc.CAssign(array(*arglist), expr)
 
     if prologue is not None:
@@ -604,6 +606,8 @@ def generate_c_expr(pipe, exp, cparam_map, cvar_map,
         args = [ generate_c_expr(pipe, arg, cparam_map, cvar_map,
                                  scratch_map, prologue_stmts)
                  for arg in shifted_args ]
+        if isinstance(array, tuple):  # TStencil array tuple
+            array = array[1]  # Second entry is the output of TStencil
         return array(*args)
     if isinstance(exp, Select):
         c_cond = generate_c_cond(pipe, exp.condition,
