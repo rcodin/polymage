@@ -21,17 +21,17 @@ def test_t_stencil_1d():
 
     img = Image(Float, "input", [R+1])
 
-    kernel = [1, 1, 1]
-    stencil = TStencil(img, ([x], [xrow]), kernel, "S_1", None, T)
-    print(stencil)
+    stencil = Stencil(img, [x], [-1, 3, 1])
+    tstencil = TStencil(([x], [xrow]), Int, "S_1", T)
+    tstencil.defn = stencil * 3 + 5
 
 
-    groups = [stencil]
+    groups = [tstencil]
 
     p_est = [ (R, 1024)]
 
     # build the pipeline
-    pipeline = buildPipeline([stencil],
+    pipeline = buildPipeline([tstencil],
                              grouping = groups,
                              param_estimates = p_est,
                              pipe_name = "tstencil_1d")
