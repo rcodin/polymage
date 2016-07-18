@@ -809,7 +809,7 @@ class TStencil(object):
 
     @property
     def typ(self):
-        return self._input_fn.typ
+        return self._typ
 
     def hasBoundedIntegerDomain(self):
         boundedIntegerDomain = True
@@ -922,15 +922,15 @@ class TStencil(object):
         return chosen
 
     def _build_indexed_kernel(self):
-        assert is_valid_kernel(self._kernel,
+        assert is_valid_kernel(self._stencil._kernel,
                                num_dimensions=len(self.variables))
-        kernel_sizes = get_valid_kernel_sizes(self._kernel)
+        kernel_sizes = get_valid_kernel_sizes(self._stencil._kernel)
         iter_var_indeces = range(0, len(self._variables))
-        return self._build_indexed_kernel_recur(self._origin,
+        return self._build_indexed_kernel_recur(self._stencil._origin,
                                                 iter_var_indeces,
                                                 [],
                                                 kernel_sizes,
-                                                self._kernel)
+                                                self._stencil._kernel)
 
     def get_indexing_expr(self):
 
@@ -943,7 +943,9 @@ class TStencil(object):
         #         index_expr += ref * weight
 
         # multiply by 1 to upcast the reference to an expression
-        return (1 * Reference(self, self.variables) * self._input_fn(*self.variables))
+        # return (1 * Reference(self, self.variables) * self._input_fn(*self.variables))
+        return self._body.macro_expand()
+
     def __call__(self, *args):
         assert(len(args) == len(self._variables))
         for arg in args:
