@@ -563,6 +563,13 @@ class Stencil(AbstractExpression):
         if self._origin is None:
             self._origin = list(map(lambda x: (x-1) // 2, self._sizes))
 
+    def collect(self, objType):
+        # import pudb; pudb.set_trace()
+        objs = []
+        if (type(self) is objType):
+            objs = [self]
+        return objs
+
     def clone(self):
         iter_vars = [ i.clone() for i in self._iteration_vars]
         return Stencil(self._input_fn, iter_vars, self._kernel, self._origin)
@@ -740,6 +747,8 @@ class TStencil(object):
         assert isinstance(_def, AbstractExpression)
 
         stencil_list = _def.collect(Stencil)
+        print("stencil_list: %s" % stencil_list)
+
         assert(len(stencil_list) == 1, "Expected exactly 1 stencil in defn.")
         self._stencil = stencil_list[0]
         self._body = _def
@@ -756,6 +765,11 @@ class TStencil(object):
         objs = []
         for interval in self._var_domain:
             objs += interval.collect(objType)
+
+        # it is important for us to clone the body before we 
+        # macro expand so that we don't lose our original body
+        objs += self._body.clone().macro_expand().collect(objType)
+
         return list(set(objs))
 
     def __str__(self):
@@ -933,17 +947,6 @@ class TStencil(object):
                                                 self._stencil._kernel)
 
     def get_indexing_expr(self):
-
-        import pudb; pudb.set_trace();
-        # indexed_kernel = self._build_indexed_kernel()
-        # index_expr = 0
-        # for (indeces, weight) in indexed_kernel:
-        #         print("indeces: %s" % indeces)
-        #         ref = Reference(self._input_fn, indeces)
-        #         index_expr += ref * weight
-
-        # multiply by 1 to upcast the reference to an expression
-        # return (1 * Reference(self, self.variables) * self._input_fn(*self.variables))
         return self._body.macro_expand()
 
     def __call__(self, *args):

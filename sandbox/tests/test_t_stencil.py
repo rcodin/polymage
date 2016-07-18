@@ -15,7 +15,7 @@ def test_t_stencil_1d():
     T = Parameter(Int, "T")
     x = Variable(Int, "x")
 
-    xrow = Interval(Int, 1, R)
+    xrow = Interval(Int, 2, R - 2)
 
     bounds = Condition(x, '>=', 1) & Condition(x, '<=', R)
 
@@ -23,7 +23,7 @@ def test_t_stencil_1d():
 
     stencil = Stencil(img, [x], [-1, 3, 1])
     tstencil = TStencil(([x], [xrow]), Int, "S_1", T)
-    tstencil.defn = stencil * 3 + 5
+    tstencil.defn = (stencil + 3)
 
 
     groups = [tstencil]
@@ -71,6 +71,7 @@ def test_t_stencil_2d():
 
     kernel = [[1, 1, 1], [1, 0, 1], [1, 1, 1]]
     stencil = TStencil(img, ([x, y], [xrow, xcol]), kernel, "S_1", None, T)
+
     print(stencil)
 
 
