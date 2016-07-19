@@ -893,7 +893,7 @@ class TStencil(object):
         -------
         indexed_kernel: [(Total_Index, kernel_weight: Int)]
             type Total_Index = [(var_index: Int, origin_delta: Int)]
-        
+
         indexed_kernel: [
                 (
                     [(var: Variable, origin_delta: Int)],

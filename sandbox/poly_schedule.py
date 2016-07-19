@@ -392,7 +392,7 @@ def add_staging_dimension(schedule, staging_val):
             ('out', 0): 1,
             ('constant', 0): -staging_val
     }
-        
+
     constraints.append(staging_constraint)
     map_ = add_constraints(map_, ineqs=[], eqs=constraints)
 
@@ -404,8 +404,8 @@ def add_staging_dimension(schedule, staging_val):
     # name all the dimensions correctly
     schedule = schedule.set_dim_name(isl.dim_type.out, 0, '_t')
     for i in range(1, domain_var_count + 1):
-        schedule = schedule.set_dim_name(isl.dim_type.out, i, 'ozz' + str(i - 1))
-    
+        schedule = schedule.set_dim_name(isl.dim_type.out, i, 'o' + str(i - 1))
+
     return schedule
 
 def fused_schedule(pipeline, isl_ctx, group, param_estimates):
@@ -446,7 +446,7 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         # make a new schedule, from domain -> domain with the
         # stencil dependencies in place. This also adds the time
         # dimension.
-        in_schedule = PolyRep.add_tstencil_kernel_constraints(isl_ctx, 
+        in_schedule = PolyRep.add_tstencil_kernel_constraints(isl_ctx,
                 in_domain, in_schedule, tstencil_comp)
 
         autolog("%s%s" % (header("in_domain"), in_domain), TAG)
@@ -454,13 +454,13 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         pluto = libpluto.LibPluto()
         options = pluto.create_options()
         options.partlbtile = True
-        optimised_sched = pluto.schedule(isl_ctx, 
+        optimised_sched = pluto.schedule(isl_ctx,
                 isl.UnionSet.from_basic_set(in_domain),
                 in_schedule,
                  options).copy()
 
         autolog("pluto optimised schedule: %s" % optimised_sched, TAG)
-        
+
         # -----
         # get the basic maps in the pluto union map, and pick up
         # the basicMap of the schedule we care about
@@ -473,7 +473,7 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
             ("the optimised schedule must have "
              "only one  corresponding BasicMap "
              "for the statement it owns")
-    
+
         # ---
         # add the staging dimension into PLUTO's returned schedule
         opt_schedule = basic_maps_in_sched[0].copy().get_basic_maps()[0]
@@ -481,7 +481,7 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         # poly_schedule.py:format_schedule_constraints()
         staging_dim_value = poly_part.level - 1
         opt_schedule = add_staging_dimension(opt_schedule, staging_dim_value)
-        
+
         # ---
         # Intersect with the original domain so the schedule
         # gets limited to the domain

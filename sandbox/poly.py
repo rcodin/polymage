@@ -816,13 +816,13 @@ class PolyRep(object):
                              align, scale, level_no-1)
 
         # Add names to domain and range
-        id_domain = isl_alloc_id_for(self.ctx, comp.func.name + "_domain", poly_part)
+        id_domain = isl_alloc_id_for(self.ctx, comp.func.name, poly_part)
         isl_set_id_user(id_domain, poly_part)
 
         poly_part.sched = poly_part.sched.set_tuple_id(isl.dim_type.in_, id_domain)
 
         autolog("sched_map before adding kernel constraints:\n%s" % poly_part.sched, TAG)
-                
+
         self.poly_parts[comp] = []
         self.poly_parts[comp].append(poly_part)
         print(">>>(TSTENCIL) poly parts: \n%s" % "\n\t".join(map(str, self.poly_parts[comp])))
