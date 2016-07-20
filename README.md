@@ -29,6 +29,14 @@ $ sudo pip3 install islpy
 (islpy itself requires ffi development files -- this can be installed by 
 installing libffi-devel via yum/apt-get)
 
+6) Numba for Numpy
+To install Numba, you need Anaconda. To get Anaconda, follow these steps
+	-- Download the Anaconda installation shell script for your system (32 or 64 bit) from https://continuum.io/downloads.html
+	-- Run the shell script like this '$ bash Anaconda2-4.0.0-Linux-x86_64.sh' or '$ bash Anaconda3-4.0.0-Linux-x86_64.sh' (depending
+		on the Python version) and	install Anaconda following the instructions on-screen.
+After installing Anconda, simply install Numba using
+$ conda install numba
+
 
 **INSTALLATION**
 ```
@@ -75,6 +83,8 @@ sandbox/codegen.py : code generation for the scheduled pipeline
 sandbox/targetc.py : c++ code generation  
 
 sandbox/tuner.py : autotuning code  
+
+sandbox/libpluto.py : FFI access to PLUTO
 
 The following repository contains just the base and the best PolyMage optimized codes (for Intel  
 Sandybridge) used for experiments in the ASPLOS 2015 paper for all of the benchmarks -- these are  

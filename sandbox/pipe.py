@@ -840,6 +840,9 @@ class Pipeline:
     def comps(self):
         return self._comps
     @property
+    def input_groups(self):
+        return self._inp_groups
+    @property
     def groups(self):
         return self._groups
     @property
@@ -961,10 +964,22 @@ class Pipeline:
         Place each compute object of the pipeline in its own Group, and set the
         dependence relations between the created Group objects.
         """
+
+        # initial groups for inputs
+        inp_groups = {}
+        for inp_func in self.inputs:
+            inp_comp = self.func_map[inp_func]
+            inp_groups[inp_func] = \
+                pipe.Group(self._ctx, [inp_comp], self._param_constraints)
+            # do not add input groups to the list of pipeline groups
+        self._inp_groups = inp_groups
+
+        # initial groups for functions
         comps = self.comps
         groups = []
         for comp in comps:
             group = Group(self._ctx, [comp], self._param_constraints)
+            # add to the list of pipeline groups
             groups.append(group)
 
         for group in groups:
