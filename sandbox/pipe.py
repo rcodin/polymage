@@ -48,7 +48,7 @@ from storage_mapping import *
 
 # LOG CONFIG #
 pipe_logger = logging.getLogger("pipe.py")
-pipe_logger.setLevel(logging.DEBUG)
+pipe_logger.setLevel(logging.INFO)
 LOG = pipe_logger.log
 
 def get_parents_from_func(func, non_image=True):

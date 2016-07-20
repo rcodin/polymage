@@ -1,9 +1,13 @@
 # from ctypes import cdll, Structure, c_int, c_double, c_uint
 from cffi import FFI
+import logging
 import islpy as isl
-from debug_log import *
 
-TAG = "libpluto"
+# LOG CONFIG #
+libpluto_logger = logging.getLogger("libpluto.py")
+libpluto_logger.setLevel(logging.INFO)
+LOG = libpluto_logger.log
+
 _pluto_header_str = \
     """
     struct plutoOptions{
@@ -308,7 +312,7 @@ class LibPluto(object):
         self.ffi.cdef(_pluto_header_str)
         self.sharedobj = self.ffi.dlopen('libpluto.so')
 
-        print('Loaded lib {0}'.format(self.sharedobj))
+        return
 
     def create_options(self):
         """
@@ -351,8 +355,10 @@ class LibPluto(object):
         assert isinstance(dependences, isl.UnionMap)
         assert isinstance(options, PlutoOptions)
 
-        autolog(header("domains") + str(domains), TAG)
-        autolog(header("depdendences") + str(dependences), TAG)
+        log_string1 = "domains:\n" + str(domains)
+        log_string2 = "depdendences:\n" + str(dependences)
+        LOG(log_level, log_string1)
+        LOG(log_level, log_string2)
 
         domains_str = domains.to_str().encode('utf-8')
         dependences_str = dependences.to_str().encode('utf-8')
@@ -385,4 +391,3 @@ if __name__ == "__main__":
     domains = isl.UnionSet.read_from_str(ctx, "[p_0, p_1, p_2, p_3, p_4, p_5, p_7] -> { S_1[i0, i1] : i0 >= 0 and i0 <= p_0 and i1 >= 0 and i1 <= p_3 and p_2 >= 0; S_0[i0] : i0 >= 0 and i0 <= p_0}")
     deps = isl.UnionMap.read_from_str(ctx, "[p_0, p_1, p_2, p_3, p_4, p_5, p_7] -> { S_0[i0] -> S_1[o0, o1] : (exists (e0 = [(p_7)/8]: 8o1 = -p_5 + p_7 + 8192i0 - 8192o0 and 8e0 = p_7 and i0 >= 0 and o0 <= p_0 and 8192o0 >= -8p_3 - p_5 + p_7 + 8192i0 and 8192o0 <= -p_5 + p_7 + 8192i0 and p_2 >= 0 and o0 >= 1 + i0)); S_1[i0, i1] -> S_0[o0] : (exists (e0 = [(p_1)/8], e1 = [(p_4)/8], e2 = [(-p_1 + p_7)/8184]: 8192o0 = p_5 - p_7 + 8192i0 + 8i1 and 8e0 = p_1 and 8e1 = p_4 and 8184e2 = -p_1 + p_7 and i1 >= 0 and 8i1 <= 8192p_0 - p_5 + p_7 - 8192i0 and 8184i1 >= 1024 + 1024p_1 - 1023p_5 - p_7 - 8380416i0 and p_2 >= 0 and p_7 <= -1 + p_5 and 8i1 >= 1 + 8p_3 + p_4 - p_5 - 8192i0 and i1 <= p_3 and i0 >= 0 and 8i1 >= 8192 - p_5 + p_7))}")
     sched = pluto.schedule(ctx, domains, deps, opts)
-    print("schedule: %s" % sched)

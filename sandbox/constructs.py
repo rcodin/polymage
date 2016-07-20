@@ -716,7 +716,6 @@ class TStencil(object):
         self.time_var = Variable(Int, "time")
         self._body = None
 
-        print(_var_domain)
         assert(len(_var_domain[0]) == len(_var_domain[1]))
         for i in range(0, len(_var_domain[0])):
             assert(isinstance(_var_domain[0][i], Variable))
@@ -748,13 +747,11 @@ class TStencil(object):
         assert isinstance(_def, AbstractExpression)
 
         stencil_list = _def.collect(Stencil)
-        print("stencil_list: %s" % stencil_list)
 
         assert(len(stencil_list) == 1, "Expected exactly 1 stencil in defn.")
         self._stencil = stencil_list[0]
         self._body = _def
 
-        # print("stencil: %s\nbody: %s" % (self._stencil, self._body))
         # make sure that the stencil and the Tstencil have the
         # same number of Variables
         assert(self._stencil.iter_vars == self._variables)

@@ -27,7 +27,6 @@ from grouping import get_group_dep_vecs
 from utils import *
 from poly import *
 import libpluto
-from debug_log import *
 
 # LOG CONFIG #
 poly_sched_logger = logging.getLogger("poly_schedule.py")
@@ -415,10 +414,10 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
     # NOTE: we assume that group has >= 1 compute objects in it.
     # diamond tile if group is tstencil
 
+    log_level = logging.DEBUG
     if group.comps[0].is_tstencil_type:
-        TAG = "Fused Schedule - TStencil"
 
-        autolog("diamond tiling pass", TAG)
+        LOG(log_level, "diamond tiling pass")
 
         assert len(group.comps) == 1, ("Tstencil must be in a "
                                       "separate group.")
@@ -431,7 +430,8 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
 
         poly_part = poly_parts[0]
 
-        autolog("original poly_part sched:\n%s" % poly_part.sched, TAG)
+        log_string = "original poly_part sched:\n%s" % poly_part.sched
+        LOG(log_level, log_string)
         # -----
         # save the original name of the domain, so we can rename the domain
         # once it passes through PLUTO
@@ -449,8 +449,11 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         in_schedule = PolyRep.add_tstencil_kernel_constraints(isl_ctx,
                 in_domain, in_schedule, tstencil_comp)
 
-        autolog("%s%s" % (header("in_domain"), in_domain), TAG)
-        autolog("%s%s" % (header("in_schedule"), in_schedule), TAG)
+        log_string1 = "%s%s" % ("in_domain", in_domain)
+        log_string2 = "%s%s" % ("in_schedule", in_schedule)
+        LOG(log_level, log_string1)
+        LOG(log_level, log_string2)
+
         pluto = libpluto.LibPluto()
         options = pluto.create_options()
         options.partlbtile = True
@@ -459,15 +462,17 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
                 in_schedule,
                  options).copy()
 
-        autolog("pluto optimised schedule: %s" % optimised_sched, TAG)
+        log_string = "pluto optimised schedule: %s" % optimised_sched
+        LOG(log_level, log_string)
 
         # -----
         # get the basic maps in the pluto union map, and pick up
         # the basicMap of the schedule we care about
         basic_maps_in_sched = get_maps_from_union_map(optimised_sched)
 
-        autolog("basic maps in PLUTO optimised schedule:\n%s" %
-              "\n".join(list(map(str, basic_maps_in_sched))), TAG)
+        log_string = "basic maps in PLUTO optimised schedule:\n%s" % \
+              "\n".join(list(map(str, basic_maps_in_sched)))
+        LOG(log_level, log_string)
 
         assert len(basic_maps_in_sched) == 1, \
             ("the optimised schedule must have "
@@ -488,7 +493,9 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         opt_schedule = opt_schedule.intersect_domain(in_domain)
         opt_schedule = opt_schedule.set_tuple_name(isl.dim_type.in_,
                 original_sched_domain_name)
-        autolog(header("Final chosen schedule") +  str(opt_schedule), TAG)
+        log_string = "Final chosen schedule:\n" + str(opt_schedule)
+        LOG(log_level, log_string)
+
         poly_part.sched = opt_schedule
         return
     else:

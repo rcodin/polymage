@@ -31,7 +31,7 @@ from liveness import *
 
 # LOG CONFIG #
 storage_logger = logging.getLogger("storage_mapping.py")
-storage_logger.setLevel(logging.DEBUG)
+storage_logger.setLevel(logging.INFO)
 LOG = storage_logger.log
 
 class TypeSizeMap(object):
@@ -429,9 +429,6 @@ def remap_storage_for_comps(comps, storage_class_map, schedule,
         if deficit > 0:
             allocated_arrays += [array_count + 1 + i for i in range(deficit)]
             array_count += deficit
-
-        print("-"*10)
-        print(allocated_arrays)
 
         # Values of the storage_map dictionary are used as keys somewhere else
         # (in array_writers dictionary). This forces us to have tuples that

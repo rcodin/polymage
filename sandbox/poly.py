@@ -31,9 +31,6 @@ from expression import *
 from utils import *
 import pipe
 import align_scale as aln_scl
-from debug_log import *
-
-TAG = "Poly"
 
 # Static method 'alloc' for isl Id does not allow the user to be
 # not None, as of now. We need an exclusive dictionary to map the
@@ -567,8 +564,6 @@ class PolyRep(object):
                                                (comp.func,
                                                 type(comp.func).__name__))
 
-            print("Extraction function: %s" % extraction_fn)
-
             extraction_fn(self, comp, dim, schedule_names,
                           param_names, context_conds,
                           comp_map[comp] + 1,
@@ -626,16 +621,13 @@ class PolyRep(object):
                                       param_constraints):
         self.poly_doms[comp] = \
             self.extract_poly_dom_from_comp(comp, param_constraints)
-        print(">>>poly dom: %s" % self.poly_doms[comp])
         sched_map = self.create_sched_space(comp.func.variables,
                                             comp.func.domain,
                                             schedule_names, param_names,
                                             context_conds)
-        print(">>>sched_map: %s" % sched_map)
         self.create_poly_parts_from_definition(comp, max_dim, sched_map,
                                                level_no, schedule_names,
                                                comp.func.domain)
-        print(">>>poly parts: %s" % "\n\t".join(map(str, self.poly_parts[comp])))
 
     def extract_polyrep_from_reduction(self, comp, max_dim,
                                        schedule_names, param_names,
@@ -707,8 +699,6 @@ class PolyRep(object):
 
         constraints_union = isl.UnionMap.empty(time_constraint_map.space)
 
-        autolog(header("constraints union on creation") + str(constraints_union), TAG)
-
         # build an indexed kernel
         kernel = comp.func._build_indexed_kernel()
 
@@ -774,9 +764,7 @@ class PolyRep(object):
         space = isl.Space.create_from_names(self.ctx, in_ = var_names,
                                                       out = dom_map_names,
                                                       params = param_names)
-        print(">>>(TSTENCIL) Space: %s" % space)
         dom_map = isl.BasicMap.universe(space)
-        print(">>>(TSTENCIL) domain map (on creation): %s" % dom_map)
         [ineqs, eqs] = format_domain_constraints(tstencil_domains, var_names)
         dom_map = add_constraints(dom_map, ineqs, eqs)
 
@@ -789,8 +777,6 @@ class PolyRep(object):
         isl_set_id_user(id_, poly_dom)
 
         self.poly_doms[comp] = poly_dom
-        print(">>>(TSTENCIL) domain map (final): %s" % dom_map)
-
 
         # -----
         # CREATE_SCHED_SPACE
@@ -821,11 +807,10 @@ class PolyRep(object):
 
         poly_part.sched = poly_part.sched.set_tuple_id(isl.dim_type.in_, id_domain)
 
-        autolog("sched_map before adding kernel constraints:\n%s" % poly_part.sched, TAG)
-
         self.poly_parts[comp] = []
         self.poly_parts[comp].append(poly_part)
-        print(">>>(TSTENCIL) poly parts: \n%s" % "\n\t".join(map(str, self.poly_parts[comp])))
+
+        return
 
 
     def create_sched_space(self, variables, domains,
@@ -1222,7 +1207,6 @@ def format_domain_constraints(domain, var_names):
 
 def format_conjunct_constraints(conjunct):
     # TODO check if the condition is a conjunction
-    # print([ cond.__str__() for cond in conjunct ])
     ineq_coeff = []
     eq_coeff = []
     for cond in conjunct:
