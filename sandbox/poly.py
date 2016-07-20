@@ -571,7 +571,7 @@ class PolyRep(object):
 
             extraction_fn(self, comp, dim, schedule_names,
                           param_names, context_conds,
-                          comp_map[comp],
+                          comp_map[comp] + 1,
                           param_constraints)
 
     def format_param_constraints(self, param_constraints, grp_params):
