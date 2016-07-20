@@ -60,11 +60,13 @@ def test_dag2():
     img1 = Image(Float, "input", [R1, C1])
     img2 = Image(Float, "input", [R2, C2])
 
+    cond = Condition(C1, "==", R2)
+
     pipe2 = Reduction(
         ([x, y], [row1, col2]), 
         ([x, z, y], [row1, col1, col2]), 
         Float, "pipe2")
-    pipe2.defn = [ Reduce(pipe2(x, y), img1(x, z) + img2(z, y), Op.Sum) ]
+    pipe2.defn = [ Case(cond, Reduce(pipe2(x, y), img1(x, z) + img2(z, y), Op.Sum)) ]
 
     # build the pipeline
     pipeline = buildPipeline([pipe2],
