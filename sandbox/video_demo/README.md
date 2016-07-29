@@ -9,6 +9,9 @@
     * Get 32 or 64 bit version of [Anaconda](https://continuum.io/downloads.html)
         * **$ bash Anaconda2-4.0.0-Linux-x86_64.sh**  [... _follow instructions_]
         * **$ conda install numba**
+
+       Alternatively, it is possible to install numba through pip.
+
 * OpenCV
     * Install Library
         * [[instructions for installation on ubuntu]](https://help.ubuntu.com/community/OpenCV)
