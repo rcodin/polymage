@@ -14,7 +14,7 @@ from constructs import *
 # ======================
 
 def local_laplacian(pipe_data):
-    L = 8 # number of pyramid levels
+    L = 2 # number of pyramid levels
     levels = 8 # number of intensity levels
 
     # Input Parameters
