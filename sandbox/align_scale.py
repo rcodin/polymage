@@ -804,7 +804,7 @@ def align_and_scale(pipeline, group):
     base_children = [child for child in base_comp.children \
                              if child.group == group]
     if base_children:
-        solve_comp_children(base_comp.children, info)
+        solve_comp_children(base_children, info)
 
     # compute newly discovered parents iteratively until no new parent is
     # discovered.
