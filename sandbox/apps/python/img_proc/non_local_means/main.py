@@ -21,9 +21,15 @@ def main():
 
     init_all(app_data)
     print_config(app_data)
-
-    if app_data['mode'] == 'tune':
-        #auto_tune(pipe_data,app_data)
+    #print ('app_data', app_data)
+    if app_data['mode'] == 'tune+':
+        for g_size in [3, 5, 7, 10, 15]:
+            create_lib(build_nlmeans, app, app_data, g_size)
+            for t in range (0, 5):
+                print ("Running for iteration #", t)
+                nlmeans(app_data)
+    elif app_data['mode'] == 'tune':
+        auto_tune(pipe_data,app_data)
         pass
     else:
         create_lib(build_nlmeans, app, app_data)

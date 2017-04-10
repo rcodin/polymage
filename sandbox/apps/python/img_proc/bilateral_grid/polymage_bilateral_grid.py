@@ -17,7 +17,8 @@ def bilateral_grid(pipe_data):
     # Params
     rows = Parameter(Int, "rows")
     cols = Parameter(Int, "cols")
-
+    print ("param rows ", rows)
+    print ("param cols ", cols)
     pipe_data['R'] = rows
     pipe_data['C'] = cols
 

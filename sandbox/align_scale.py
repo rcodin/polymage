@@ -26,6 +26,7 @@ from __future__ import absolute_import, division, print_function
 import logging
 from utils import *
 from poly import *
+import copy
 
 # LOG CONFIG #
 align_scale_logger = logging.getLogger("align_scale.py")
@@ -644,8 +645,9 @@ def align_and_scale(pipeline, group):
         # leaf comp node
         if children == []:
             return
-
         group = info.group
+        _children = list(children)
+                          
         poly_parts = group.polyRep.poly_parts
         sorted_children = \
             sorted(children, key=lambda x:x.group_level)
@@ -748,17 +750,19 @@ def align_and_scale(pipeline, group):
     root_comps = group.root_comps
 
     # prefer the comp closer to the root_comp of the pipeline
-    abs_min_level = 1000000
+    abs_min_level = 1000000 #TODO: Any reason it is 1000000 why not use 1<<63?
     for comp in root_comps:
         if abs_min_level > comp.level:
             abs_min_level = comp.level
-
+    
     abs_min_comps = []
     abs_min_parts = []
     for comp in root_comps:
         if comp.level == abs_min_level:
             abs_min_comps.append(comp)
             abs_min_parts += group_part_map[comp]
+    _abs_min_comps = copy.copy (abs_min_comps)
+    _abs_min_parts = copy.copy (abs_min_parts)
     
     class Info(object):
         def __init__(self, _pipe, _group, _max_dim):
@@ -772,28 +776,32 @@ def align_and_scale(pipeline, group):
             self.align_scale = {}
 
     info = Info(pipeline, group, max_dim)
-    found_all_parts_in_info = False
     
-    while not found_all_parts_in_info:        
+    foundAllPartsInInfo = False
+    
+    while (not foundAllPartsInInfo) and abs_min_parts:
         # pick the min-level part with the highest dimensionality as base part
+        
         base_part = None
         dim_max = 0
+        abs_min_parts_str = [part.comp.func.name for part in abs_min_parts]
+        
         for p in abs_min_parts:
             p_dim_in = p.sched.dim(isl.dim_type.in_)
             if p_dim_in > dim_max:
                 dim_max = p_dim_in
                 base_part = p
-    
+        
         assert (base_part != None)
         base_comp = base_part.comp
-    
+        abs_min_parts.remove (base_part)
+        
         # initial alignment and scaling for the base comp parts
         # ***
         log_level = logging.DEBUG
         LOG(log_level, "____")
         LOG(log_level, str(base_comp.func.name)+\
                     " (level : "+str(base_part.level)+")")
-    
         
         info.solved.append(base_comp)
         for part in group_part_map[base_comp]:
@@ -803,27 +811,26 @@ def align_and_scale(pipeline, group):
             true_pack = ASPacket(align, scale)
             full_pack = ASPacket(align, scale)
             info.align_scale[part] = ASInfo(true_pack, full_pack)
-    
+       
         # recursively compute alignment and scaling for the family of base_comp
         base_children = [child for child in base_comp.children \
                                 if child.group == group]
         if base_children:
-            solve_comp_children(base_children, info)
-    
+            solve_comp_children(base_children, info) #TODO: Shouldn't it be base_children?
+
         # compute newly discovered parents iteratively until no new parent is
         # discovered.
         solve_comp_parents(info.discovered, info)
         
-        found_all_parts_in_info = True
+        foundAllPartsInInfo = True
         
         for comp in comps:
             for part in group_part_map[comp]:
                 if part not in info.align_scale:
-                    found_all_parts_in_info = False
+                    foundAllPartsInInfo = False
                     break
-            if not found_all_parts_in_info:
-                break
-
+                        
+        
     # set all the solutions into polypart object members
     for comp in comps:
         for part in group_part_map[comp]:

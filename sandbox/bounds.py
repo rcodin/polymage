@@ -107,7 +107,7 @@ def check_refs(child_group, parent_group):
                     LOG(log_level, dom_str)
                     LOG(log_level, "_______________________")
                     # ***
-                    raise TypeError("Reference out of domain", child_group,
-                                     parent_group, diff)
+                    raise TypeError("Reference out of domain", str(child_group),
+                                     str(parent_group), diff)
 
     return

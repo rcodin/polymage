@@ -79,10 +79,10 @@ def nlmeans(app_data):
 	#in1 = in1.ravel()
 	#in1 = np.int32(in1 * 255.0)
 
-	img2 = Image.frombuffer(mode,size,in_ghost)
+	#img2 = Image.frombuffer(mode,size,in_ghost)
 	#img2 = Image.frombuffer(mode,size,in1)
 	#np.savetxt('validate/poly_in.txt', in_ghost)
-	img2.show()
+	#img2.show()
    
 	runs = int(app_args.runs)
 	timer = app_args.timer
@@ -94,22 +94,22 @@ def nlmeans(app_data):
 	while it < runs :
 		call_pipe(app_data)
 		it += 1
-		OUT = app_data['img_data']['OUT']
+		#OUT = app_data['img_data']['OUT']
 		#np.savetxt('validate/poly_out.txt', OUT)
-		OUT = OUT.reshape(3,rows,cols)
-		OUT = np.rollaxis(OUT, 2)
-		OUT = np.rollaxis(OUT, 2)
-		OUT = np.uint8(OUT * 255.0)
-		print("OUT SHAPE: "+str(OUT.shape))
-		out2 = np.zeros((rows,cols,3),np.uint8)
-		out2[0:rows,0:cols,0:3] = OUT[0:rows,0:cols,0:3]
-		out2 = out2.ravel()
-		OUT=OUT.ravel()
+		#OUT = OUT.reshape(3,rows,cols)
+		#OUT = np.rollaxis(OUT, 2)
+		#OUT = np.rollaxis(OUT, 2)
+		#OUT = np.uint8(OUT * 255.0)
+		#print("OUT SHAPE: "+str(OUT.shape))
+		#out2 = np.zeros((rows,cols,3),np.uint8)
+		#out2[0:rows,0:cols,0:3] = OUT[0:rows,0:cols,0:3]
+		#out2 = out2.ravel()
+		#OUT=OUT.ravel()
 		#with open("out"+str(it)+".dat",'w') as fil:
 			#fil.write(str(OUT))
-		img1 = Image.frombuffer(mode,size,out2)
+		#img1 = Image.frombuffer(mode,size,out2)
 		#img1 = Image.frombuffer('RGBX',size,OUT)
-		img1.show()
+		#img1.show()
 
 	if timer == True:
 		t2 = time.time()

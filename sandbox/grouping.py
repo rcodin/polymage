@@ -25,26 +25,35 @@ from __future__ import absolute_import, division, print_function
 
 from constructs import *
 import logging
+import optgrouping
+import storage_mapping
 
 # LOG CONFIG #
 grouping_logger = logging.getLogger("grouping.py")
 grouping_logger.setLevel(logging.DEBUG)
 LOG = grouping_logger.log
 
-def get_group_dep_vecs(pipe, group, parts_list=[], scale_map = None):
-    func_map = pipe.func_map
+def get_group_dep_vecs(pipe, group, parts_list=[], scale_map = None, func_map = None):
+    if (func_map is None):
+        func_map = pipe.func_map
     dep_vecs = []
     g_poly_rep = group.polyRep
     g_poly_parts = g_poly_rep.poly_parts
+    #print ("g_poly_parts ", g_poly_parts)
     gcomps = group.comps
     gfuncs = [comp.func for comp in gcomps]
+    #print (parts_list)
     if parts_list == []:
         for comp in gcomps:
             parts_list.extend(g_poly_parts[comp])
     for part in parts_list:
+        #print (part.refs)
         for ref in part.refs:
+            #print (ref.objectRef)
             if ref.objectRef in gfuncs:
+                #print (ref.objectRef, " in ", gfuncs)
                 ref_comp = func_map[ref.objectRef]
+                #print (ref_comp, type(ref_comp), hex(id(ref_comp)))
                 for pp in g_poly_parts[ref_comp]:
                     if pp not in parts_list:
                         continue
@@ -53,13 +62,133 @@ def get_group_dep_vecs(pipe, group, parts_list=[], scale_map = None):
                     dep_vecs.append(dep_vec)
     return dep_vecs
 
-def auto_group(pipeline):
+def _group_topological_sort (pipeline, g, visited, stack):
+    visited[g] = True
+    sorted_children = [_g for _g in g.children]
+    sorted_children = sorted (sorted_children, key = lambda __g: __g.name)
+    #print ("parent ", g.name)
+    for child in sorted_children:
+        pass #print (child)
+    for _g in sorted_children:
+        if (visited[_g] == False):
+            _group_topological_sort (pipeline, _g, visited, stack)
+    
+    stack.append (g)
+
+def group_topological_sort (pipeline):
+    stack = []
+    visited = {}
+    
+    for g in pipeline.groups:
+        visited[g] = False
+        
+    sorted_groups = sorted (pipeline.groups, key = lambda __g: __g.name)
+    
+    for g in sorted_groups:
+        if (visited[g] == False):
+            _group_topological_sort (pipeline, g, visited, stack)
+    
+    stack.reverse();
+    
+    return stack;
+
+def auto_group(pipeline):    
+    
+    stack = group_topological_sort (pipeline)
+    order = 0
+    topological_order = {}
+    dim_reuse = {}
+    live_size = {}
+    dim_size = {}
+    pipeline.use_different_tile_sizes  = True
+    
+    for g in stack:
+        topological_order [g] = order
+        #print (g.name, g, order)
+        order+= 1
+    
+    in_group = [group for group in pipeline.groups if not group.parents]
+    
+    out_group = [group for group in pipeline.groups if not group.children]
+    for group in pipeline.groups:
+        dim_reuse [group] = group.get_dimensional_reuse (pipeline.param_estimates)
+        live_size [group] = group.get_max_live_size (pipeline.param_estimates)
+        dim_size [group] = group.get_size_for_each_dim (pipeline.param_estimates)
+        #group.set_type_of_access (pipeline.param_estimates)
+        #print ("DIM size for ", group, " ", dim_size[group])
+    
+    #print ("DIM reuse ", dim_reuse)
+    for g in pipeline.groups:
+        #print (g)
+        for _g in g.parents:
+            pass#print ("P    ", _g)
+        for _g in g.children:
+            pass#print ("C    ", _g)
     param_est = pipeline._param_estimates
     size_thresh = pipeline._size_threshold
+    #print ("size_thresh", size_thresh)
+    #input("2323232322323")
+    #input("232323qqqqqqqqq322323")
+    
     grp_size = pipeline._group_size
 
     comps = pipeline.comps
 
+    def get_small_comps(pipeline, comps):
+        funcs = [comp.func for comp in comps]
+
+        small_comps = []
+        # Currentlty the size is just being estimated by the number of points
+        # in the domain. It can be more accurately done by considering the
+        # arithmetic intensity in the expressions.
+        comp_size_map = {}
+        for comp in comps:
+            parts = comp.group.polyRep.poly_parts[comp]
+            p_sizes = []
+            for p in parts:
+                p_size = p.get_size(param_est)
+                if p_size == '*':
+                    p_sizes.append(0)
+                else:
+                    p_sizes.append(p_size)
+            comp_size_map[comp] = sum(p_sizes)
+
+        for comp in comps:
+            is_small_comp = False
+            if comp_size_map[comp] != '*':
+                is_small_comp = (comp_size_map[comp] <= size_thresh)
+            # iterate over parents of comp
+            for pcomp in comp.parents:
+                if comp_size_map[pcomp] != '*':
+                    is_small_comp = is_small_comp and \
+                        (comp_size_map[pcomp] > size_thresh)
+                else:
+                    is_small_comp = False
+            if is_small_comp:
+                small_comps.append(comp)
+
+        return small_comps, comp_size_map
+
+    small_comps, comp_size_map = get_small_comps(pipeline, comps)
+    
+    
+    optgrouping.group (in_group, out_group, pipeline.groups, pipeline, 
+                       Reduction, small_comps, comp_size_map, TStencil,
+                       topological_order, dim_reuse, live_size, dim_size,
+                       storage_mapping.get_dim_size, storage_mapping.Storage)
+                       
+    for group in pipeline.groups:
+        pass#print ("group ", group, " tile sizes ", group.tile_sizes)
+        
+    return
+
+def auto_groupq(pipeline):
+    param_est = pipeline._param_estimates
+    size_thresh = pipeline._size_threshold
+    grp_size = pipeline._group_size
+    pipeline.use_different_tile_sizes  = False
+    comps = pipeline.comps
+    
     def get_group_cost(group):
         return 1
 
@@ -121,7 +250,7 @@ def auto_group(pipeline):
         opt = False
 
         # ***
-        log_level = logging.DEBUG
+        log_level = logging.INFO
         LOG(log_level, "\n")
         LOG(log_level, "---------------")
         LOG(log_level, "iter = "+str(it))
@@ -137,7 +266,7 @@ def auto_group(pipeline):
 
         for group in parents:
             # ***
-            log_level = logging.DEBUG-1
+            log_level = logging.DEBUG
             LOG(log_level, "-----")
             LOG(log_level, "group : "+group.name)
             LOG(log_level, "group children : "+str([c.name for c in group.children]))
@@ -149,7 +278,10 @@ def auto_group(pipeline):
             is_const_grp = False
             for comp in group.comps:
                 if not comp in small_comps:
+                    #print ("NOT IN SMALL COMP ", group.name)
                     is_small_grp = False
+                else:
+                    pass#print ("IS IN SMALL COMP ", group.name)
                 if isinstance(comp.func, Reduction):
                     is_reduction_grp = True
                 elif isinstance(comp.func, TStencil):
@@ -159,6 +291,7 @@ def auto_group(pipeline):
             for g_child in group.children:
                 for comp in g_child.comps:
                     if isinstance(comp.func, Reduction):
+                        #print ("IS REDUCTION ", g_child.name)
                         is_reduction_grp = True
                     elif isinstance(comp.func, TStencil):
                         is_tstencil_grp = True
@@ -189,7 +322,7 @@ def auto_group(pipeline):
                     merge = False
                     # ***
                     log_reasons = ['group_size limit will be exceeded']
-                    log_no_merge(log_reasons)
+                    LOG(log_level, log_reasons)
                     # ***
 
                 # - if group has many children
@@ -234,7 +367,7 @@ def auto_group(pipeline):
                     log_reasons.append('Group of const comps')
                 if len(group.comps) >= grp_size:
                     log_reasons.append('group_size limit already met')
-                log_no_merge(log_reasons)
+                LOG(log_level, log_reasons)
                 # ***
 
     # ***
@@ -242,5 +375,6 @@ def auto_group(pipeline):
     LOG(log_level, "\n")
     LOG(log_level, "---------------")
     # ***
-
+    #input("43434343")
+    #input("34434")
     return

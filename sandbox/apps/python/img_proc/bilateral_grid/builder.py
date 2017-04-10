@@ -65,6 +65,7 @@ def build_bilateral(app_data):
     p_constraints = [ Condition(R, "==", rows), \
                       Condition(C, "==", cols) ]
     t_size = [16, 16, 16]
+    #t_size = [16, 32, 32, 32]
     g_size = 5
     opts = []
     if app_data['early_free']:

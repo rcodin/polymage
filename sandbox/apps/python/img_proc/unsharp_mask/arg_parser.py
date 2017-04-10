@@ -15,7 +15,7 @@ def parse_args():
                       type='choice',
                       action='store',
                       dest='mode',
-                      choices=['new', 'existing', 'ready', 'tune'],
+                      choices=['new', 'existing', 'ready', 'tune', 'tune+'],
                       default=['new'],
                       help=help_str)
 

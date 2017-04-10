@@ -66,6 +66,6 @@ def campipe(app_data):
 
         time_taken = float(t2) - float(t1)
         print("")
-        print("[exec_pipe] : time taken to execute = ", time_taken*1000, " ms")
+        print("[exec_pipe] : time taken to execute = ", time_taken*1000/runs, " ms")
 
     return

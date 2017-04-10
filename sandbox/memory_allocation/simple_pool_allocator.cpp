@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string.h>
 
 #include<stdlib.h>
 #include<assert.h>
@@ -28,6 +29,7 @@ void * pool_allocate(long long int buffer_size) {
     if (alloc_begin == NULL) {
         alloc_begin = (struct alloc_node * ) malloc(sizeof(struct alloc_node));
         alloc_begin->alloc = malloc(buffer_size);
+        //memset (alloc_begin->alloc, 0, buffer_size);
         alloc_begin->size = buffer_size;
         alloc_begin->in_use = true;
         alloc_begin->next = NULL;
@@ -39,6 +41,7 @@ void * pool_allocate(long long int buffer_size) {
     while (curr_node != NULL) {
         if (curr_node->in_use != true && curr_node->size == buffer_size) {
             curr_node->in_use = true;
+            //memset (curr_node->alloc, 0, buffer_size);
             return curr_node->alloc;
         }
         curr_node = curr_node->next;
@@ -49,6 +52,7 @@ void * pool_allocate(long long int buffer_size) {
     alloc_end->next = (struct alloc_node * ) malloc(sizeof(struct alloc_node));
     alloc_end = alloc_end->next;
     alloc_end->alloc = malloc(buffer_size);
+    //memset (alloc_end->alloc, 0, buffer_size);
     alloc_end->size = buffer_size;
     alloc_end->in_use = true;
     alloc_end->next = NULL;

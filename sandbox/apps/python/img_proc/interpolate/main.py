@@ -22,12 +22,19 @@ def main():
     init_all(app_data)
     print_config(app_data)
 
-    if app_data['mode'] == 'tune':
-        #auto_tune(pipe_data,app_data)
+    if app_data['mode'] == 'tune+':
+        for g_size in [3, 5, 7, 10, 15, 20, 30, 200]:
+            create_lib(build_interpolate, app, app_data, g_size)
+            for t in range (0, 5):
+                print ("Running for iteration #", t)
+                interpolate(app_data)
+    elif app_data['mode'] == 'tune':
         pass
     else:
         create_lib(build_interpolate, app, app_data)
-        interpolate(app_data)
+        for t in range (0, 10):
+                print ("Running for iteration #", t)
+                interpolate(app_data)
 
     return
 

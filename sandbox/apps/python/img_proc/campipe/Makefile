@@ -6,11 +6,12 @@ PYTHON=python3
 ROOT="../../../../"
 
 # app inputs
-IMG=$(ROOT)"/../images/bayer_raw.png"
+#IMG=$(ROOT)"/../images/bayer_raw.png"
+IMG="bayer_raw.png"
 KELVIN=3700
 CONTRAST=50
 GAMMA=2.0
-RUNS=1
+RUNS=10
 
 APP_ARGS=--img=$(IMG) --colour_temp=$(KELVIN) --contrast=$(CONTRAST) --gamma=$(GAMMA)
 OPT_ARGS=--pool_alloc --optimize_storage --early_free
@@ -24,7 +25,8 @@ new:
 
 tune:
 	$(PYTHON) main.py --mode='tune' $(APP_ARGS) $(OPT_ARGS) $(TOOL_ARGS) $(CXX_ARGS)
-
+tune+:
+	$(PYTHON) main.py --mode='tune+' $(APP_ARGS) $(OPT_ARGS) $(TOOL_ARGS) $(CXX_ARGS)
 existing:
 	$(PYTHON) main.py --mode='existing' $(APP_ARGS) $(TOOL_ARGS) $(CXX_ARGS)
 

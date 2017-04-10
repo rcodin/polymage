@@ -8,7 +8,7 @@ ROOT="../../../.."
 # app inputs
 IMG=$(ROOT)"/../images/rgb.png"
 ALPHA=$(ROOT)"/../images/alpha.png"
-RUNS=1
+RUNS=10
 
 APP_ARGS=--img=${IMG} --alpha=${ALPHA}
 OPT_ARGS=--pool_alloc --optimize_storage --early_free
@@ -22,7 +22,8 @@ new:
 
 tune:
 	$(PYTHON) main.py --mode='tune' ${CXX_ARGS} $(OPT_ARGS) ${APP_ARGS} ${TOOL_ARGS}
-
+tune+:
+	$(PYTHON) main.py --mode='tune+' $(APP_ARGS) $(OPT_ARGS) $(TOOL_ARGS) $(CXX_ARGS)
 existing:
 	$(PYTHON) main.py --mode='existing' ${CXX_ARGS} ${APP_ARGS} ${TOOL_ARGS}
 

@@ -118,11 +118,10 @@ class Storage:
         self._dim_sizes = _dim_sizes
 
         self._id = None
-
         self._dimension = []
         for dim in range(0, self._dims):
             self._dimension.append(Dimension(self._dim_sizes[dim]))
-
+            
         self._lookup_key = self.generate_key()
         self._offsets = self.gen_param_offsets()
 
@@ -205,7 +204,7 @@ class Storage:
                 dims_str += ' :: '
         stg_str = '{'+typ_str+', '+ndims_str+', '+dims_str+'}'
         return stg_str
-
+        
 def classify_storage(pipeline):
     '''
     Classifies the compute objects into separate groups based on their storage
@@ -259,7 +258,9 @@ def classify_storage(pipeline):
 
             # this list holds the maximal offset value for each dimension
             max_offset = [offsets[dim][1] for dim in range(0, dims)]
-
+            #print (offsets)
+            #input ("offsets")
+            #input ("offsets1")
             for comp in class_comps:
                 storage = comp.orig_storage_class
                 offsets = storage.offsets
@@ -286,7 +287,7 @@ def classify_storage(pipeline):
                 new_storage_class_map[max_storage].append(comp)
 
             # ***
-            log_level = logging.DEBUG
+            log_level = logging.INFO
             LOG(log_level, key)
             LOG(log_level, "\t%-*s" % \
                 (15, [comp.func.name for comp in class_comps]))
@@ -335,6 +336,9 @@ def classify_storage(pipeline):
             # objects, and compute the total_size of the storage for each
             # storage class
             storage_class_map = maximal_storage(comps, storage_class_map)
+            #print ("classify_storage_for_comps")
+            for k in comps:
+                pass#print (k.func.name, "storage class ", k.storage_class)
         else:
             storage_class_map = naive_classification(comps)
 
@@ -376,7 +380,7 @@ def log_schedule(comps, schedule):
     return
 
 def log_storage_mapping(comps, storage_map):
-    log_level = logging.DEBUG-1
+    log_level = logging.INFO
     LOG(log_level, "")
     LOG(log_level, "Storage mapping:")
     for comp in comps:
@@ -401,7 +405,7 @@ def remap_storage_for_comps(comps, storage_class_map, schedule,
                 array_count += 1
                 storage_map[comp] = array_count
         return
-
+    
     # sort comps according to their schedule
     sorted_comps = get_sorted_objs(schedule)
 
@@ -410,10 +414,13 @@ def remap_storage_for_comps(comps, storage_class_map, schedule,
     array_pool = {}
     for stg_class in stg_classes:
         array_pool[stg_class] = []
-
+    #print ("remap_storage_for_comps ")
+    for k in sorted_comps:
+        pass#print (k.func.name, "storage class ", k.storage_class)
+        
     for comp in sorted_comps:
         stg_class = comp.storage_class
-
+        #print (comp.func.name, schedule[comp])
         # number of arrays required to realize the compute object
         num_reqd = 2 if comp.is_tstencil_type else 1
         # number of arrays avaiable in the pool
@@ -423,7 +430,7 @@ def remap_storage_for_comps(comps, storage_class_map, schedule,
         num_allocated = min(num_available, num_reqd)
         allocated_arrays = [array_pool[stg_class].pop() \
             for _ in range(num_allocated)]
-
+        #print ("num_allocated ", num_allocated)
         # number of arrays yet to be allocated
         deficit = num_reqd - num_allocated
         if deficit > 0:
@@ -448,12 +455,14 @@ def remap_storage_for_comps(comps, storage_class_map, schedule,
         if time in liveness_map:
             free_comps = liveness_map[time]
             for free_comp in free_comps:
+                #print ("free comp ", free_comp)
                 comp_stg_class = free_comp.storage_class
                 storage_index = storage_map[free_comp][1] \
                     if free_comp.is_tstencil_type \
                     else storage_map[free_comp]
                 array_pool[comp_stg_class].append(storage_index)
 
+    #print ("array _count ", array_count)
     # ***
     log_schedule(sorted_comps, schedule)
     log_storage_mapping(sorted_comps, storage_map)
@@ -533,6 +542,7 @@ def create_physical_arrays(pipeline):
         corresponding object.
         '''
         def set_array(comp, array_id, created, flat_scratch, identifier=""):
+            #print ("set_array created ", created)
             if array_id in created:
                 array = created[array_id]
             else:
@@ -548,7 +558,7 @@ def create_physical_arrays(pipeline):
             array = (array1, array2)
         else:
             array = set_array(comp, array_id, created, flat_scratch)
-
+        #print ("BB  ", array.name)
         return array
 
     def set_arrays_for_inputs(pipeline):
@@ -611,6 +621,7 @@ def create_physical_arrays(pipeline):
                 else:
                     array = set_array_for_comp(comp, array_id, created_scratch,
                                                flat_scratch)
+                #print ("A   ", array.name, comp.func.name)
                 comp.set_storage_object(array)
         return
 
@@ -629,7 +640,8 @@ def create_physical_arrays(pipeline):
 
     # create arrays for the rest of the comps
     set_arrays_for_comps(pipeline, created_arrays, flat_scratch)
-
+    for k in created_arrays.keys():
+        pass#print ("C  ", created_arrays[k].name)
     # collect users for each array created
     array_writers = {}
     for comp in pipeline.comps:

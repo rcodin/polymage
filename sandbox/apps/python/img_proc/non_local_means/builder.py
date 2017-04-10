@@ -46,25 +46,32 @@ def generate_graph(pipe, file_name, app_data):
 
     return
 
-def build_nlmeans(app_data):
+def build_nlmeans(app_data, g_size = None):
     pipe_data = app_data['pipe_data']
     
     out_nlmeans = nlmeans(pipe_data)
     
     R = pipe_data['R']
     C = pipe_data['C']
-
+    search_area_pipe = pipe_data['search_area']
+    patch_size_pipe = pipe_data['patch_size']
+    
     live_outs = [out_nlmeans]
     pipe_name = app_data['app']
 
     rows = app_data['R']
     cols = app_data['C']
-
-    p_estimates = [(R, rows), (C, cols)]
+    #print(dir (app_data['app_args']))
+    search_area = int(app_data['app_args'].search_area)
+    patch_size = int(app_data['app_args'].patch_size)
+    
+    p_estimates = [(R, rows), (C, cols), 
+                   (search_area_pipe, search_area), (patch_size_pipe, patch_size)]
     p_constraints = [ Condition(R, "==", rows), \
                       Condition(C, "==", cols) ]
     t_size = [16, 256]
-    g_size = 11
+    if (g_size == None):
+        g_size = 11
     opts = []
     if app_data['early_free']:
         opts += ['early_free']
@@ -85,7 +92,7 @@ def build_nlmeans(app_data):
 
 
 
-def create_lib(build_func, pipe_name, app_data):
+def create_lib(build_func, pipe_name, app_data, g_size = None):
     mode = app_data['mode']
     pipe_src  = pipe_name+".cpp"
     pipe_so   = pipe_name+".so"
@@ -96,6 +103,17 @@ def create_lib(build_func, pipe_name, app_data):
         if mode == 'new':
             # build the polymage pipeline
             pipe = build_func(app_data)
+
+            # draw the pipeline graph to a png file
+            if graph_gen:
+                generate_graph(pipe, pipe_name, app_data)
+
+            # generate pipeline cpp source
+            codegen(pipe, pipe_src, app_data)
+        
+        elif mode == 'tune+':
+            # build the polymage pipeline
+            pipe = build_func(app_data, g_size)
 
             # draw the pipeline graph to a png file
             if graph_gen:

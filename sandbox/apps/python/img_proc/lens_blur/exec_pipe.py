@@ -15,14 +15,16 @@ def call_pipe(app_data):
     cols = app_data['C']
 
     app_args = app_data['app_args']
-    patch_size = int(app_args.patch_size)
-    search_area = int(app_args.search_area)
+    #patch_size = int(app_args.patch_size)
+    #search_area = int(app_args.search_area)
 
     img_data = app_data['img_data']
     INL = img_data['INL']
     INR = img_data['INR']
     OUT = img_data['OUT']
-
+    print (len (INL), type(INL), INL.dtype)
+    input ("2323222")
+    input ("1111111")
     # lib function name
     func_name = 'pipeline_'+app_data['app']
     pipe_func = app_data[func_name]

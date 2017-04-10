@@ -22,6 +22,7 @@ def init_images(app_data):
     # input image: 
     img_path = app_args.img_file
     img1 = Image.open(img_path)  #.convert('1'))
+    print ("size ", img1.size)
     img = np.array(img1)
     rows, cols, c = img.shape
   

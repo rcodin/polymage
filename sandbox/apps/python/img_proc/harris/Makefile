@@ -6,7 +6,8 @@ PYTHON=python3
 ROOT="../../../../"
 
 # app inputs
-IMG=$(ROOT)"/../images/venice_wikimedia.jpg"
+#IMG=$(ROOT)"/../images/rgb.jpg"
+IMG="./rgb.png"
 RUNS=1
 
 APP_ARGS=--img=${IMG}
@@ -21,7 +22,8 @@ new:
 
 tune:
 	$(PYTHON) main.py --mode='tune' ${CXX_ARGS} $(OPT_ARGS) ${APP_ARGS} ${TOOL_ARGS}
-
+tune+:
+	$(PYTHON) main.py --mode='tune+' $(APP_ARGS) $(OPT_ARGS) $(TOOL_ARGS) $(CXX_ARGS)
 existing:
 	$(PYTHON) main.py --mode='existing' ${CXX_ARGS} ${APP_ARGS} ${TOOL_ARGS}
 

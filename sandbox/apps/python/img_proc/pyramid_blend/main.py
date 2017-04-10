@@ -21,7 +21,13 @@ def main():
 
     init_all(app_data)
     print_config(app_data)
-    if app_data['mode'] == 'tune' or app_data['mode'] == 'tune_execute':
+    if app_data['mode'] == 'tune+':
+        for g_size in [3, 5, 7, 10, 15, 30, 50]:
+            create_lib(build_pyramid, app, app_data, g_size)
+            for t in range (0, 5):
+                print ("Running for iteration #", t)
+                pyramid_blending(app_data)
+    elif app_data['mode'] == 'tune' or app_data['mode'] == 'tune_execute':
         auto_tune(app_data)
         pass
     else:

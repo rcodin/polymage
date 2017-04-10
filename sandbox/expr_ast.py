@@ -185,8 +185,69 @@ class AbstractExpression(object):
         A compound node must expand its children with a macro_expand call
         """
         raise NotImplemntedError("this function is not implement")
+    
+    def visit (self, visitor):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+        
+class AbstractExpressionVisitor(object):
+    '''Abstract class for expression visitor'''
+    def visit_value (self, value):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_abstractbinaryopnode(self, binop):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_add (self, add):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_mul (self, mul):
+        raise NotImplemntedError("this function should be called from concrete visitor")
 
+    def visit_div (self, div):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_sub (self, sub):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_lshift (self, lshift):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_rshift (self, rshift):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_mod (self, mod):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_land (self, land):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_lor (self, lor):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_xor (self, xor):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_inbuiltfunction (self, inbuiltfunction):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_abstractunaryopnode (self, abstractunaryopnode):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_unaryplus (self, unaryplus):
+        raise NotImplemntedError("this function should be called from concrete visitor")
 
+    def visit_unaryminus (self, unaryminus):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_cast (self, cast):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_variable (self, variable):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
+    def visit_select (self, select):
+        raise NotImplemntedError("this function should be called from concrete visitor")
+    
 class Value(AbstractExpression):
 
     @classmethod
@@ -222,6 +283,9 @@ class Value(AbstractExpression):
 
     def macro_expand(self):
         return self
+    
+    def visit (self, visitor):
+        return visitor.visit_value (self)
 
 class AbstractBinaryOpNode(AbstractExpression):
     def __init__(self, _left, _right, _op=None): 
@@ -269,38 +333,79 @@ class AbstractBinaryOpNode(AbstractExpression):
         self._left = self._left.macro_expand()
         self._right = self._right.macro_expand()
         return self
+    
+    def visit (self, visitor):
+        return visitor.visit_abstractbinaryopnode (self)
 
 
 class Add(AbstractBinaryOpNode):
     def __init__(self, _left, _right):
         AbstractBinaryOpNode.__init__(self, _left, _right, '+')
+    
+    def visit (self, visitor):
+        return visitor.visit_add (self)
+
 class Mul(AbstractBinaryOpNode):
     def __init__(self, _left, _right):
         AbstractBinaryOpNode.__init__(self, _left, _right, '*')
+    
+    def visit (self, visitor):
+        return visitor.visit_mul (self)
+
 class Div(AbstractBinaryOpNode):
     def __init__(self, _left, _right):
         AbstractBinaryOpNode.__init__(self, _left, _right, '/')
+    
+    def visit (self, visitor):
+        return visitor.visit_div (self)
+
 class Sub(AbstractBinaryOpNode):
     def __init__(self, _left, _right):
         AbstractBinaryOpNode.__init__(self, _left, _right, '-')
+
+    def visit (self, visitor):
+        return visitor.visit_sub (self)
+
 class LShift(AbstractBinaryOpNode):
     def __init__(self, _left, _right):
         AbstractBinaryOpNode.__init__(self, _left, _right, '<<')
+
+    def visit (self, visitor):
+        return visitor.visit_lshift (self)
+
 class RShift(AbstractBinaryOpNode):
     def __init__(self, _left, _right):
         AbstractBinaryOpNode.__init__(self, _left, _right, '>>')
+
+    def visit (self, visitor):
+        return visitor.visit_rshift (self)
+
 class Mod(AbstractBinaryOpNode):
     def __init__(self, _left, _right):
         AbstractBinaryOpNode.__init__(self, _left, _right, '%')
+
+    def visit (self, visitor):
+        return visitor.visit_mod (self)
+
 class LAnd(AbstractBinaryOpNode):
     def __init__(self, _left, _right):
         AbstractBinaryOpNode.__init__(self, _left, _right, '&')
+
+    def visit (self, visitor):
+        return visitor.visit_land (self)
+
 class LOr(AbstractBinaryOpNode):
     def __init__(self, _left, _right):
         AbstractBinaryOpNode.__init__(self, _left, _right, '|')
+    def visit (self, visitor):
+        return visitor.visit_lor (self)
+
 class Xor(AbstractBinaryOpNode):
     def __init__(self, _left, _right):
         AbstractBinaryOpNode.__init__(self, _left, _right, '^')
+
+    def visit (self, visitor):
+        return visitor.visit_xor (self)
 
 class InbuiltFunction(AbstractExpression):
     def __init__(self, *_args):
@@ -334,6 +439,9 @@ class InbuiltFunction(AbstractExpression):
     def macro_expand(self):
         # TODO: check if maybe arguments need to be macro expanded?
         return self
+    
+    def visit (self, visitor):
+        return visitor.visit_inbuiltfunction (self)
 
 class AbstractUnaryOpNode(AbstractExpression):
     def __init__(self, _child, _op=None): 
@@ -365,10 +473,19 @@ class AbstractUnaryOpNode(AbstractExpression):
         self._child = self._child.macro_expand()
         return self
 
+    def visit (self, visitor):
+        return visitor.visit_abstractunaryopnode (self)
+
 class UnaryPlus(AbstractUnaryOpNode):
     def __init__(self, _child):
         AbstractUnaryOpNode.__init__(self, _child, '+')
 
+    def visit (self, visitor):
+        return visitor.visit_unaryplus (self)
+
 class UnaryMinus(AbstractUnaryOpNode):
     def __init__(self, _child):
         AbstractUnaryOpNode.__init__(self, _child, '-')
+
+    def visit (self, visitor):
+        return visitor.visit_unaryplus (self)

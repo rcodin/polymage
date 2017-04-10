@@ -26,7 +26,14 @@ def main():
 
     init_all(app_data)
     print_config(app_data)
-    if app_data['mode'] == 'tune':
+    if app_data['mode'] == 'tune+':
+        for g_size in [3, 5, 7, 10, 15]:
+            create_lib(build_unsharp, app, app_data, g_size)
+            for t in range (0, 5):
+                print ("Running for iteration #", t)
+                unsharp_mask(app_data)
+    
+    elif app_data['mode'] == 'tune':
         print("Tuning")
         auto_tune(app_data)
     else:

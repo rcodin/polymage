@@ -13,8 +13,5 @@ Bilateral Grid
 Bilateral Filter
 ================
 
-Unsharp Mask
-================
-
 Edge detectors 
 ==============

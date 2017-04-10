@@ -125,7 +125,9 @@ def level_order(objs, parent_map):
         order[obj] = 0
     # Doing a topological sort in an iterative fashion
     change = True
+    i = 0
     while(change):
+        i+=1
         change = False
         for obj in objs:
             parent_objs = parent_map[obj]
@@ -134,7 +136,15 @@ def level_order(objs, parent_map):
             for p_obj in parent_objs:
                 if (p_obj in order and (order[p_obj] >= order[obj])):
                     order[obj] = order[p_obj] + 1
+                    #if (str(type(p_obj)) == "<type 'Group'>"):
+                    #    print (p_obj.name)
                     change = True
+        if (i%100 == 0):
+            print (change)
+    
+    #print ("ORDER IS ")
+    #for k in order:
+    #    print (k.func.name, order [k])
     return order
 
 def get_sorted_objs(objs_order, reverse_flag=False):
