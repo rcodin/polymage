@@ -48,7 +48,7 @@ from storage_mapping import *
 
 # LOG CONFIG #
 pipe_logger = logging.getLogger("pipe.py")
-pipe_logger.setLevel(logging.DEBUG)
+pipe_logger.setLevel(logging.INFO)
 LOG = pipe_logger.log
 
 def get_parents_from_func(func, non_image=True):
@@ -120,9 +120,22 @@ def get_funcs(outputs):
     return funcs
 
 
+class ComputeTypes:
+    FUNCTION = 1
+    IMAGE = 2
+    REDUCTION = 3
+    TSTENCIL = 4
+
+
 class ComputeObject:
     def __init__(self, _func, _is_output=False):
-        assert isinstance(_func, Function)
+
+        self._set_type(_func)
+
+        self._is_parents_set = False
+        self._is_children_set = False
+        self._is_group_set = False
+
         self._func = _func
         self._parents = []
         self._children = []
@@ -133,7 +146,6 @@ class ComputeObject:
 
         self._is_output = _is_output
         self._is_liveout = True
-        self.set_flags()
 
         self._level_no = 0
         self._group_level_no = 0
@@ -147,7 +159,6 @@ class ComputeObject:
     @property
     def func(self):
         return self._func
-
     @property
     def is_parents_set(self):
         return self._is_parents_set
@@ -158,11 +169,21 @@ class ComputeObject:
     def is_group_set(self):
         return self._is_group_set
     @property
+    def compute_type(self):
+        return self._compute_type
+
+    @property
+    def is_func_type(self):
+        return self._compute_type == ComputeTypes.FUNCTION
+    @property
     def is_image_typ(self):
-        return self._is_image_typ
+        return self._compute_type == ComputeTypes.IMAGE
     @property
     def is_reduction_typ(self):
-        return self._is_reduction_typ
+        return self._compute_type == ComputeTypes.REDUCTION
+    @property
+    def is_tstencil_type(self):
+        return self._compute_type == ComputeTypes.TSTENCIL
 
     @property
     def parents(self):
@@ -179,7 +200,6 @@ class ComputeObject:
     def group(self):
         assert self.is_group_set
         return self._group
-
     @property
     def level(self):
         return self._level_no
@@ -192,7 +212,6 @@ class ComputeObject:
     @property
     def is_liveout(self):
         return self._is_liveout
-
     @property
     def orig_storage_class(self):
         return self._orig_storage_class
@@ -206,12 +225,24 @@ class ComputeObject:
     def scratch(self):
         return self._scratch_info
 
-    def set_flags(self):
-        self._is_parents_set = False
-        self._is_children_set = False
-        self._is_group_set = False
-        self._is_image_typ = isinstance(self.func, Image)
-        self._is_reduction_typ = isinstance(self.func, Reduction)
+    def _set_type(self, _func):
+        self._compute_type = None
+        # NOTE: do NOT change this to if-elif-elif...else
+        # since this is an _inheritance hierarchy. Somthing can be a
+        # Function AND a reduction.
+        if isinstance(_func, Function):
+            self._compute_type = ComputeTypes.FUNCTION
+        if isinstance(_func, Image):
+            self._compute_type = ComputeTypes.IMAGE
+        if isinstance(_func, Reduction):
+            self._compute_type = ComputeTypes.REDUCTION
+        if isinstance(_func, TStencil):
+            self._compute_type = ComputeTypes.TSTENCIL
+
+        if self._compute_type is None:
+            raise TypeError("unknown compute object function type:\n"
+                            "Given: %s\n"
+                            "nType: %s" % (self._func, type(self.function)))
         return
 
     def add_child(self, comp):
@@ -220,6 +251,7 @@ class ComputeObject:
         self._children = list(set(self._children))
         self._is_children_set = True
         return
+
     def add_parent(self, comp):
         assert isinstance(comp, ComputeObject)
         self._parents.append(comp)
@@ -231,6 +263,7 @@ class ComputeObject:
         if comp in self._children:
             self._children.remove(comp)
         return
+
     def remove_parent(self, comp):
         if comp in self._parents:
             self._parents.remove(comp)
@@ -346,7 +379,14 @@ class ComputeObject:
         self._storage_class = _storage_class
 
     def set_storage_object(self, _array):
-        assert isinstance(_array, genc.CArray)
+        if self.is_tstencil_type:
+            assert isinstance(_array, tuple)
+            assert len(_array) == 2
+            assert isinstance(_array[0], genc.CArray)
+            assert isinstance(_array[1], genc.CArray)
+            self._array = _array
+        else:
+            assert isinstance(_array, genc.CArray)
         self._array = _array
     def set_scratch_info(self, _scratch_info):
         self._scratch_info = _scratch_info
@@ -378,6 +418,7 @@ class Group:
         self._parents = []
         self._children = []
 
+        self._set_type()
         self.set_comp_group()
 
         self._level_order_comps = self.order_compute_objs()
@@ -411,9 +452,23 @@ class Group:
     def children(self):
         return self._children
 
+    # NOTE: Current assumptions:
+    # (1). A Reduction group, TStencil group, and Image group has only one
+    # compute object of the respective kind.
+    # (2). If a group is of pure function type, all its compute objects are
+    # of Function type, and not one of the types listed in (1).
+    @property
+    def is_func_type(self):
+        return self._group_type == ComputeTypes.FUNCTION
     @property
     def is_image_typ(self):
-        return self._is_image_typ
+        return self._group_type == ComputeTypes.IMAGE
+    @property
+    def is_reduction_typ(self):
+        return self._group_type == ComputeTypes.REDUCTION
+    @property
+    def is_tstencil_type(self):
+        return self._group_type == ComputeTypes.TSTENCIL
 
     @property
     def polyRep(self):
@@ -448,6 +503,27 @@ class Group:
     @property
     def liveness_map(self):
         return self._liveness_map
+
+    def _set_type(self):
+        '''
+        Depends on how specifically the ComputeObject's type was set, since all
+        types inherit from Function type.
+        '''
+        group_type = ComputeTypes.FUNCTION
+        for comp in self._comps:
+            group_type = comp.compute_type
+            if not group_type == ComputeTypes.FUNCTION:
+            # Ideally this case won't occur when the list of group's comps has
+            # more than one compute object, since as of now, we group only a
+            # bunch of pure compute objects. Images need no fusion since they
+            # are program inputs. Fusion and/or tiling optimizations for
+            # Reductions is not yet covered. TStencils will be standalone
+            # groups if diamond tiling is enabled.
+            # TODO: add flag to decide if TStencils are to be Diamond tiled or
+            # Overlap tiled.
+                break
+        self._group_type = group_type
+        return
 
     def set_comp_group(self):
         for comp in self.comps:
@@ -721,10 +797,9 @@ class Pipeline:
         for g in self.groups:
             # alignment and scaling
             align_and_scale(self, g)
-            # base schedule
             base_schedule(g)
             # grouping and tiling
-            fused_schedule(self, g, self._param_estimates)
+            fused_schedule(self, self._ctx, g, self._param_estimates)
 
         # group
         self._grp_schedule = schedule_groups(self)
@@ -764,6 +839,9 @@ class Pipeline:
     @property
     def comps(self):
         return self._comps
+    @property
+    def input_groups(self):
+        return self._inp_groups
     @property
     def groups(self):
         return self._groups
@@ -886,10 +964,22 @@ class Pipeline:
         Place each compute object of the pipeline in its own Group, and set the
         dependence relations between the created Group objects.
         """
+
+        # initial groups for inputs
+        inp_groups = {}
+        for inp_func in self.inputs:
+            inp_comp = self.func_map[inp_func]
+            inp_groups[inp_func] = \
+                pipe.Group(self._ctx, [inp_comp], self._param_constraints)
+            # do not add input groups to the list of pipeline groups
+        self._inp_groups = inp_groups
+
+        # initial groups for functions
         comps = self.comps
         groups = []
         for comp in comps:
             group = Group(self._ctx, [comp], self._param_constraints)
+            # add to the list of pipeline groups
             groups.append(group)
 
         for group in groups:
@@ -905,24 +995,39 @@ class Pipeline:
         for i in range(0, len(self.groups)):
             sub_graph_nodes = [comp.func.name for comp in self.groups[i].comps]
             for comp in self.groups[i].comps:
-                # liveout or not
-                style = 'rounded'
-                if comp.is_liveout:
-                    style += ', bold'
-                else:
-                    style += ', filled'
+                colour_index = self.storage_map[comp]
                 # comp's array mapping
-                color_index = self.storage_map[comp]
+                if comp.is_tstencil_type:
+                    node_colour = X11Colours.colour(colour_index[1]) + ";0.5:" + \
+                        X11Colours.colour(colour_index[0])
+                else:
+                    node_colour = X11Colours.colour(colour_index)
+
+                # liveout or not
+                node_style = 'rounded,'
+                if comp.is_liveout:
+                    node_style += 'bold,'
+                    node_style += 'filled,'
+                    node_shape = 'doublecircle'
+                    node_fillcolor = node_colour
+                    node_colour = ''
+                else:
+                    node_style += 'filled,'
+                    node_shape = 'box'
+                    node_fillcolor = ''
+
                 gr.add_node(comp.func.name,
-                            color=X11Colours.colour(color_index),
-                            style=style,
-                            shape="box")
+                    fillcolor=node_fillcolor,
+                    color=node_colour,
+                    style=node_style,
+                    gradientangle=90,
+                    shape=node_shape)
 
             # add group boundary
             gr.add_subgraph(nbunch = sub_graph_nodes,
                             name = "cluster_" + str(i),
                             label=str(self.group_schedule[self.groups[i]]),
-                            style="dashed, rounded")
+                            style="dashed,rounded,")
 
         for comp in self.comps:
             for p_comp in comp.parents:

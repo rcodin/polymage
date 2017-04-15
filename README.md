@@ -22,23 +22,18 @@ On a Fedora, these can be installed with 'sudo yum -y install opencv python-open
 5) Python bindings for isl  
 islpy http://documen.tician.de/islpy/  
 This can be easily installed via python3-pip  
+```
 $ sudo yum -y install python3-pip  
 $ sudo pip3 install islpy  
-
+```
 (islpy itself requires ffi development files -- this can be installed by 
 installing libffi-devel via yum/apt-get)
 
-6) Numba for Numpy
-To install Numba, you need Anaconda. To get Anaconda, follow these steps
-	-- Download the Anaconda installation shell script for your system (32 or 64 bit) from https://continuum.io/downloads.html
-	-- Run the shell script like this '$ bash Anaconda2-4.0.0-Linux-x86_64.sh' or '$ bash Anaconda3-4.0.0-Linux-x86_64.sh' (depending
-		on the Python version) and	install Anaconda following the instructions on-screen.
-After installing Anconda, simply install Numba using
-$ conda install numba
+6) The video demo (sandbox/video_demo) has additional requirements; see sandbox/video_demo/README.md
 
 
 **INSTALLATION**
-
+```
 $ git clone git@bitbucket.org:udayb/polymage.git
 
 $ cd polymage
@@ -50,7 +45,9 @@ $ cd cgen
 $ git am ../patches/0001-ctye-to-dtype-handle-void.patch
 
 $ cd ..
+```
 
+Also make sure to have install `libpluto` from the [Pluto website](http://pluto-compiler.sourceforge.net/) to be able to use time-iterated stencils
 
 **PROJECT STRUCTURE**
 sandbox is the main directory of interest and it contains most of the code.  
@@ -82,6 +79,8 @@ sandbox/targetc.py : c++ code generation
 sandbox/tuner.py : autotuning code  
 
 sandbox/libpluto.py : FFI access to PLUTO
+
+sandbox/video_demo has a demo comparing PolyMage optimized versions of some of the benchmarks with other reference implementations -- it can be run on any video file. Strongly recommended that one tries this.
 
 The following repository contains just the base and the best PolyMage optimized codes (for Intel  
 Sandybridge) used for experiments in the ASPLOS 2015 paper for all of the benchmarks -- these are  

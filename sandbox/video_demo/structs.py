@@ -154,7 +154,10 @@ class Mode:
                 % self._lib_file
             mode_lib = ctypes.cdll.LoadLibrary(self._lib_file)
             # init memory pool pool
-            mode_lib.pool_init()
+            try:
+                mode_lib.pool_init()
+            except:
+                print("\n\n** Warning ** :\n\tCould not initialize memory pool\n")
             # set appropriate function names
             self._lib_func = ModeType.get_func_name(mode_lib, self.mode_id)
             self._lib = mode_lib
@@ -205,7 +208,10 @@ class Mode:
 
     def destroy(self):
         if self.has_lib:
-            self._lib.pool_destroy()
+            try:
+                self._lib.pool_destroy()
+            except:
+                print("\n\n** Warning ** :\n\tCould not destroy memory pool\n")
 
 
 class App:

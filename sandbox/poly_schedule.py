@@ -26,6 +26,7 @@ import logging
 from grouping import get_group_dep_vecs
 from utils import *
 from poly import *
+import libpluto
 
 # LOG CONFIG #
 poly_sched_logger = logging.getLogger("poly_schedule.py")
@@ -71,6 +72,11 @@ def base_schedule(group):
     parts = []
     for sublist in group.polyRep.poly_parts.values():
         parts.extend(sublist)
+
+    # #HACK: this depends on the fact that a group will have at least
+    # #one element to check if it has a Tstencil object.
+    # if group.comps[0].is_tstencil_type:
+    #     return parts
 
     for part in parts:
         dim_in = part.sched.dim(isl._isl.dim_type.in_)
@@ -345,61 +351,203 @@ def enable_tile_scratchpad(group_parts):
 
     return
 
-def fused_schedule(pipeline, group, param_estimates):
+def get_maps_from_union_map(union_map):
+    maps = []
+
+    def map_iterator(m):
+        maps.append(m.copy())
+        return 0
+
+    union_map.copy().foreach_map(map_iterator)
+    return maps
+
+
+def add_staging_dimension(schedule, staging_val):
+    """
+    :param schedule:
+    :param staging_val:
+    :return:
+     A new schedule with the staging dimension attached
+    """
+
+    out_space = schedule.range().space.copy()
+    # add a dimension for staging
+    out_space = out_space.add_dims(isl.dim_type.out, 1)
+
+    range_ = isl.BasicSet.universe(out_space)
+    domain = schedule.range()
+    map_ = isl.BasicMap.from_domain_and_range(domain, range_)
+
+
+    constraints = []
+    domain_var_count = schedule.range().n_dim()
+    for i in range(0, domain_var_count):
+        constraint = {}
+        constraint[('in', i)] =  1
+        constraint[('out', i + 1)] = -1
+        constraints.append(constraint)
+
+    staging_constraint = {
+            ('out', 0): 1,
+            ('constant', 0): -staging_val
+    }
+
+    constraints.append(staging_constraint)
+    map_ = add_constraints(map_, ineqs=[], eqs=constraints)
+
+    # apply the schedule to get the final space
+    # with the staging dimension
+    schedule = schedule.apply_range(map_)
+
+    # ---
+    # name all the dimensions correctly
+    schedule = schedule.set_dim_name(isl.dim_type.out, 0, '_t')
+    for i in range(1, domain_var_count + 1):
+        schedule = schedule.set_dim_name(isl.dim_type.out, i, 'o' + str(i - 1))
+
+    return schedule
+
+def fused_schedule(pipeline, isl_ctx, group, param_estimates):
     """Generate an optimized schedule for the stage."""
 
     g_poly_parts = group.polyRep.poly_parts
-    g_all_parts = []
-    for comp in g_poly_parts:
-        g_all_parts.extend(g_poly_parts[comp])
+    # NOTE: we assume that group has >= 1 compute objects in it.
+    # diamond tile if group is tstencil
 
-    # get dependence vectors between each part of the group and each of its
-    # parents' part
-    comp_deps = get_group_dep_vecs(pipeline, group, g_all_parts)
+    log_level = logging.DEBUG
+    if group.comps[0].is_tstencil_type:
 
-    # No point in tiling a group that has no dependencies
-    is_stencil = len(comp_deps) > 0 and len(g_all_parts) > 1
-    for dep, h in comp_deps:
-        # Skips groups which have self deps
-        if dep[0] == 0:
-            is_stencil = False
+        LOG(log_level, "diamond tiling pass")
 
-    # threshold for parallelism
-    if not is_stencil:
+        assert len(group.comps) == 1, ("Tstencil must be in a "
+                                      "separate group.")
+        tstencil_comp = group.comps[0]
+        tstencil = tstencil_comp.func
+
+        poly_parts = g_poly_parts[tstencil_comp]
+        assert len(poly_parts) == 1, ("a tstencil must have only one "
+                                      "poly part associated with it")
+
+        poly_part = poly_parts[0]
+
+        log_string = "original poly_part sched:\n%s" % poly_part.sched
+        LOG(log_level, log_string)
+        # -----
+        # save the original name of the domain, so we can rename the domain
+        # once it passes through PLUTO
+        original_sched_domain_name = poly_part.sched.get_tuple_name(isl.dim_type.in_)
+
+        in_schedule = poly_part.sched.copy()
+        in_schedule = PolyRep.set_map_pluto_names(in_schedule)
+
+        in_domain = in_schedule.domain()
+
+        # -----
+        # make a new schedule, from domain -> domain with the
+        # stencil dependencies in place. This also adds the time
+        # dimension.
+        in_schedule = PolyRep.add_tstencil_kernel_constraints(isl_ctx,
+                in_domain, in_schedule, tstencil_comp)
+
+        log_string1 = "%s%s" % ("in_domain", in_domain)
+        log_string2 = "%s%s" % ("in_schedule", in_schedule)
+        LOG(log_level, log_string1)
+        LOG(log_level, log_string2)
+
+        pluto = libpluto.LibPluto()
+        options = pluto.create_options()
+        options.partlbtile = True
+        optimised_sched = pluto.schedule(isl_ctx,
+                isl.UnionSet.from_basic_set(in_domain),
+                in_schedule,
+                 options).copy()
+
+        log_string = "pluto optimised schedule: %s" % optimised_sched
+        LOG(log_level, log_string)
+
+        # -----
+        # get the basic maps in the pluto union map, and pick up
+        # the basicMap of the schedule we care about
+        basic_maps_in_sched = get_maps_from_union_map(optimised_sched)
+
+        log_string = "basic maps in PLUTO optimised schedule:\n%s" % \
+              "\n".join(list(map(str, basic_maps_in_sched)))
+        LOG(log_level, log_string)
+
+        assert len(basic_maps_in_sched) == 1, \
+            ("the optimised schedule must have "
+             "only one  corresponding BasicMap "
+             "for the statement it owns")
+
+        # ---
+        # add the staging dimension into PLUTO's returned schedule
+        opt_schedule = basic_maps_in_sched[0].copy().get_basic_maps()[0]
+        # staging dimension calculation replicated from
+        # poly_schedule.py:format_schedule_constraints()
+        staging_dim_value = poly_part.level - 1
+        opt_schedule = add_staging_dimension(opt_schedule, staging_dim_value)
+
+        # ---
+        # Intersect with the original domain so the schedule
+        # gets limited to the domain
+        opt_schedule = opt_schedule.intersect_domain(in_domain)
+        opt_schedule = opt_schedule.set_tuple_name(isl.dim_type.in_,
+                original_sched_domain_name)
+        log_string = "Final chosen schedule:\n" + str(opt_schedule)
+        LOG(log_level, log_string)
+
+        poly_part.sched = opt_schedule
+        return
+    else:
+        g_all_parts = []
+        for comp in g_poly_parts:
+            g_all_parts.extend(g_poly_parts[comp])
+
+        # get dependence vectors between each part of the group and each of its
+        # parents' part
+        comp_deps = get_group_dep_vecs(pipeline, group, g_all_parts)
+
+        # No point in tiling a group that has no dependencies
+        is_stencil = len(comp_deps) > 0 and len(g_all_parts) > 1
+        for dep, h in comp_deps:
+            # Skips groups which have self deps
+            if dep[0] == 0:
+                is_stencil = False
+
+        # threshold for parallelism
+        if not is_stencil:
+            for p in g_all_parts:
+                part_size = p.get_size(param_estimates)
+                big_part = (part_size != '*' and \
+                            part_size > pipeline._size_threshold)
+                if not p.is_self_dependent and big_part:
+                    mark_par_and_vec(p, pipeline._param_estimates)
+
+        # Find the parts which are not liveout
         for p in g_all_parts:
-            part_size = p.get_size(param_estimates)
-            big_part = (part_size != '*' and \
-                        part_size > pipeline._size_threshold)
-            if not p.is_self_dependent and big_part:
-                mark_par_and_vec(p, pipeline._param_estimates)
+            is_liveout = not is_stencil
+            #is_liveout = True
+            p.set_liveness(p.is_liveout or is_liveout)
 
-    # Find the parts which are not liveout
-    for p in g_all_parts:
-        is_liveout = not is_stencil
-        #is_liveout = True
-        p.set_liveness(p.is_liveout or is_liveout)
+        if is_stencil:
+            assert(len(g_all_parts) > 1)
+            hmax = max( [ p.level for p in g_all_parts ] )
+            hmin = min( [ p.level for p in g_all_parts ] )
+            slope_min, slope_max = compute_tile_slope(comp_deps, hmax)
 
-    if is_stencil:
-        assert(len(g_all_parts) > 1)
-        hmax = max( [ p.level for p in g_all_parts ] )
-        hmin = min( [ p.level for p in g_all_parts ] )
-        slope_min, slope_max = compute_tile_slope(comp_deps, hmax)
+            #splitTile(stageGroups[gi], slopeMin, slopeMax)
+            overlap_tile(pipeline, g_all_parts, slope_min, slope_max)
 
-        #splitTile(stageGroups[gi], slopeMin, slopeMax)
-        overlap_tile(pipeline, g_all_parts, slope_min, slope_max)
+            enable_tile_scratchpad(g_all_parts)
 
-        enable_tile_scratchpad(g_all_parts)
+            for p in g_all_parts:
+                mark_par_and_vec_for_tile(p)
 
-        for p in g_all_parts:
-            mark_par_and_vec_for_tile(p)
-
-        '''
-        for p in g_all_parts:
-            skewed_schedule(p)
-        '''
-
-    return
-
+            '''
+            for p in g_all_parts:
+                skewed_schedule(p)
+            '''
+        return
 def move_independent_dim(dim, group_parts, stageDim):
     # Move the independent dimensions outward of the stage dimension.
     for part in group_parts:
@@ -418,7 +566,7 @@ def move_independent_dim(dim, group_parts, stageDim):
         part.sched = part.sched.remove_dims(
                             isl._isl.dim_type.out, dim+1, 1)
         part.sched = part.sched.set_dim_name(
-                                isl._isl.dim_type.out, 
+                                isl._isl.dim_type.out,
                                 stageDim, noDepName)
 
 def get_group_height(group_parts):

@@ -732,12 +732,16 @@ def align_and_scale(pipeline, group):
     max_dim = 0
     no_self_dep_parts = []
     for comp in comps:
-        for p in group_part_map[comp]:
-            p_dim = len(p.align)
-            if not p.is_self_dependent:
-                no_self_dep_parts.append(p)
-                if max_dim < p_dim:
-                    max_dim = p_dim
+        if comp.is_tstencil_type:
+            for p in group_part_map[comp]:
+                max_dim = max(max_dim, len(p.align))
+        else:
+            for p in group_part_map[comp]:
+                p_dim = len(p.align)
+                if not p.is_self_dependent:
+                    no_self_dep_parts.append(p)
+                    if max_dim < p_dim:
+                        max_dim = p_dim
 
     # begin from the topologically earliest comp parts as the base parts for
     # scaling and alignment reference
@@ -755,26 +759,7 @@ def align_and_scale(pipeline, group):
         if comp.level == abs_min_level:
             abs_min_comps.append(comp)
             abs_min_parts += group_part_map[comp]
-
-    # pick the min-level part with the highest dimensionality as base part
-    base_part = None
-    dim_max = 0
-    for p in abs_min_parts:
-        p_dim_in = p.sched.dim(isl._isl.dim_type.in_)
-        if p_dim_in > dim_max:
-            dim_max = p_dim_in
-            base_part = p
-
-    assert (base_part != None)
-    base_comp = base_part.comp
-
-    # initial alignment and scaling for the base comp parts
-    # ***
-    log_level = logging.DEBUG
-    LOG(log_level, "____")
-    LOG(log_level, str(base_comp.func.name)+\
-                   " (level : "+str(base_part.level)+")")
-
+    
     class Info(object):
         def __init__(self, _pipe, _group, _max_dim):
             self.pipe = _pipe
@@ -787,24 +772,57 @@ def align_and_scale(pipeline, group):
             self.align_scale = {}
 
     info = Info(pipeline, group, max_dim)
-    info.solved.append(base_comp)
-    for part in group_part_map[base_comp]:
-        # set default values for base parts
-        align, scale = default_align_and_scale(part.sched, max_dim, shift=True)
-        # update to the temporary info
-        true_pack = ASPacket(align, scale)
-        full_pack = ASPacket(align, scale)
-        info.align_scale[part] = ASInfo(true_pack, full_pack)
-
-    # recursively compute alignment and scaling for the family of base_comp
-    base_children = [child for child in base_comp.children \
-                             if child.group == group]
-    if base_children:
-        solve_comp_children(base_comp.children, info)
-
-    # compute newly discovered parents iteratively until no new parent is
-    # discovered.
-    solve_comp_parents(info.discovered, info)
+    found_all_parts_in_info = False
+    
+    while not found_all_parts_in_info:        
+        # pick the min-level part with the highest dimensionality as base part
+        base_part = None
+        dim_max = 0
+        for p in abs_min_parts:
+            p_dim_in = p.sched.dim(isl.dim_type.in_)
+            if p_dim_in > dim_max:
+                dim_max = p_dim_in
+                base_part = p
+    
+        assert (base_part != None)
+        base_comp = base_part.comp
+    
+        # initial alignment and scaling for the base comp parts
+        # ***
+        log_level = logging.DEBUG
+        LOG(log_level, "____")
+        LOG(log_level, str(base_comp.func.name)+\
+                    " (level : "+str(base_part.level)+")")
+    
+        
+        info.solved.append(base_comp)
+        for part in group_part_map[base_comp]:
+            # set default values for base parts
+            align, scale = default_align_and_scale(part.sched, max_dim, shift=True)
+            # update to the temporary info
+            true_pack = ASPacket(align, scale)
+            full_pack = ASPacket(align, scale)
+            info.align_scale[part] = ASInfo(true_pack, full_pack)
+    
+        # recursively compute alignment and scaling for the family of base_comp
+        base_children = [child for child in base_comp.children \
+                                if child.group == group]
+        if base_children:
+            solve_comp_children(base_children, info)
+    
+        # compute newly discovered parents iteratively until no new parent is
+        # discovered.
+        solve_comp_parents(info.discovered, info)
+        
+        found_all_parts_in_info = True
+        
+        for comp in comps:
+            for part in group_part_map[comp]:
+                if part not in info.align_scale:
+                    found_all_parts_in_info = False
+                    break
+            if not found_all_parts_in_info:
+                break
 
     # set all the solutions into polypart object members
     for comp in comps:
@@ -823,6 +841,7 @@ def align_and_scale(pipeline, group):
             # set the final values into the poly part object
             part.set_align(align)
             part.set_scale(scale)
+
 
     ''' normalizing the scaling factors '''
     norm = find_scale_norm(info)
