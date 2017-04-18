@@ -6,17 +6,21 @@
 * numpy
     * ** $ sudo apt-get install python-numpy**
 * numba
+    Option 1
     * Get 32 or 64 bit version of [Anaconda](https://continuum.io/downloads.html)
         * **$ bash Anaconda2-4.0.0-Linux-x86_64.sh**  [... _follow instructions_]
         * **$ conda install numba**
 
-       Alternatively, it is possible to install numba through pip.
+    Option 2
+       Alternatively, one can install numba through pip.
+
 
 * OpenCV
     * Install Library
         * [[instructions for installation on ubuntu]](https://help.ubuntu.com/community/OpenCV)
     * Install cv2
-        * **$ sudo apt-get install python-opencv**
+        * On an Ubuntu: **$ sudo apt-get install python-opencv**
+        * On a Fedora: **$ sudo yum install opencv-python
 * PIL (Python Imaging Library)
     * **$ pip install pillow**
 * tabulate
