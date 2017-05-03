@@ -1,7 +1,7 @@
-#CXX=icpc
-#CXX_FLAGS=-openmp -ipo -O3 -xhost
-CXX=g++
-CXX_FLAGS=-g -fopenmp -O0 -march=native -ftree-vectorize 
+CXX=icpc
+CXX_FLAGS=-openmp -ipo -O3 -xhost
+#CXX=g++
+#CXX_FLAGS=-g -fopenmp -O0 -march=native -ftree-vectorize 
 PYTHON=python3
 ROOT="../../../.."
 #ROOT="."
@@ -9,7 +9,7 @@ ROOT="../../../.."
 # app inputs
 IMG1="$(ROOT)/../images/left.png"
 IMG2="$(ROOT)/../images/right.png"
-RUNS=1
+RUNS=500
 
 APP_ARGS=--imgl=${IMG1} --imgr=${IMG2} 
 #APP_ARGS=--img=${IMG} --alpha=${ALPHA} --patch_size=${PATCH_SIZE} --search_area=${SEARCH_AREA}

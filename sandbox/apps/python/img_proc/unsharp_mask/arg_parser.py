@@ -87,7 +87,7 @@ def parse_args():
     parser.add_option('--cxx',
                       action='store',
                       dest='cxx',
-                      choices=['g++', 'icpc'],
+                      choices=['g++', 'icpc', '/home/abhinav-mcl/llvm3.7/build/bin/clang++'],
                       default=['g++'],
                       help='CXX Compiler')
 

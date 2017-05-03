@@ -47,7 +47,7 @@ def generate_graph(pipe, file_name, app_data):
 
     return
 
-def build_campipe(app_data, g_size = None):
+def build_campipe(app_data, g_size = None, t_size = None):
     pipe_data = app_data['pipe_data']
 
     # construct the camera pipeline
@@ -61,11 +61,11 @@ def build_campipe(app_data, g_size = None):
     p_estimates = [(R, app_data['rows']), (C, app_data['cols'])]
     p_constraints = [ Condition(R, "==", app_data['rows']), \
                       Condition(C, "==", app_data['cols']) ]
-    t_size = [64, 256]
+    if (t_size == None):
+        t_size = [64, 256]
     
     if (g_size == None):
-        g_size = 5
-    #increasing group size to 10 improves execution
+        g_size = 6    #increasing group size to 10 improves execution
 
     opts = []
     if app_data['early_free']:
@@ -85,7 +85,7 @@ def build_campipe(app_data, g_size = None):
 
     return pipe
 
-def create_lib(build_func, pipe_name, app_data, g_size = None):
+def create_lib(build_func, pipe_name, app_data, g_size = None, t_size = None):
     pipe_data = app_data['pipe_data']
     mode = app_data['mode']
     pipe_src  = pipe_name+".cpp"
@@ -106,7 +106,7 @@ def create_lib(build_func, pipe_name, app_data, g_size = None):
             codegen(pipe, pipe_src, app_data)
         elif mode == 'tune+':
             # build the polymage pipeline
-            pipe = build_func(app_data, g_size)
+            pipe = build_func(app_data, g_size, t_size)
 
             # draw the pipeline graph to a png file
             if graph_gen:

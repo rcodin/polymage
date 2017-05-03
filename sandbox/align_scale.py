@@ -830,7 +830,8 @@ def align_and_scale(pipeline, group):
                     foundAllPartsInInfo = False
                     break
                         
-        
+    
+    print ("align scale for ", str(group)) 
     # set all the solutions into polypart object members
     for comp in comps:
         for part in group_part_map[comp]:

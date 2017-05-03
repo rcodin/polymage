@@ -65,7 +65,7 @@ def unsharp_mask(pipe_data):
     sharpen.defn = [ Case(cond,img(c, x, y)   * ( 1 + weight ) \
                        - blury(c, x, y) * (     weight ))]
 
-    masked = Function(([c, x, y], [cr, yrow, ycol]), Float, "mask")
+    masked = Function(([c,x, y], [cr, yrow, ycol]), Float, "mask")
     masked.defn = [ Case(cond,Select( Condition( \
                                          Abs(img(c, x, y) - blury(c, x, y)), \
                                          '<', \

@@ -1,7 +1,7 @@
-#CXX=icpc
-#CXX_FLAGS=-openmp -ipo -O3 -xhost
-CXX=g++
-CXX_FLAGS=-fopenmp -O3 -march=native -ftree-vectorize
+CXX=icpc
+CXX_FLAGS=-openmp -ipo -O3 -xhost
+#CXX=g++
+#CXX_FLAGS=-fopenmp -O3 -ftree-vectorize
 PYTHON=python3
 ROOT="../../../../"
 
@@ -11,7 +11,7 @@ IMG="bayer_raw.png"
 KELVIN=3700
 CONTRAST=50
 GAMMA=2.0
-RUNS=10
+RUNS=500
 
 APP_ARGS=--img=$(IMG) --colour_temp=$(KELVIN) --contrast=$(CONTRAST) --gamma=$(GAMMA)
 OPT_ARGS=--pool_alloc --optimize_storage --early_free

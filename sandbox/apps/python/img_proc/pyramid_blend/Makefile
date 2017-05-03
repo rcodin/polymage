@@ -1,14 +1,14 @@
-#CXX=icpc
-#CXX_FLAGS=-openmp -ipo -O3 -xhost
-CXX=g++
-CXX_FLAGS=-fopenmp -march=native -ftree-vectorize
+CXX=icpc
+CXX_FLAGS=-openmp -ipo -O3 -xhost
+#CXX=g++
+#CXX_FLAGS=-fopenmp -O3 -march=native -ftree-vectorize
 PYTHON=python3
 ROOT="../../../.."
 
 # app inputs
 IMG1=$(ROOT)"/../images/grand_canyon1.jpg"
 IMG2=$(ROOT)"/../images/grand_canyon2.jpg"
-RUNS=10
+RUNS=500
 
 APP_ARGS=--img1=${IMG1} --img2=${IMG2}
 OPT_ARGS=--pool_alloc --optimize_storage --early_free

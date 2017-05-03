@@ -109,7 +109,7 @@ def create_lib(build_func, pipe_name, app_data, g_size = None):
                 generate_graph(pipe, pipe_name, app_data)
 
             # generate pipeline cpp source
-            codegen(pipe, pipe_src, app_data)
+            #codegen(pipe, pipe_src, app_data)
         
         elif mode == 'tune+':
             # build the polymage pipeline

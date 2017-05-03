@@ -65,7 +65,7 @@ def build_maxfilter(app_data, g_size = None):
                       Condition(C, "==", cols) ]
     t_size = [16, 16, 16]
     if (g_size == None):
-        g_size = 11
+        g_size = 0 
     opts = []
     if app_data['early_free']:
         opts += ['early_free']

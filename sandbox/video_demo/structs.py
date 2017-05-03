@@ -470,7 +470,7 @@ class VideoProcessor:
         return
 
     def report_stats(self):
-        print ("\nAverage time spent in each mode [per frame]:\n")
+        print "\nAverage time spent in each mode [per frame]:\n"
         rows = []
         for app_id in self.apps_map:
             app = self.apps_map[app_id]
@@ -490,8 +490,8 @@ class VideoProcessor:
             app_rows = sorted(app_rows, key=lambda row: float(row[2]))
             rows += app_rows
 
-        print (tabulate(rows, headers=["App", "Mode", "Average (ms)", "Min (ms)", "Max (ms)"]))
-        print ()
+        print tabulate(rows, headers=["App", "Mode", "Average (ms)", "Min (ms)", "Max (ms)"])
+        print
         return
 
     def finish(self):

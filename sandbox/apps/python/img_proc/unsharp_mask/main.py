@@ -27,18 +27,25 @@ def main():
     init_all(app_data)
     print_config(app_data)
     if app_data['mode'] == 'tune+':
-        for g_size in [3, 5, 7, 10, 15]:
-            create_lib(build_unsharp, app, app_data, g_size)
-            for t in range (0, 5):
-                print ("Running for iteration #", t)
-                unsharp_mask(app_data)
-    
+        for g_size in [3, 5, 7]:
+            for t1 in [8, 16, 32, 64, 128, 256]:
+                for t2 in [8, 16, 32, 64, 128, 256]:
+                    create_lib(build_unsharp, app, app_data, g_size, [1, t1, t2])
+                    for t in range (0, 0):
+                        print ("Running for iteration #", t)
+   
     elif app_data['mode'] == 'tune':
         print("Tuning")
         auto_tune(app_data)
     else:
         create_lib(build_unsharp, app, app_data)
-        unsharp_mask(app_data)
+        input ("wait for executing")
+        input ("22222222222222")
+        min_avg = 100000
+        for i in range (0, 5):
+            min_avg = min (min_avg, unsharp_mask(app_data))
+        
+        print ("minimum average ", min_avg)
 
     return
 

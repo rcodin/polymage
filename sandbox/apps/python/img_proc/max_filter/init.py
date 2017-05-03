@@ -14,6 +14,7 @@ def init_images(app_data):
     # input image: 
     img_path = app_args.img_file
     image = np.array(Image.open(img_path))
+    print("Input Image shape: "+str(image.shape))
 
     #img_path2 = app_args.alpha_file
     #alpha = np.array(Image.open(img_path2))

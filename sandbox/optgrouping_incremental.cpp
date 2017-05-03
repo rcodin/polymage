@@ -17,7 +17,7 @@
 #include <numeric>
 
 #define PRINT_DEBUG (x) if (DEBUG) { x; }
-bool const DEBUG = true;
+bool const DEBUG = false;
 bool const checkForAssertions = false;
 bool const checkPythonExceptions = true;
 
@@ -2486,7 +2486,7 @@ inline uint64_t cost (uint128_t hash_id, std::vector <uint64_t>& tile_sizes)
     
     
     #define INCLUDE_OVERLAP
-    #if INCLUDE_OVERLAP
+    #ifdef INCLUDE_OVERLAP
     PyObject* pytotalsizeused = PyLong_FromLong (totalsizeused);
     PyObject* pyn_buffers = PyLong_FromLong (n_buffers);
     PyObject* args = PyTuple_Pack (3, list_groups_for_overlap, pytotalsizeused, pyn_buffers);

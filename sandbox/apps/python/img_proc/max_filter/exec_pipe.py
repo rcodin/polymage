@@ -74,12 +74,12 @@ def maxfilter(app_data):
         it += 1
 
         OUT = app_data['img_data']['OUT']
-        print("OUT LEN:", rows, cols)
+        #print(len(OUT), rows,cols)
         OUT = OUT.reshape(3, rows, cols)
         OUT= np.rollaxis(OUT, 2)
         OUT= np.rollaxis(OUT, 2)
         #print("Output Image shape: "+str(OUT.shape))
-        out1 = np.zeros((rows,cols,3),np.uint32)
+        out1 = np.zeros((rows,cols,3),np.uint8)
         out1[0:rows,0:cols,0:3] = OUT[0:rows,0:cols,0:3]
         out1.ravel()
         img_out = Image.frombuffer(mode,size,out1)

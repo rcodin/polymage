@@ -1206,17 +1206,16 @@ class Group:
 
     def get_tile_sizes_for_cache_size (self, param_estimates, slope_min,
                                        slope_max, group_parts, dim_reuse, 
-                                       dim_sizes, CACHE_SIZE, LAST_DIM_SIZE,
-                                       tile_size = -1):
-        '''Returns the tile size found
+                                       dim_sizes, CACHE_SIZE, LAST_DIM_SIZE):
+        '''Returns the tile sizes for each dimension found
+            and tile_size 
         '''
         tile_sizes = {}
-        if (tile_size == -1):
-            total_used_size = self._total_used_size/IMAGE_ELEMENT_SIZE
-            tile_size = total_used_size/N_CORES
-            if (tile_size > CACHE_SIZE):
-                tile_size = CACHE_SIZE
-            tile_size = tile_size/self._n_buffers
+        total_used_size = self._total_used_size/IMAGE_ELEMENT_SIZE
+        tile_size = total_used_size/N_CORES
+        if (tile_size > CACHE_SIZE):
+            tile_size = CACHE_SIZE
+        tile_size = tile_size/self._n_buffers
             
         print ("tileable dims:",)
         for i in range (len(slope_min)):
@@ -1268,9 +1267,9 @@ class Group:
             for dim in range (len(slope_min)):
                 tile_sizes [dim] = int(get_next_power_of_2 (int(tile_size ** (1.0/len(slope_min))))/2)
             
-            tile_sizes [max(tile_sizes)] = INNER_MOST_DIM_SIZE
+            tile_sizes [max(tile_sizes)] = LAST_DIM_SIZE
             
-            return tile_sizes
+            return tile_sizes, tile_size
         
         print ('last_tileable_dim ', last_tileable_dim)
         print ('outer_tileable_dim ', outer_tileable_dim)
@@ -1311,16 +1310,16 @@ class Group:
                         if (tile_sizes [i] > dim_sizes [i]):
                             tile_sizes [i] = dim_sizes [i]
         
-        if (n_non_zero_dims == 0):
+        if (n_non_zero_dims == 0 and n_zero_dims != 0):
             max_dim_tile_size = max_dim_tile_size ** (1.0/n_zero_dims)
             
             for i in range (len(slope_min)):
                 if (self.is_dim_tileable (i, slope_min, dim_sizes) and i != last_tileable_dim
                     and i != outer_tileable_dim):
                     if (max_dim_tile_size > dim_sizes [i]):
-                        n_zero_dims -= 1
                         max_dim_tile_size = max_dim_tile_size ** (1.0/n_zero_dims)
-            
+                        n_zero_dims -= 1
+ 
             for i in range (len(slope_min)):
                 if (self.is_dim_tileable (i, slope_min, dim_sizes) and i != last_tileable_dim
                     and i != outer_tileable_dim):
@@ -1332,10 +1331,10 @@ class Group:
             if (tile_sizes[k] == 0):
                 _tile_sizes.pop (k)
             
-        return _tile_sizes
+        return _tile_sizes, tile_size
             
     def get_tile_sizes (self, param_estimates, slope_min, slope_max, group_parts, 
-                        h, use_only_l2 = False, tile_size = -1):
+                        h, use_only_l2 = False):
         print ("get_tile_sizes for ", self)
         #self._tile_sizes = {1:8, 2:256}
         #print ("total_size ", self._total_used_size/IMAGE_ELEMENT_SIZE)
@@ -1349,7 +1348,7 @@ class Group:
             assert (False)
             
         tileable_dims = set()
-        
+        tile_size = 0
         dim_reuse = [i*IMAGE_ELEMENT_SIZE for i in self.get_dimensional_reuse (param_estimates)]
         
         dim_sizes = {}
@@ -1379,22 +1378,23 @@ class Group:
         
         if (not use_only_l2):
             #try with L1 Cache
-            tile_sizes = self.get_tile_sizes_for_cache_size (param_estimates, 
+            tile_sizes, tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
                 slope_min, slope_max, group_parts, dim_reuse, dim_sizes, L1_CACHE_SIZE, L1_INNER_MOST_DIM_SIZE)
             
             overlap_shift_greater = False
             
             for i in tile_sizes.keys ():
-                right = int(math.floor(Fraction(slope_min[i][0],
-                                                slope_min[i][1])))
-                left = int(math.ceil(Fraction(slope_max[i][0],
-                                            slope_max[i][1])))
-                # Compute the overlap shift
-                overlap_shift = abs(left * (h)) + abs(right * (h))
-                    
-                if (overlap_shift + 0 > tile_sizes[i]):
-                    overlap_shift_greater = True
-                    break
+                if (slope_min[i] != '*'):
+                    right = int(math.floor(Fraction(slope_min[i][0],
+                                                    slope_min[i][1])))
+                    left = int(math.ceil(Fraction(slope_max[i][0],
+                                                slope_max[i][1])))
+                    # Compute the overlap shift
+                    overlap_shift = abs(left * (h)) + abs(right * (h))
+                        
+                    if (overlap_shift + 0 > tile_sizes[i]):
+                        overlap_shift_greater = True
+                        break
             
             threshold_tile_size_met = True
             for i in tile_sizes.keys ():
@@ -1406,14 +1406,15 @@ class Group:
             
             if (not overlap_shift_greater and threshold_tile_size_met):
                 self._tile_sizes = tile_sizes
-                return 
+                return tile_size
 
-        tile_sizes = self.get_tile_sizes_for_cache_size (param_estimates, 
+        tile_sizes, tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
             slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
-            L2_CACHE_SIZE, L2_INNER_MOST_DIM_SIZE, tile_size)
+            L2_CACHE_SIZE, L2_INNER_MOST_DIM_SIZE)
         
         print ("tile_sizes from L2 ", tile_sizes)
         self._tile_sizes = tile_sizes
+        return tile_size
         
     def __str__(self):
         comp_str  = '[' + \
@@ -1598,10 +1599,25 @@ class Pipeline:
         # use graphviz to create pipeline graph
         self._pipeline_graph = self.draw_pipeline_graph()
 
-    def get_overlapping_size_for_groups (self, groups, tile_size):
+    def get_overlapping_size_for_groups (self, groups, tile_size, _n_buffers):
         print ("get_overlapping_size_for_groups for ", [g.comps[0].func.name for g in groups])
+        img1 = False
+        img2 = False
+        denoised = False
+        #TODO: To solve
+        for g in groups:
+            if (g.comps[0].func.name.find("img1") != -1):
+                img1 = True
+            if (g.comps[0].func.name.find("img2") != -1):
+                img2 = True
+            if (g.comps[0].func.name.find("denoised") != -1):
+                denoised = True
+        if ((img1 and img2) or denoised):
+            return -1, 0
+
         g = self.create_group (groups)
         g.set_total_used_size (tile_size)
+        g.set_n_buffers (_n_buffers)
         #print ("create_group = ", [comp.func.name for comp in g.comps])
         #print ("LEVEL ORDER COMPS", g._level_order_comps)
         #g.get_total_size (self._param_estimates)
@@ -1617,10 +1633,10 @@ class Pipeline:
             _func_map[comp.func] = comp
         self._func_map = _func_map
         # alignment and scaling
-        try:
-            align_and_scale(self, g)
-        except AssertionError:
-            return 1<<30
+        #try:
+        align_and_scale(self, g)
+        #except:
+        #    return -1
         base_schedule(g)
         # grouping and tiling
         #print ("fused_schedule232323 ", g)
@@ -1635,16 +1651,26 @@ class Pipeline:
         #print (comp_deps)
         # No point in tiling a group that has no dependencies
         self._func_map = orig_func_map
+        det_tile_size = 0
         if len(comp_deps) > 0 and len(g_all_parts) > 1:
             hmax = max( [ p.level for p in g_all_parts ] )
             #hmin = min( [ p.level for p in g_all_parts ] )
             slope_min, slope_max = compute_tile_slope(comp_deps, hmax)
-            g.get_tile_sizes (self.param_estimates, slope_min, slope_max, 
-                              g_all_parts, hmax, True, tile_size)
+            det_tile_size = g.get_tile_sizes (self.param_estimates, slope_min, slope_max, 
+                                              g_all_parts, hmax, False)
             tile_sizes = g._tile_sizes
+            all_slope_invalid = True
+            for slope in slope_min:
+                if (slope != "*"):
+                    all_slope_invalid = False
+                    break
+            
+            if (all_slope_invalid):
+                return -1, 0
+                
             print ("slope_min, slope_max", slope_min, slope_max)
             overlap_shifts = [0 for i in range(0, len(slope_min))]
-            for i in range(2, len(slope_min)+1):
+            for i in range(1, len(slope_min)+1):
                 if (slope_min[i-1] == '*'):
                     continue
                 right = int(math.floor(Fraction(slope_min[i-1][0],
@@ -1666,10 +1692,12 @@ class Pipeline:
                         overlap_shift *= overlap_shifts[i]*1
             #overlap_shift *= IMAGE_ELEMENT_SIZE
             #print ("overlap_shift ", overlap_shift)
-            return overlap_shift
+            print ("overlap_shift ", overlap_shift, "det_tile_size " , det_tile_size)
+            return overlap_shift, det_tile_size
         
         if len (comp_deps) <= 0:
-            return 1 << 30
+            return 1 << 30, 1 #For Pyramid Blend UnComment
+            #return 0, 0 #For Campipe
             
         print ("Getting Overlap for non stencil? Not Good")
         assert (False)

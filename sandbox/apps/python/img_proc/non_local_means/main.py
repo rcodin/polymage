@@ -33,7 +33,8 @@ def main():
         pass
     else:
         create_lib(build_nlmeans, app, app_data)
-        nlmeans(app_data)
+        for i in range (0,5):
+            nlmeans(app_data)
 
     return
 

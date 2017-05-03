@@ -46,7 +46,7 @@ def generate_graph(pipe, file_name, app_data):
 
     return
 
-def build_unsharp(app_data, g_size = None):
+def build_unsharp(app_data, g_size = None, t_size = None):
     pipe_data = app_data['pipe_data']
     out_unsharp = unsharp_mask(pipe_data)
     R = pipe_data['R']
@@ -63,9 +63,10 @@ def build_unsharp(app_data, g_size = None):
     p_estimates = [(R, rows), (C, cols)]
     p_constraints = [ Condition(R, "==", rows), \
                       Condition(C, "==", cols) ]
-    t_size = [16, 16]
+    if (t_size == None):
+        t_size = [1, 8, 512]
     if (g_size == None):
-        g_size = 11
+        g_size = 4
     opts = []
     if app_data['early_free']:
         opts += ['early_free']
@@ -86,7 +87,7 @@ def build_unsharp(app_data, g_size = None):
 
 
 
-def create_lib(build_func, pipe_name, app_data, g_size = None):
+def create_lib(build_func, pipe_name, app_data, g_size = None, t_size = None):
     pipe_data = app_data['pipe_data']
     mode = app_data['mode']
     pipe_src  = pipe_name+".cpp"
@@ -108,7 +109,7 @@ def create_lib(build_func, pipe_name, app_data, g_size = None):
         
         elif mode == 'tune+':
             # build the polymage pipeline
-            pipe = build_func(app_data, g_size)
+            pipe = build_func(app_data, g_size, t_size)
 
             # draw the pipeline graph to a png file
             if graph_gen:

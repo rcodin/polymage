@@ -23,18 +23,23 @@ def main():
     print_config(app_data)
 
     if app_data['mode'] == 'tune+':
-        for g_size in [3, 5, 7, 10, 15, 20, 30, 200]:
-            create_lib(build_interpolate, app, app_data, g_size)
-            for t in range (0, 5):
-                print ("Running for iteration #", t)
-                interpolate(app_data)
+        for g_size in [3, 5, 7, 9, 11, 200]:
+            for t1 in [8, 16, 32, 64, 128, 256]:
+                for t2 in [8, 16, 32, 64, 128, 256]:
+                    create_lib(build_interpolate, app, app_data, g_size, [1, t1, t2])
+                    for t in range (0, 0):
+                        print ("Running for iteration #", t)
+                        interpolate(app_data)
     elif app_data['mode'] == 'tune':
         pass
     else:
         create_lib(build_interpolate, app, app_data)
-        for t in range (0, 10):
-                print ("Running for iteration #", t)
-                interpolate(app_data)
+        _min_time = 10000
+        for t in range(0, 5):
+            _min_time = min (_min_time, interpolate(app_data))
+        print ("Minimum Time = ", _min_time)
+
+
 
     return
 

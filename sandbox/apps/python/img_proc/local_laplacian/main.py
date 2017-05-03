@@ -27,7 +27,8 @@ def main():
         #auto_tune(app_data)
     else:
         create_lib(build_laplacian, app, app_data)
-        laplacian(app_data)
+        for i in range (0, 5):
+            laplacian(app_data)
 
     return
 

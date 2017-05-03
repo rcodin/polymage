@@ -16,7 +16,7 @@ def init_images(app_data):
     img_path = app_args.img_file
     img = np.array(Image.open(img_path)) #.convert('1'))
     rows, cols, c = img.shape
-
+    #rows, cols = 2048, 2048
     row_base = int(app_args.rowbase)
     col_base = int(app_args.colbase)
 
