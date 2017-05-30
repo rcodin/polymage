@@ -1,17 +1,18 @@
-CXX=icpc
 
-CFLAGS=-O3 -xhost -ipo -qopenmp
+CFLAGS=-O3 -xhost -ipo -qopenmp `pkg-config --cflags --libs opencv`
 
 all: autovec handvec handvecg
 
-autovec:  laplacian_unvectorized.cpp main.cpp simple_pool_allocator.cpp
-	$(CXX) $(CFLAGS) simple_pool_allocator.cpp main.cpp $< -o $@
+autovec:  laplacian_unvectorized.cpp
+	icpc $(CFLAGS) simple_pool_allocator.cpp main.cpp $< -o $@
 
-handvec:  laplacian_vectorized.cpp main.cpp simple_pool_allocator.cpp
-	$(CXX) $(CFLAGS) simple_pool_allocator.cpp main.cpp $< -o $@
+handvec:  laplacian_vectorized.cpp
+	icpc $(CFLAGS) simple_pool_allocator.cpp main.cpp $< -o $@
 
-handvecg:  laplacian_vectorized_gather.cpp main.cpp simple_pool_allocator.cpp
-	$(CXX) $(CFLAGS) simple_pool_allocator.cpp main.cpp $< -o $@
+handvecg:  laplacian_vectorized_gather.cpp
+	icpc $(CFLAGS) simple_pool_allocator.cpp main.cpp $< -o $@
 
 clean:
-	rm -f autovec handvec handvecg
+	rm autovec
+	rm handvec
+	rm handvecg
