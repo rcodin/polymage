@@ -46,7 +46,7 @@ def generate_graph(pipe, file_name, app_data):
 
     return
 
-def build_harris(app_data, g_size = None):
+def build_harris(app_data, g_size = None, t_size = None):
     pipe_data = app_data['pipe_data']
 
     out_harrispipe = harris_pipe(pipe_data)
@@ -63,9 +63,10 @@ def build_harris(app_data, g_size = None):
     p_estimates = [(R, rows), (C, cols)]
     p_constraints = [ Condition(R, "==", rows), \
                       Condition(C, "==", cols) ]
-    t_size = [16, 16]
+    if (t_size == None):
+        t_size = [32, 256]
     if (g_size == None):
-        g_size = 11
+       g_size = 13
     opts = []
     if app_data['early_free']:
         opts += ['early_free']
@@ -84,7 +85,7 @@ def build_harris(app_data, g_size = None):
 
     return pipe
 
-def create_lib(build_func, pipe_name, app_data, g_size = None):
+def create_lib(build_func, pipe_name, app_data, g_size = None, t_size = None):
     mode = app_data['mode']
     pipe_src  = pipe_name+".cpp"
     pipe_so   = pipe_name+".so"
@@ -104,7 +105,7 @@ def create_lib(build_func, pipe_name, app_data, g_size = None):
             codegen(pipe, pipe_src, app_data)
         elif mode == 'tune+':
             # build the polymage pipeline
-            pipe = build_func(app_data, g_size)
+            pipe = build_func(app_data, g_size, t_size)
 
             # draw the pipeline graph to a png file
             if graph_gen:

@@ -24,10 +24,11 @@ def init_images(app_data):
     img1 = Image.open(img_path)  #.convert('1'))
     print ("size ", img1.size)
     img = np.array(img1)
-    rows, cols, c = img.shape
+    c = 0
+    rows, cols = img.shape
   
-    rowdiff = 2832
-    coldiff = 4256
+    rowdiff = 2560
+    coldiff = 1536
 
     row_base = (rows-rowdiff)/2
     col_base = (cols-coldiff)/2
@@ -36,13 +37,13 @@ def init_images(app_data):
     
     # create ghost zone and copy image roi
     image_ghost = \
-        np.empty((rows+total_pad, cols+total_pad, 3), image_region.dtype)
+        np.empty((rows+total_pad, cols+total_pad), image_region.dtype)
     
-    image_ghost[off_left:rows+off_left, off_left:cols+off_left, 0:3] = \
-        np.array(image_region[0:rows, 0:cols, 0:3], image_region.dtype)
+    image_ghost[off_left:rows+off_left, off_left:cols+off_left] = \
+        np.array(image_region[0:rows, 0:cols], image_region.dtype)
     
     # clamp the boundary portions
-    image_clamp(image_region, image_ghost, rows, cols, 3, \
+    image_clamp(image_region, image_ghost, rows, cols, 0, \
                 image_region.dtype, 1, off_left, total_pad)
 
     image_rgb = Image.fromarray(image_ghost)

@@ -1604,14 +1604,29 @@ class Pipeline:
         img1 = False
         img2 = False
         denoised = False
+        Ix = Iy = Iyy = Ixx = Ixy = Sxx = harris = False
         #TODO: To solve
         for g in groups:
             if (g.comps[0].func.name.find("img1") != -1):
                 img1 = True
-            if (g.comps[0].func.name.find("img2") != -1):
+            elif (g.comps[0].func.name.find("img2") != -1):
                 img2 = True
-            if (g.comps[0].func.name.find("denoised") != -1):
+            elif (g.comps[0].func.name.find("denoised") != -1):
                 denoised = True
+            elif (g.comps[0].func.name == "Ix"):
+                Ix = True
+            elif (g.comps[0].func.name == "Iy"):
+                Iy = True
+            elif (g.comps[0].func.name.find("Iyy") != -1):
+                Iyy = True
+            elif (g.comps[0].func.name.find("Ixx") != -1):
+                Ixx = True
+            elif (g.comps[0].func.name.find("Ixy") != -1):
+                Ixy = True
+            elif (g.comps[0].func.name.find("Sxx") != -1):
+                Sxx = True
+            elif (g.comps[0].func.name.find("harris") != -1):
+                harris = True
         if ((img1 and img2) or denoised):
             return -1, 0
 
@@ -1654,10 +1669,20 @@ class Pipeline:
         det_tile_size = 0
         if len(comp_deps) > 0 and len(g_all_parts) > 1:
             hmax = max( [ p.level for p in g_all_parts ] )
-            #hmin = min( [ p.level for p in g_all_parts ] )
+            hmin = min( [ p.level for p in g_all_parts ] )
             slope_min, slope_max = compute_tile_slope(comp_deps, hmax)
+            #if (Ix and Iy and Iyy and Ixx and Ixy and Sxx and harris):
+            #    slope_min = [(-1,1), (-1,1)]
+            #    slope_max = [(1, 1), (1, 1)]
+            #    hmax = 3
+            #elif (Ix and Iy and Iyy and Ixx and Ixy and Sxx):
+            #    hmax = 2
+            #elif(Ix and Iy and Iyy and Ixx and Ixy and Sxy):
+            #    hmax=2
+                
+            print ("hmax ", hmax-hmin)
             det_tile_size = g.get_tile_sizes (self.param_estimates, slope_min, slope_max, 
-                                              g_all_parts, hmax, False)
+                                              g_all_parts, hmax - hmin, False)
             tile_sizes = g._tile_sizes
             all_slope_invalid = True
             for slope in slope_min:
@@ -1667,33 +1692,68 @@ class Pipeline:
             
             if (all_slope_invalid):
                 return -1, 0
-                
+            
             print ("slope_min, slope_max", slope_min, slope_max)
-            overlap_shifts = [0 for i in range(0, len(slope_min))]
-            for i in range(1, len(slope_min)+1):
-                if (slope_min[i-1] == '*'):
-                    continue
-                right = int(math.floor(Fraction(slope_min[i-1][0],
-                                                slope_min[i-1][1])))
-                left = int(math.ceil(Fraction(slope_max[i-1][0],
-                                              slope_max[i-1][1])))
+            if (False):
+                overlap_shifts = [0 for i in range(0, len(slope_min))]
+                overlap_shift = 0
                 for h in range(1, get_group_height (g_all_parts)+1):
-                    overlap_shifts [i-1] += abs(left * (h)) + abs(right * (h))
-                #print (_overlap_shift, i)
-                #if (_overlap_shift != 0):
-                #    overlap_shift *= _overlap_shift
-            print ("overlap_shifts ", overlap_shifts)
-            overlap_shift = 1
-            for i in tile_sizes:
-                if (overlap_shifts[i] != 0 and tile_sizes[i] < g._dim_sizes_part[i]):
-                    if ((i-1) in tile_sizes):
-                        overlap_shift *= overlap_shifts[i]*(tile_sizes[i-1] + overlap_shifts[i-1])
-                    else:
-                        overlap_shift *= overlap_shifts[i]*1
+                    _overlap_shifts = [0 for i in range(0, len(slope_min))]
+                    for i in range(1, len(slope_min)+1):
+                        if (slope_min[i-1] == '*'):
+                            continue
+                        right = int(math.floor(Fraction(slope_min[i-1][0],
+                                                        slope_min[i-1][1])))
+                        left = int(math.ceil(Fraction(slope_max[i-1][0],
+                                                    slope_max[i-1][1])))
+                        
+                        _overlap_shifts [i-1] += abs(left * (h)) + abs(right * (h))
+                        overlap_shifts[i-1] += _overlap_shifts[i-1]
+                        print ("_overlap_shifts ", _overlap_shifts, " for h ", h)
+                        
+                    _overlap_shift = 1
+                    for i in tile_sizes:
+                        if (_overlap_shifts[i] != 0 and tile_sizes[i] < g._dim_sizes_part[i]):
+                            if ((i-1) in tile_sizes):
+                                _overlap_shift *= _overlap_shifts[i]*(tile_sizes[i-1] + _overlap_shifts[i-1])
+                            #else: #Commenting below helps in harris. But, weights has to be corrected 
+                                #(or overlap weight should be increased) again for other benchmarks
+                                #_overlap_shift *= _overlap_shifts[i]*1
+                    overlap_shift += _overlap_shift
+                
+                #for i in tile_sizes:
+                    #if (overlap_shifts[i] != 0 and tile_sizes[i] < g._dim_sizes_part[i]):
+                        #if ((i-1) not in tile_sizes):
+                            #overlap_shift *= overlap_shifts[i-1]
+            else:
+                overlap_shifts = [0 for i in range(0, len(slope_min))]
+                for i in range(1, len(slope_min)+1):
+                    if (slope_min[i-1] == '*'):
+                        continue
+                    right = int(math.floor(Fraction(slope_min[i-1][0],
+                                                    slope_min[i-1][1])))
+                    left = int(math.ceil(Fraction(slope_max[i-1][0],
+                                                  slope_max[i-1][1])))
+                    for h in range(1, get_group_height (g_all_parts)+1):
+                        overlap_shifts [i-1] += abs(left * (h)) + abs(right * (h))
+                    for h in range(1, get_group_height (g_all_parts)+1):
+                        print ("overlap for i ", i, " and h ", h, " = ", abs(left * (h)) + abs(right * (h)))
+                    #print (_overlap_shift, i)
+                    #if (_overlap_shift != 0):
+                    #    overlap_shift *= _overlap_shift
+                print ("overlap_shifts ", overlap_shifts)
+                overlap_shift = 1
+                for i in tile_sizes:
+                    if (overlap_shifts[i] != 0 and tile_sizes[i] < g._dim_sizes_part[i]):
+                        if ((i-1) in tile_sizes):
+                            overlap_shift *= overlap_shifts[i]*(tile_sizes[i-1] + overlap_shifts[i-1])
+                        else:
+                            overlap_shift *= overlap_shifts[i]*1
+                            
             #overlap_shift *= IMAGE_ELEMENT_SIZE
             #print ("overlap_shift ", overlap_shift)
             print ("overlap_shift ", overlap_shift, "det_tile_size " , det_tile_size)
-            return overlap_shift, det_tile_size
+            return overlap_shift/1.6, det_tile_size
         
         if len (comp_deps) <= 0:
             return 1 << 30, 1 #For Pyramid Blend UnComment

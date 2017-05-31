@@ -41,19 +41,21 @@ def bilateralgrid(app_data):
    
     runs = int(app_args.runs)
     timer = app_args.timer
-    if timer == True:
-        t1 = time.time()
-
+    #input ("attach to amplxe-cl")
+    #input ("attach to amplxe-cl11111")
+    avg = 0
     while it < runs :
+        t1 = time.time()
         call_pipe(app_data)
-        it += 1
-
-    if timer == True:
         t2 = time.time()
 
         time_taken = float(t2) - float(t1)
+        avg += time_taken
         print("")
-        print("[exec_pipe] : time taken to execute = ", (time_taken * 1000) / runs, " ms")
+        print("[exec_pipe] : time taken to execute = ", (time_taken * 1000), " ms")
 
-    return
+        it += 1
 
+    print ("average time ", avg/runs*1000, " ms")
+    
+    return avg/runs*1000

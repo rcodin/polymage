@@ -47,7 +47,7 @@ def generate_graph(pipe, file_name, app_data):
 
     return
 
-def build_bilateral(app_data):
+def build_bilateral(app_data, g_size = None, t_size = None):
     pipe_data = app_data['pipe_data']
     
     out_bilateral = bilateral_grid(pipe_data)
@@ -64,10 +64,13 @@ def build_bilateral(app_data):
     p_estimates = [(R, rows), (C, cols)]
     p_constraints = [ Condition(R, "==", rows), \
                       Condition(C, "==", cols) ]
-    t_size = [16, 16, 16]
+
+    if (t_size == None):
+	    t_size = [1, 8, 128]
     #t_size = [16, 32, 32, 32]
-    g_size = 5
-    opts = []
+    if (g_size == None):
+        g_size = 7
+    opts=[]
     if app_data['early_free']:
         opts += ['early_free']
     if app_data['optimize_storage']:
@@ -85,7 +88,7 @@ def build_bilateral(app_data):
 
     return pipe
 
-def create_lib(build_func, pipe_name, app_data):
+def create_lib(build_func, pipe_name, app_data, g_size = None, t_size = None):
     mode = app_data['mode']
     pipe_src  = pipe_name+".cpp"
     pipe_so   = pipe_name+".so"
@@ -95,7 +98,18 @@ def create_lib(build_func, pipe_name, app_data):
     if build_func != None:
         if mode == 'new':
             # build the polymage pipeline
-            pipe = build_func(app_data)
+            pipe = build_func(app_data, g_size)
+
+            # draw the pipeline graph to a png file
+            if graph_gen:
+                generate_graph(pipe, pipe_name, app_data)
+
+            # generate pipeline cpp source
+            codegen(pipe, pipe_src, app_data)
+
+        elif mode == 'tune+':
+            # build the polymage pipeline
+            pipe = build_func(app_data, g_size, t_size)
 
             # draw the pipeline graph to a png file
             if graph_gen:
@@ -107,6 +121,7 @@ def create_lib(build_func, pipe_name, app_data):
     if mode != 'ready':
         # compile the cpp code
         c_compile(pipe_src, pipe_so, app_data)
+        pass
 
     # load the shared library
     lib_func_name = "pipeline_"+pipe_name

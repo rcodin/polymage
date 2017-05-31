@@ -74,5 +74,8 @@ def harris_pipe(pipe_data):
     harris = Function(([x, y], [row, col]), Float, "harris")
     harris.defn = [ Case(condRed,
                          det(x, y) - 0.04 * trace(x, y) * trace(x, y)) ]
-    
+
+    #shifted = Function(([x,y], [row, col]), Float, "shifted")
+    #shifted.defn = [Case (condRed, harris (x+2, y+2))]
+ 
     return harris

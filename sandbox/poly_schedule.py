@@ -645,7 +645,7 @@ def overlap_tile(pipeline, group, group_parts, slope_min, slope_max):
     h = get_group_height(group_parts)
     num_tile_dims = 0
     #pipeline.use_different_tile_sizes = False
-    print ("SLOPES ", slope_min, slope_max)
+    print ("SLOPES ", slope_min, slope_max, " h ", h)
     if (pipeline.use_different_tile_sizes):
         group.get_tile_sizes (pipeline.param_estimates, slope_min, slope_max, group_parts, h)
     #group.tile_sizes = None

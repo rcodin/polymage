@@ -25,7 +25,7 @@ from __future__ import absolute_import, division, print_function
 
 from constructs import *
 import logging
-import optgrouping
+import dpfusion
 import storage_mapping
 
 # LOG CONFIG #
@@ -172,7 +172,7 @@ def auto_group(pipeline):
     small_comps, comp_size_map = get_small_comps(pipeline, comps)
     
     
-    optgrouping.group (in_group, out_group, pipeline.groups, pipeline, 
+    dpfusion.dpgroup (in_group, out_group, pipeline.groups, pipeline, 
                        Reduction, small_comps, comp_size_map, TStencil,
                        topological_order, dim_reuse, live_size, dim_size,
                        storage_mapping.get_dim_size, storage_mapping.Storage)
