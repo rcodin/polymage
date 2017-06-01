@@ -718,7 +718,6 @@ def overlap_tile(pipeline, group, group_parts, slope_min, slope_max):
                                               slope_max[i-1][1])))
                 # L and R are normals to the left and the right
                 # bounding hyperplanes of the uniform dependencies
-                #TODO: change the tile size here
                 if (pipeline.use_different_tile_sizes and group.tile_sizes and (i-1) in group.tile_sizes):
                     tile_size = group.tile_sizes[i-1]
                 else:

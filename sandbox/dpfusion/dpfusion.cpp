@@ -20,6 +20,7 @@
 
 //Print only if DEBUG level is more than i
 #define PRINT_DEBUG_L1(x) { if (DEBUG != 0 && DEBUG <= 1) { x;}}
+#define PRINT_DEBUG_BLOCK_L1 if (DEBUG != 0 && DEBUG <= 1)
 #define PRINT_DEBUG_L2(x) { if (DEBUG != 0 && DEBUG <= 2) { x;}}
 #define PRINT_DEBUG_L3(x) { if (DEBUG != 0 && DEBUG <= 3) { x;}}
 
@@ -323,7 +324,7 @@ void get_level_order (uint128_t hash_id, vector <PyObject*>& objs,
         }
     }
     
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
     {
         std::cout<< "optorder is"<<std::endl;
         for (auto it = order.begin(); it != order.end(); it++)
@@ -461,7 +462,7 @@ void classify_storage (const vector <PyObject*>& vec_comps,
         }
     }
 
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
     {
         std::cout<< "storage_class_map "<< std::endl;
         for (auto it = storage_class_map.begin(); it != storage_class_map.end (); it++)
@@ -703,7 +704,7 @@ uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
     
     get_level_order (nonLiveOutsHashID, vec_comps, vec_groups, level_order);
     naive_sched_objs (level_order, naive_order);
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
     {
         std::cout<<"optnaiveorder12121212: " << std::endl;
         for (auto it = naive_order.begin (); it != naive_order.end (); it++)
@@ -712,7 +713,7 @@ uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
         }
     }
     getLivenessMap (nonLiveOutsHashID, vec_groups, naive_order, liveness_map);
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
     {
         std::cout<<"optnaiveorderqqqqqqqqqq1212: " << std::endl;
         for (auto it = naive_order.begin (); it != naive_order.end (); it++)
@@ -744,7 +745,7 @@ uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
         }
     }
         
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
         std::cout << "liveout buffers "<< number_of_buffers << std::endl;
     
     std::cout<< "cmp_to_stg_class is"<<std::endl;
@@ -768,7 +769,7 @@ uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
         sorted_comps[it->second] = it->first->getCompAtIndex(0);
     }
     
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
     {
         std::cout<<"sorted comps " << std::endl;
         for (auto it = sorted_comps.begin (); it != sorted_comps.end (); it++)
@@ -806,13 +807,13 @@ uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
         else
             num_reqd = 1;
         
-        if (DEBUG)
+        PRINT_DEBUG_BLOCK_L1
         {
             std::cout << "comp is " << getPyCompFuncName (comp) << " sched is " << it->first << std::endl;
             std::cout<< "num_reqd " << num_reqd << std::endl;
         }
         num_available = array_pool [storage_class].size ();
-        if (DEBUG)
+        PRINT_DEBUG_BLOCK_L1
             std::cout<< "num available " << num_available <<std::endl;
         num_allocated = min (num_available, num_reqd);
         
@@ -866,20 +867,20 @@ uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
         }
     }
     
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
             std::cout<< "Array count " << array_count << " " << std::bitset<41>((uint64_t) hash_id) << std::endl;
     uint64_t total_size = 0;
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
             std::cout<< "total size " << n_stg_class_arrays.size () << std::endl;
     for (auto it = n_stg_class_arrays.begin(); 
          it != n_stg_class_arrays.end (); it++)
     {
         PyObject* stg_class = it->first;
         int n_arrays = it->second;
-        if (DEBUG)
+        PRINT_DEBUG_BLOCK_L1
             std::cout << "n_arrays " << n_arrays << std::endl;
         PyObject* pygroup = pyGroupForComp [storage_class_map [stg_class][0]];
-        if (DEBUG)
+        PRINT_DEBUG_BLOCK_L1
             std::cout << "pygroup " << pygroup << std::endl;
         uint64_t stg_size = 1;
         std::cout << "dim size : ";
@@ -1018,9 +1019,9 @@ inline uint64_t cost (uint128_t hash_id, std::vector <uint64_t>& tile_sizes)
     uint64_t totalsizeused = getTotalSizeUsed (hash_id, n_buffers, 
                                                liveouts_size, liveins_size);
     
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
         std::cout << "n_buffers " << n_buffers << std::endl;
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
         std::cout<< "totalsizeused " << totalsizeused << std::endl;
     
     if (totalsizeused == 0 && n_buffers == 0)
@@ -1154,7 +1155,7 @@ inline uint64_t cost (uint128_t hash_id, std::vector <uint64_t>& tile_sizes)
         overlap_size = 0;
     }
     
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
         std::cout << "tile_size "<< tile_size << std::endl;
     assert (tile_size != 0);
     Py_DECREF (args);
@@ -1166,38 +1167,27 @@ inline uint64_t cost (uint128_t hash_id, std::vector <uint64_t>& tile_sizes)
     int64_t overlap_size = 0;
     #endif
     
-     if (DEBUG)
+     PRINT_DEBUG_BLOCK_L1
             std::cout<< "totalsizeused " << totalsizeused << " tile_size for " << std::bitset<41>((uint64_t)_hash_id)<<" " << tile_size << " liveins_size " << liveins_size <<std::endl;
     
     uint64_t mean_dim_diff = dim_size_std_dev (dim_size_diff, max_dims);
 
-    if (L2_CACHE_SIZE < totalsizeused/N_CORES)
-    {
-        n_threads = totalsizeused/L2_CACHE_SIZE;
-        
-        if (DEBUG)
-            std::cout<< "L2 threads for " << std::bitset<41>((uint64_t)_hash_id)<<" " << n_threads << std::endl;
-    }
-    else
-        n_threads = N_CORES;
-
-    if (DEBUG)
+    n_threads = totalsizeused/(tile_size*n_buffers);
+    PRINT_DEBUG_BLOCK_L1
         std::cout << "_cost mean_dim_diff " << mean_dim_diff << " liveins_size " << liveins_size << " liveouts_size " << liveouts_size << " live ratio " << (liveins_size+liveouts_size)/(tile_size*n_buffers) <<
             " threads ratio " << (((n_threads+N_CORES-1)%N_CORES)*100)/N_CORES << " all_n_dims_equal " << all_n_dims_equal << " overlap " << overlap_size << " tile_size " << tile_size << std::endl
             << " overlap cost " << (1000.0f*50.0f*1.5*overlap_size)/(tile_size*n_buffers) << " n_buffers " << n_buffers << std::endl;
 
-    _cost = mean_dim_diff*1.5 + ((liveins_size+liveouts_size))/(tile_size*n_buffers) - 
-            (((n_threads+N_CORES-1)%N_CORES)*100.0f)/N_CORES;
-
-    if (true)
-    {
-        _cost += (1000.0f*50.0f*1.5*overlap_size)/(tile_size*n_buffers);
-    }
+    _cost = mean_dim_diff*1.5 + 
+            ((liveins_size+liveouts_size))/(tile_size*n_buffers) - 
+            (((n_threads+N_CORES-1)%N_CORES)*100.0f)/N_CORES + 
+            (1000.0f*50.0f*1.5*overlap_size)/(tile_size*n_buffers);
+    
     
     if (!all_n_dims_equal)
         _cost += 500;
         
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
         std::cout << "total cost " << _cost << std::endl;
         
     if (total_comps <= grp_size)
@@ -1453,7 +1443,7 @@ inline uint128_t getCycleGroup (uint128_t curr_group, uint128_t next_group)
 
 inline uint64_t cfgMemoize (uint128_t hash_id)
 {
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
         std::cout << "STARTING for hash_id " << std::bitset<41> ((uint64_t)hash_id) << std::endl;
     vector<uint128_t>* n;
     
@@ -2162,7 +2152,7 @@ PyObject* dpgroup(PyObject* self, PyObject* args)
         dummySource = true;
     }
 
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
     {
         std::cout<< "Total Number of Nodes "<< maxID << std::endl;
     }
@@ -2262,13 +2252,13 @@ PyObject* dpgroup(PyObject* self, PyObject* args)
         PyObject* pyStr = PyUnicode_AsEncodedString(name, "utf-8", "Error ~");
         const char* ss = PyBytes_AS_STRING (pyStr);
         
-        if (DEBUG)
+        PRINT_DEBUG_BLOCK_L1
         {
             std::cout<< "hash_id " << std::bitset<41>((uint64_t)cppGroup->hashID()) << "  " << ss << std::endl;
         }
     }
     
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
     {
         std::cout << "comp_to_stg_class size " << comp_to_orig_storage.size() << std::endl;
         for (auto it = comp_to_orig_storage.begin(); it != comp_to_orig_storage.end(); it++)
@@ -2336,7 +2326,7 @@ PyObject* dpgroup(PyObject* self, PyObject* args)
                                                             "_group_size"));
     grp_size = PyLong_AsLong (grp_size_o);
     
-    if (DEBUG)
+    PRINT_DEBUG_BLOCK_L1
     {
         std::cout << "Group Size " << grp_size << std::endl;
     }
@@ -2358,7 +2348,7 @@ PyObject* dpgroup(PyObject* self, PyObject* args)
         _maxID |= _maxID >> 8;
         _maxID |= _maxID >> 16;
         _maxID++;
-        if (DEBUG)
+        PRINT_DEBUG_BLOCK_L1
         {
             std::cout<<"New Number of Nodes" << _maxID<<std::endl; 
         }

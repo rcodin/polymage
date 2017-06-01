@@ -1613,20 +1613,6 @@ class Pipeline:
                 img2 = True
             elif (g.comps[0].func.name.find("denoised") != -1):
                 denoised = True
-            elif (g.comps[0].func.name == "Ix"):
-                Ix = True
-            elif (g.comps[0].func.name == "Iy"):
-                Iy = True
-            elif (g.comps[0].func.name.find("Iyy") != -1):
-                Iyy = True
-            elif (g.comps[0].func.name.find("Ixx") != -1):
-                Ixx = True
-            elif (g.comps[0].func.name.find("Ixy") != -1):
-                Ixy = True
-            elif (g.comps[0].func.name.find("Sxx") != -1):
-                Sxx = True
-            elif (g.comps[0].func.name.find("harris") != -1):
-                harris = True
         if ((img1 and img2) or denoised):
             return -1, 0
 
@@ -1694,61 +1680,29 @@ class Pipeline:
                 return -1, 0
             
             print ("slope_min, slope_max", slope_min, slope_max)
-            if (False):
-                overlap_shifts = [0 for i in range(0, len(slope_min))]
-                overlap_shift = 0
+            overlap_shifts = [0 for i in range(0, len(slope_min))]
+            for i in range(1, len(slope_min)+1):
+                if (slope_min[i-1] == '*'):
+                    continue
+                right = int(math.floor(Fraction(slope_min[i-1][0],
+                                                slope_min[i-1][1])))
+                left = int(math.ceil(Fraction(slope_max[i-1][0],
+                                              slope_max[i-1][1])))
                 for h in range(1, get_group_height (g_all_parts)+1):
-                    _overlap_shifts = [0 for i in range(0, len(slope_min))]
-                    for i in range(1, len(slope_min)+1):
-                        if (slope_min[i-1] == '*'):
-                            continue
-                        right = int(math.floor(Fraction(slope_min[i-1][0],
-                                                        slope_min[i-1][1])))
-                        left = int(math.ceil(Fraction(slope_max[i-1][0],
-                                                    slope_max[i-1][1])))
-                        
-                        _overlap_shifts [i-1] += abs(left * (h)) + abs(right * (h))
-                        overlap_shifts[i-1] += _overlap_shifts[i-1]
-                        print ("_overlap_shifts ", _overlap_shifts, " for h ", h)
-                        
-                    _overlap_shift = 1
-                    for i in tile_sizes:
-                        if (_overlap_shifts[i] != 0 and tile_sizes[i] < g._dim_sizes_part[i]):
-                            if ((i-1) in tile_sizes):
-                                _overlap_shift *= _overlap_shifts[i]*(tile_sizes[i-1] + _overlap_shifts[i-1])
-                            #else: #Commenting below helps in harris. But, weights has to be corrected 
-                                #(or overlap weight should be increased) again for other benchmarks
-                                #_overlap_shift *= _overlap_shifts[i]*1
-                    overlap_shift += _overlap_shift
-                
-                #for i in tile_sizes:
-                    #if (overlap_shifts[i] != 0 and tile_sizes[i] < g._dim_sizes_part[i]):
-                        #if ((i-1) not in tile_sizes):
-                            #overlap_shift *= overlap_shifts[i-1]
-            else:
-                overlap_shifts = [0 for i in range(0, len(slope_min))]
-                for i in range(1, len(slope_min)+1):
-                    if (slope_min[i-1] == '*'):
-                        continue
-                    right = int(math.floor(Fraction(slope_min[i-1][0],
-                                                    slope_min[i-1][1])))
-                    left = int(math.ceil(Fraction(slope_max[i-1][0],
-                                                  slope_max[i-1][1])))
-                    for h in range(1, get_group_height (g_all_parts)+1):
-                        overlap_shifts [i-1] += abs(left * (h)) + abs(right * (h))
-                    for h in range(1, get_group_height (g_all_parts)+1):
-                        print ("overlap for i ", i, " and h ", h, " = ", abs(left * (h)) + abs(right * (h)))
-                    #print (_overlap_shift, i)
-                    #if (_overlap_shift != 0):
-                    #    overlap_shift *= _overlap_shift
-                print ("overlap_shifts ", overlap_shifts)
-                overlap_shift = 1
-                for i in tile_sizes:
-                    if (overlap_shifts[i] != 0 and tile_sizes[i] < g._dim_sizes_part[i]):
-                        if ((i-1) in tile_sizes):
-                            overlap_shift *= overlap_shifts[i]*(tile_sizes[i-1] + overlap_shifts[i-1])
-                        else:
-                            overlap_shift *= overlap_shifts[i]*1
+                    overlap_shifts [i-1] += abs(left * (h)) + abs(right * (h))
+                for h in range(1, get_group_height (g_all_parts)+1):
+                    print ("overlap for i ", i, " and h ", h, " = ", abs(left * (h)) + abs(right * (h)))
+                #print (_overlap_shift, i)
+                #if (_overlap_shift != 0):
+                #    overlap_shift *= _overlap_shift
+            print ("overlap_shifts ", overlap_shifts)
+            overlap_shift = 1
+            for i in tile_sizes:
+                if (overlap_shifts[i] != 0 and tile_sizes[i] < g._dim_sizes_part[i]):
+                    if ((i-1) in tile_sizes):
+                        overlap_shift *= overlap_shifts[i]*(tile_sizes[i-1] + overlap_shifts[i-1])
+                    else:
+                        overlap_shift *= overlap_shifts[i]*1
                             
             #overlap_shift *= IMAGE_ELEMENT_SIZE
             #print ("overlap_shift ", overlap_shift)
