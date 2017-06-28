@@ -8,7 +8,7 @@ from init import init_all
 from printer import print_header, print_config, print_line
 from builder import create_lib,build_bilateral
 from exec_pipe import bilateralgrid
-from app_tuner import auto_tune
+#from app_tuner import auto_tune
 
 app = "bilateral"
 

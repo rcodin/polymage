@@ -210,7 +210,7 @@ class Abs(InbuiltFunction):
 
     def __str__(self):
         return "std::abs(" +  self._args[0].__str__() +  ")"
-
+        
 class Cast(AbstractExpression):
     def __init__(self, _typ, _expr):
         _expr = Value.numericToValue(_expr)
@@ -271,7 +271,7 @@ class Select(AbstractExpression):
         self._true_expr = _true_expr
         self._false_expr = _false_expr
         self._cond = _cond
-
+        
     @property 
     def condition(self):
         return self._cond
@@ -289,13 +289,15 @@ class Select(AbstractExpression):
         objs += self._false_expr.collect(objType)
         if (type(self) == objType):
             objs += [self]
-        return list(set(objs))
+        toRet = list(set(objs))
 
+        return toRet
+        
     def replace_refs(self, ref_to_expr_map):
         self._cond.replace_refs(ref_to_expr_map)
         self._true_expr = substitute_refs(self._true_expr, ref_to_expr_map)
         self._false_expr = substitute_refs(self._false_expr, ref_to_expr_map)
-    
+            
     def clone(self):
         return Select(self._cond.clone(),
                       self._true_expr.clone(),
@@ -1196,7 +1198,8 @@ class Function(object):
         # * The Case constructs are expected to be non-overlapping. Therefore,
         #   value at each point in the function domain is uniquely defined.
         self._body      = []
-
+        self._orig_body = None
+        
     @property
     def name(self):
         return self._name
@@ -1301,6 +1304,19 @@ class Function(object):
         newFunc.defn = newBody
         return newFunc
     
+    def clone_and_replace_body (self):
+        """Clone only body and replace the current body with cloned body.
+        Returns self
+        """
+        self._orig_body = self._body
+        newBody = [ c.clone() for c in self._body ]
+        self._body = newBody
+        return self
+    
+    def restore_original_body (self):
+        assert (self._orig_body != None)
+        self._body = self._orig_body
+        
     def __str__(self):
         if (self._body):
             var_str = ", ".join([var.__str__() for var in self._variables])
@@ -1311,6 +1327,7 @@ class Function(object):
                                             for case in self._body]) + " }"
             return "Domain: " + dom_str + '\n' + self._name + \
                    "(" + var_str + ") = " + case_str + '\n'
+            #return self._name
         else:
             return self._name
 

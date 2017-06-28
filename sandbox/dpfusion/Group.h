@@ -1275,6 +1275,33 @@ public:
         return false;
     }
     
+    static void liveoutsForGroup (const uint128_t hash_id, 
+                                  const vector<Group*>& children, 
+                                  unordered_set<Group*, Group::GroupHasher>& liveouts)
+    {
+        for (auto const& child: children)
+        {
+            bool is_liveout = false;
+            
+            for (auto const& next: child->nextGroups ())
+            {
+                if ((next->hashID() & hash_id) != next->hashID())
+                {
+                    is_liveout = true;
+                    break;
+                }                
+            }
+            
+            if (child->nextGroups ().size () == 0)
+                is_liveout = true;
+                
+            if (is_liveout)
+            {
+                liveouts.insert (child);
+            }
+        }
+    }
+    
     static void liveinsForChildInGroup (uint128_t group, OptGroup* child, 
                                         unordered_set<Group*, Group::GroupHasher>& liveins)
     {        

@@ -48,7 +48,7 @@ def generate_graph(pipe, file_name, app_data):
 
 def build_unsharp(app_data, g_size = None, t_size = None):
     pipe_data = app_data['pipe_data']
-    out_unsharp = unsharp_mask(pipe_data)
+    out_unsharp, inline_func = unsharp_mask(pipe_data)
     R = pipe_data['R']
     C = pipe_data['C']
     threshold = pipe_data['threshold']
@@ -64,7 +64,7 @@ def build_unsharp(app_data, g_size = None, t_size = None):
     p_constraints = [ Condition(R, "==", rows), \
                       Condition(C, "==", cols) ]
     if (t_size == None):
-        t_size = [1, 8, 512]
+        t_size = [1, 5, 256]
     if (g_size == None):
         g_size = 4
     opts = []
@@ -81,7 +81,8 @@ def build_unsharp(app_data, g_size = None, t_size = None):
                          tile_sizes = t_size,
                          group_size = g_size,
                          options = opts,
-                         pipe_name = pipe_name)
+                         pipe_name = pipe_name,
+                         inline_directives = inline_func)
 
     return pipe
 

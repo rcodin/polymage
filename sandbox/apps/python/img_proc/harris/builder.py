@@ -49,7 +49,7 @@ def generate_graph(pipe, file_name, app_data):
 def build_harris(app_data, g_size = None, t_size = None):
     pipe_data = app_data['pipe_data']
 
-    out_harrispipe = harris_pipe(pipe_data)
+    out_harrispipe, inlines = harris_pipe(pipe_data)
     
     R = pipe_data['R']
     C = pipe_data['C']
@@ -64,7 +64,7 @@ def build_harris(app_data, g_size = None, t_size = None):
     p_constraints = [ Condition(R, "==", rows), \
                       Condition(C, "==", cols) ]
     if (t_size == None):
-        t_size = [32, 256]
+        t_size = [10, 256]
     if (g_size == None):
        g_size = 13
     opts = []
@@ -81,7 +81,8 @@ def build_harris(app_data, g_size = None, t_size = None):
                          tile_sizes = t_size,
                          group_size = g_size,
                          options = opts,
-                         pipe_name = pipe_name)
+                         pipe_name = pipe_name,
+                         inline_directives=inlines)
 
     return pipe
 

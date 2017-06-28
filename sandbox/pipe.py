@@ -208,9 +208,14 @@ class ComputeObject:
         self._storage_class = None
         self._array = None
         self._scratch_info = []
-
-    def clone (self):
-        comp = ComputeObject (self._func, self._is_output)
+        self._is_pointwise = None
+        
+    def clone (self, inline=False):
+        if not inline:
+            comp = ComputeObject (self._func, self._is_output)
+        else:
+            comp = ComputeObject (self._func.clone (), 
+                                  self._is_output)
         comp._parents = list(self.parents)
         comp._is_parents_set = self._is_parents_set
         comp._is_children_set = self._is_children_set
@@ -292,7 +297,19 @@ class ComputeObject:
     @property
     def scratch(self):
         return self._scratch_info
-
+    
+    def print_parent (self):
+        print (self.func.name, " <- ")
+        for c in self.parents:
+            print (str(c)+ " id: " + hex(id(c)), end=', ')
+        print ("")
+    
+    def print_children (self):
+        raise(Exception)
+        print (self.func.name, " -> ")
+        for c in self.children:
+            print (str(c) + " id: " + hex(id(c)), end=', ')
+        print ("")
     def _set_type(self, _func):
         self._compute_type = None
         # NOTE: do NOT change this to if-elif-elif...else
@@ -459,6 +476,28 @@ class ComputeObject:
     def set_scratch_info(self, _scratch_info):
         self._scratch_info = _scratch_info
 
+    def is_pointwise (self):
+        if (self._is_pointwise != None):
+            return self._is_pointwise
+        
+        refs = self._func.getObjects (Reference)
+        
+        #A pointwise function works on only one point (x, y)
+        #Hence, all references in the function body should have 
+        #same index (x + k, y + k), where k is a constant
+        
+        arg_0 = refs[0].arguments
+        
+        for ref in refs:
+            if (len(arg_0) != len(ref.arguments)):
+                return False
+            
+            for i in range (0, len (arg_0)):
+                if (str(arg_0[i]) != str(ref.arguments[i])):
+                    return False
+        
+        return True
+        
 class Group:
     """ 
         Group is a part of the pipeline which realizes a set of computation
@@ -508,7 +547,10 @@ class Group:
         self._comps_schedule = None
         self._liveness_map = None
         self._total_used_size = -1
-    
+        self._param_constraints = _param_constraints
+        self._ctx = _ctx
+        self._inline_comps = []
+        
     @property
     def tile_sizes(self):
         return self._tile_sizes
@@ -576,6 +618,30 @@ class Group:
     @property
     def liveness_map(self):
         return self._liveness_map
+    
+    @property
+    def inlined_comps(self):
+        return self._inline_comps
+        
+    def set_inline_comps (self, comps):
+        self._inline_comps = list(comps)
+    
+    def is_pointwise (self):
+        assert (len(self.comps) == 1)
+        return self.comps[0].is_pointwise ()
+    def recompute_computation_objs(self):
+        '''After removing computations, recompute the internal representations
+        '''
+        self._set_type()
+        self.set_comp_group()
+
+        self._level_order_comps = self.order_compute_objs()
+        self._comps = self.get_sorted_comps()
+        self._inputs = self.find_root_comps()
+        self._image_refs = self.collect_image_refs()
+
+        if self.isPolyhedral():
+            self._polyrep = PolyRep(self._ctx, self, [], self._param_constraints)
 
     def set_tile_size_for_dim(self, size, dim):
         self._tile_sizes [dim] = size
@@ -1448,6 +1514,7 @@ class Pipeline:
         self._size_threshold = _size_threshold
         self._tile_sizes = _tile_sizes
         self._dim_reuse = {}
+        self._do_inline = True
         
         ''' CONSTRUCT DAG '''
         # Maps from a compute object to its parents and children by
@@ -1495,10 +1562,13 @@ class Pipeline:
 
         # Checking bounds
         bounds_check_pass(self)
-
+        #self._inline_directives = [self._groups[1]]
         # inline pass
-        inline_pass(self)
-
+        #TODO: Remove
+        inline_after_grouping = True
+        if (not inline_after_grouping):
+            inline_pass(self)
+        
         # make sure the set of functions to be inlined and those to be grouped
         # are disjoint
         if self._inline_directives and self._grouping:
@@ -1532,8 +1602,26 @@ class Pipeline:
             auto_group(self)
             #self.merge_groups (self.groups[1], self.groups[2])
             pass
-
         
+        if (inline_after_grouping):
+            for group in self.groups:
+                #clones = [self._clone_map[comp.func] for comp in group.inlined_comps]
+                #inline_pass_for_comp (self, [self._func_map[f] for f in clones])
+                inline_pass_for_comp (self, group.inlined_comps)
+                
+            print ("After Inlining: ")
+            for group in self.groups[0].comps:
+                print (str(group.func))
+            
+            for g in self.groups[0].comps:
+                print ("comp ", g.func.name, " -> ")
+                for _c in g.children:
+                    print (_c.func.name, ", ")
+                print("")
+                print ("comp ", g.func.name, " <- ")
+                for _c in g.parents:
+                    print (_c.func.name, ", ")
+                print("")
         ''' GRAPH UPDATES '''
         # level order traversal of groups
         self._level_order_groups = self.order_group_objs()
@@ -1572,6 +1660,10 @@ class Pipeline:
         # comps and poly parts
         for group in self._grp_schedule:
             group.set_comp_and_parts_sched()
+            print ("group.comps_schedule-------")
+            for k in group.comps_schedule:
+                print (str(k) + ", " + str(group.comps_schedule[k]))
+            print ("---------")
         self._liveouts_schedule = schedule_liveouts(self)
 
         ''' COMPUTE LIVENESS '''
@@ -1599,12 +1691,13 @@ class Pipeline:
         # use graphviz to create pipeline graph
         self._pipeline_graph = self.draw_pipeline_graph()
 
-    def get_overlapping_size_for_groups (self, groups, tile_size, _n_buffers):
+    def get_overlapping_size_for_groups (self, groups, inlined_comps, 
+                                         tile_size, _n_buffers):
         print ("get_overlapping_size_for_groups for ", [g.comps[0].func.name for g in groups])
         img1 = False
         img2 = False
         denoised = False
-        Ix = Iy = Iyy = Ixx = Ixy = Sxx = harris = False
+
         #TODO: To solve
         for g in groups:
             if (g.comps[0].func.name.find("img1") != -1):
@@ -1616,7 +1709,7 @@ class Pipeline:
         if ((img1 and img2) or denoised):
             return -1, 0
 
-        g = self.create_group (groups)
+        g = self.create_group (groups, inlined_comps)
         g.set_total_used_size (tile_size)
         g.set_n_buffers (_n_buffers)
         #print ("create_group = ", [comp.func.name for comp in g.comps])
@@ -1669,6 +1762,10 @@ class Pipeline:
             print ("hmax ", hmax-hmin)
             det_tile_size = g.get_tile_sizes (self.param_estimates, slope_min, slope_max, 
                                               g_all_parts, hmax - hmin, False)
+            
+            #Restore original body of all functions
+            #for comp in g.comps:
+                #comp.func.restore_original_body ()
             tile_sizes = g._tile_sizes
             all_slope_invalid = True
             for slope in slope_min:
@@ -1715,7 +1812,10 @@ class Pipeline:
             
         print ("Getting Overlap for non stencil? Not Good")
         assert (False)
-        
+    
+    @property
+    def do_inline (self):
+        return self._do_inline
     @property
     def dim_reuse (self):
         return self._dim_reuse
@@ -1785,7 +1885,7 @@ class Pipeline:
     @property
     def free_arrays(self):
         return self._free_arrays
-
+        
     def get_tile_sizes_for_group (self, group):
         dim_reuse = {}
         
@@ -1793,30 +1893,75 @@ class Pipeline:
         for group in self.groups:
             self._dim_reuse [group.comps[0]] = group.get_dimensional_reuse (self.param_estimates)
         
-    def create_group(self, args):
-        groups = args
+    def create_group(self, groups, inlined_comps):
+        print ("Pipeline.create_group: inlined_comps ", [str(k) for k in inlined_comps])
         comps = []
         for g in groups:
             comps += g.comps
-        
+        #for c in comps:
+            #c.print_parent ()
+            #c.print_children ()
+            
+        orig_comps = list(comps)
         comp_to_clone = dict ()
+        inlined_comp_to_clone = dict ()
+        cloned_inlined_comps = []
+        will_inline = inlined_comps != []
+        func_to_clone_func = dict()
+        clone_func_to_func = dict()
         for i in range(len(comps)):
             #print ("comps [i] ", hex(id(comps[i])),)
-            cloneComp = comps[i].clone()
+            cloneComp = comps[i].clone(will_inline)
             comp_to_clone [comps[i]] = cloneComp
+            func_to_clone_func [comps[i].func] = cloneComp.func
+            clone_func_to_func [cloneComp.func] = comps[i].func
+            if (comps[i] in inlined_comps):
+                #inlined_comp_to_clone [comps[i]] = cloneComp
+                cloned_inlined_comps.append (cloneComp)
             comps[i] = cloneComp
             #print ("clone comps [i] ", hex(id(comps[i])))
         
+        #print ("clone_func_to_func ", [str(k) + " id: " + hex(id(k)) for k in clone_func_to_func])
+        #print ("func_to_clone_func ", [str(k) + " id: " + hex(id(k)) for k in func_to_clone_func])
+        
         for i in range(len(comps)):
+            parents = []
             for j in range(len(comps[i].parents)):
                 if (comps[i].parents[j] in comp_to_clone):
-                    comps[i].parents[j] = comp_to_clone[comps[i].parents[j]]
+                    parents.append (comp_to_clone[comps[i].parents[j]])
+            comps[i].set_parents (parents)
+            children = []
             for j in range(len(comps[i].children)):
-                if (comps[i].children[j] in comp_to_clone):
-                    comps[i].children[j] = comp_to_clone[comps[i].children[j]]
+                if comps[i].children[j] in comp_to_clone:
+                    children.append(comp_to_clone[comps[i].children[j]])
+            comps[i].set_children (children)
+        
+        g = Group (self._ctx, comps, self._param_constraints)
+        
+        if (will_inline == True):
+            for comp in comps:
+                #print ("comp is ", comp.func.name)
+                comp = comp
+                refs = comp.func.getObjects (Reference)
+                for ref in refs:
+                #    print ("ref.objecRef ", ref.objectRef, " ", hex(id(ref.objectRef)))
+                    if (ref.objectRef in func_to_clone_func):
+                        ref._replace_ref_object (func_to_clone_func[ref.objectRef])
+                    else:
+                        pass
                 
-        print (comps)
-        return Group (self._ctx, comps, self._param_constraints)
+        #print ("Pipeline.create_group: orig_comps ", [str(k) + " id: " + hex(id(k)) for k in orig_comps])
+        #print ("Pipeline.create_group: orig_comps.func ", [str(k.func) + " id: " + hex(id(k.func)) for k in orig_comps])
+        #print ("Pipeline.create_group: comp_to_clone ", [str(k) + " id: " + hex(id(k)) for k in comps])
+        #print ("Pipeline.create_group: comp_to_clone.func ", [str(k.func) + " id: " + hex(id(k.func)) for k in comps])
+        #print ("Pipeline.create_group: cloned_inlined_comps ", [str(k) for k in cloned_inlined_comps])
+        inline_pass_for_comp (self, cloned_inlined_comps, False)
+        print ("Pipeline.create_group: g after inlining ", g)
+        
+        #for c in g.comps:
+            #c.print_parent ()
+            #c.print_children ()
+        return g
 
     def get_size_for_group (self, group):
         size = group.get_total_size ()
@@ -2091,7 +2236,38 @@ class Pipeline:
         self._groups.append(new_group)
 
         return
-
+    
+    def make_func_independent_for_comp(self, comp_a, comp_b):
+        """
+        makes func_b independent of func_b and updates parent children
+        relations in the graph structure
+        [ assumes that func_b is a child of func_a, and that func_a is inlined
+        into func_b ]
+        """
+        #Group should be same, since, these computations have been merged
+        assert (comp_a.group == comp_b.group)
+        assert (comp_b in comp_a.children)
+        parent = comp_a.group
+        #print ("comp_a ", comp_a.func.name, " id: ", hex(id(comp_a)), "comp_b ", comp_b.func.name)
+        if parent:
+            # remove relation between a and b
+            comp_a.remove_child(comp_b)
+            #print ("comp_a.children ", [str(k) for k in comp_a.children])
+            #print ("comp_b.parent before removing", [str(k)+ " id: "+hex(id(k)) for k in comp_b.parents])
+            comp_b.remove_parent(comp_a)
+            #print ("comp_b.parent ", [str(k)+ " id: "+hex(id(k)) for k in comp_b.parents])
+            for p in comp_a.parents:
+                if p in parent.comps:
+                    p.add_child(comp_b)
+                    p.remove_child (comp_a)
+            
+            parents_of_b = comp_b.parents
+            for p in comp_a.parents:
+                if (p in parent.comps):
+                    parents_of_b.append(p)
+            comp_b.set_parents (list(set(parents_of_b)))
+            #print ("new comp_b.parents ", [str(k) for k in comp_b.parents])
+            
     def make_func_independent(self, func_a, func_b):
         """
         makes func_b independent of func_b and updates parent children
@@ -2103,7 +2279,7 @@ class Pipeline:
         comp_b = self.func_map[func_b]
         group_a = comp_a.group
         group_b = comp_b.group
-        # if parent_comp has any parent
+       
         if comp_a.parents:
             parents_of_a = comp_a.parents
             parents_of_b = comp_b.parents
@@ -2133,7 +2309,7 @@ class Pipeline:
                 p_comp.add_child(comp_b)
             for p_group in parents_of_grp_b:
                 p_group.add_child(group_b)
-
+        
         return
 
     def __str__(self):

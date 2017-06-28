@@ -32,6 +32,7 @@
 
 bool const checkForAssertions = false;
 bool const checkPythonExceptions = true;
+static bool INLINING_ENABLED = true;
 
 #define __MCASTLE1_SERVER__
 
@@ -46,6 +47,7 @@ static int const IMAGE_ELEMENT_SIZE = 4; //Each image element is of 4 bytes
 static int const L2_CACHE_SIZE = 512*1024;  //The L2_CACHE_SIZE is 512KB
 static int const N_CORES = 16; //Number of Cores is 16
 static int const L1_CACHE_SIZE = 32*1024;
+static int const VECTOR_REGISTERS = 8;
 #endif
 
 #ifdef __MCASTLE2_SERVER__
@@ -132,7 +134,8 @@ inline uint64_t first_one (uint128_t hash_id)
     
     return -1;
 }
-
+typedef std::unordered_map<Group*, std::set <Group*, Group::GroupComparer>, 
+                            Group::GroupHasher> InlinedAdjacentType;
 std::unordered_map<uint128_t, uint64_t, uint128Hasher> T;
 std::unordered_map<uint128_t, Group*, uint128Hasher> Group::hashIDToGroup;
 std::unordered_map<uint128_t, OptGroup*, uint128Hasher> OptGroup::optHashIDToGroup;
@@ -229,7 +232,7 @@ PyObject* getCompForPyGroup (PyObject* pyGroup, int index)
 {
     static PyObject* str_comps = Py_BuildValue ("s", "comps");
     PyObject* comps = PyObject_GetAttr (pyGroup, str_comps);
-    return PyList_GetItem (comps, 0);
+    return PyList_GetItem (comps, index);
 }
 
 char* getPyCompFuncName (PyObject* comp)
@@ -244,6 +247,16 @@ char* getPyCompFuncName (PyObject* comp)
 
 char* getPyGroupName (PyObject* pygroup)
 {
+    if (pygroup == nullptr)
+    {
+        std::string s = "Dummy Group";
+        char* ret = new char[s.length()];
+        
+        strcpy (ret, s.c_str());
+        
+        return ret;
+    }
+    
     PyObject* name = PyObject_Str (pygroup);
     PyObject* pyStr = PyUnicode_AsEncodedString(name, "utf-8", "Error ~");
     return PyBytes_AS_STRING (pyStr);
@@ -291,7 +304,10 @@ uint64_t getNumberOfInputs (uint128_t hash_id)
 
 void get_level_order (uint128_t hash_id, vector <PyObject*>& objs, 
                       const vector <Group*>& vec_groups, 
-                      map <Group*, int, Group::GroupComparer>& order)
+                      map <Group*, int, Group::GroupComparer>& order,
+                      std::unordered_set<Group*, Group::GroupHasher>& inlined_groups,
+                      InlinedAdjacentType& new_nextGroups,
+                      InlinedAdjacentType& new_prevGroups)
 {
     static PyObject* str_func = Py_BuildValue ("s", "func");
 
@@ -301,22 +317,50 @@ void get_level_order (uint128_t hash_id, vector <PyObject*>& objs,
     {
         order [*it] = 0;
     }
-
+    
+    PRINT_DEBUG_BLOCK_L1
+    {
+        std::cout << "Final New Next Groups in get_level_order" << std::endl;
+        for (auto const &it : new_nextGroups)
+        {
+            std::cout << getPyGroupName (it.first->getPyGroup ()) << " -> ";
+            
+            for (auto const &g : it.second)
+            {
+                std::cout << getPyGroupName (g->getPyGroup ()) << ", ";
+            }
+            
+            std::cout << std::endl;
+        }
+        
+        std::cout << "Final New Prev Groups in get_level_order " << std::endl;
+        for (auto const &it : new_prevGroups)
+        {
+            std::cout << getPyGroupName (it.first->getPyGroup ()) << " <- ";
+            
+            for (auto const &g : it.second)
+            {
+                std::cout << getPyGroupName (g->getPyGroup ()) << ", ";
+            }
+            
+            std::cout << std::endl;
+        }
+    }
+    
     while (change)
     {
         change = false;
 
         for (auto obj = vec_groups.begin (); obj != vec_groups.end (); obj++)
         {
-            for (auto prev = (*obj)->prevGroups().begin(); 
-                 prev != (*obj)->prevGroups().end(); prev++)
+            for (auto &prev: new_prevGroups[*obj])
             {
-                if (((*prev)->hashID () & hash_id) == (*prev)->hashID ())
+                if ((prev->hashID () & hash_id) == prev->hashID ())
                 {                
-                    if (order.find ((*prev)) != order.end () &&
-                        order [(*prev)] >= order [*obj])
+                    if (order.find (prev) != order.end () &&
+                        order [prev] >= order [*obj])
                     {
-                        order [*obj] = order [(*prev)] + 1;
+                        order [*obj] = order [prev] + 1;
                         change = true;
                     }
                 }
@@ -340,7 +384,10 @@ void get_level_order (uint128_t hash_id, vector <PyObject*>& objs,
     }
 }
 
-void naive_sched_objs (const map <Group*, int, Group::GroupComparer>& order, unordered_map <Group*, int>& naive_order)
+void naive_sched_objs (const map <Group*, int, Group::GroupComparer>& order, 
+                       unordered_map <Group*, int>& naive_order,
+                       InlinedAdjacentType& new_nextGroups,
+                       InlinedAdjacentType& new_prevGroups)
 {
     static PyObject* str_func = Py_BuildValue ("s", "func");
     unordered_map <int, vector<Group*>> reverse_map;
@@ -392,7 +439,7 @@ void naive_sched_objs (const map <Group*, int, Group::GroupComparer>& order, uno
                 
                 for (auto kid = reverse_map [l+1].begin(); kid != reverse_map [l+1].end(); kid++)
                 {
-                    if ((*obj)->nextGroups().find (*kid) != (*obj)->nextGroups().end ())
+                    if (new_nextGroups[(*obj)].find (*kid) != new_nextGroups[(*obj)].end ())
                         obj_kids.push_back (*kid);
                     
                     if (std::find (next_level.begin(), next_level.end(), *kid) == 
@@ -570,18 +617,18 @@ void classify_storage (const vector <PyObject*>& vec_comps,
 
 void getLivenessMap (const uint128_t hash_id, const vector<Group*>& vec_groups, 
                   unordered_map <Group*, int>& schedule, 
-                  unordered_map <int, vector <PyObject*> >& liveness_map)
+                  unordered_map <int, vector <PyObject*> >& liveness_map,
+                  InlinedAdjacentType& new_nextGroups)
 {
     for (auto it = schedule.begin(); it != schedule.end(); it++)
     {
         int last_live = -1;
         
-        for (auto child = it->first->nextGroups().begin (); 
-             child != it->first->nextGroups().end (); child++)
+        for (auto &child : new_nextGroups[it->first])
         {
-            if (((*child)->hashID() & hash_id) == (*child)->hashID ())
+            if ((child->hashID() & hash_id) == child->hashID ())
             {
-                last_live = max (last_live, schedule[*child]);
+                last_live = max (last_live, schedule[child]);
             }
         }
         
@@ -641,7 +688,11 @@ uint64_t getLiveoutsSize (uint128_t hash_id, vector <Group*> vec_groups, int& n_
 }
 
 uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
-                           uint64_t& liveouts_size, uint64_t& livein_size)
+                           uint64_t& liveouts_size, uint64_t& livein_size,
+                           std::unordered_set<Group*, Group::GroupHasher>&
+                           inlined_groups,
+                           InlinedAdjacentType& new_nextGroups,
+                           InlinedAdjacentType& new_prevGroups)
 {
     //TODO: Support TStencil 
     map <Group*, int, Group::GroupComparer> level_order;
@@ -679,31 +730,67 @@ uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
                 continue;
             }
             
-            if (!OptGroup::isLiveoutForGroup (hash_id, (OptGroup*)_g))
+            //Include only those groups and comps which are not inlined
+            if ((INLINING_ENABLED && inlined_groups.find (_g) == inlined_groups.end ()) ||
+                !INLINING_ENABLED)
             {
-                nonLiveOutsHashID |= (l << bit);
-                vec_groups.push_back (_g);
-                PyObject* comps = PyObject_GetAttr (pyGroup, str_comps);
-                
-                for (int j = 0; j < PyList_Size (comps); j++)
+                if (!OptGroup::isLiveoutForGroup (hash_id, (OptGroup*)_g))
                 {
-                    PyObject* comp = PyList_GetItem (comps, j);
-
-                    vec_comps.push_back (comp);
+                    nonLiveOutsHashID |= (l << bit);
+                    vec_groups.push_back (_g);
+                    PyObject* comps = PyObject_GetAttr (pyGroup, str_comps);
+                    
+                    for (int j = 0; j < PyList_Size (comps); j++)
+                    {
+                        PyObject* comp = PyList_GetItem (comps, j);
+    
+                        vec_comps.push_back (comp);
+                    }
                 }
+                else
+                    live_out_groups.push_back (_g);
+                
+                //TODO: include only those liveins which are not inlined
+                OptGroup::liveinsForChildInGroup (hash_id, (OptGroup*)_g, live_in_groups);
             }
-            else
-                live_out_groups.push_back (_g);
-            
-            OptGroup::liveinsForChildInGroup (hash_id, (OptGroup*)_g, live_in_groups);
         }
         
         _hash_id = _hash_id >> 1;
         bit++;
     }
     
-    get_level_order (nonLiveOutsHashID, vec_comps, vec_groups, level_order);
-    naive_sched_objs (level_order, naive_order);
+    PRINT_DEBUG_BLOCK_L1
+    {
+        std::cout << "Final New Next Groups in getTotalSizeUsed" << std::endl;
+        for (auto const &it : new_nextGroups)
+        {
+            std::cout << getPyGroupName (it.first->getPyGroup ()) << " -> ";
+            
+            for (auto const &g : it.second)
+            {
+                std::cout << getPyGroupName (g->getPyGroup ()) << ", ";
+            }
+            
+            std::cout << std::endl;
+        }
+        
+        std::cout << "Final New Prev Groups in getTotalSizeUsed " << std::endl;
+        for (auto const &it : new_prevGroups)
+        {
+            std::cout << getPyGroupName (it.first->getPyGroup ()) << " <- ";
+            
+            for (auto const &g : it.second)
+            {
+                std::cout << getPyGroupName (g->getPyGroup ()) << ", ";
+            }
+            
+            std::cout << std::endl;
+        }
+    }
+    
+    get_level_order (nonLiveOutsHashID, vec_comps, vec_groups, level_order, 
+                     inlined_groups, new_nextGroups, new_prevGroups);
+    naive_sched_objs (level_order, naive_order, new_nextGroups, new_prevGroups);
     PRINT_DEBUG_BLOCK_L1
     {
         std::cout<<"optnaiveorder12121212: " << std::endl;
@@ -712,7 +799,9 @@ uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
             std::cout << it->second << " " << getPyCompFuncName (it->first->getCompAtIndex (0)) << std::endl;
         }
     }
-    getLivenessMap (nonLiveOutsHashID, vec_groups, naive_order, liveness_map);
+    
+    getLivenessMap (nonLiveOutsHashID, vec_groups, naive_order, liveness_map, 
+                    new_nextGroups);
     PRINT_DEBUG_BLOCK_L1
     {
         std::cout<<"optnaiveorderqqqqqqqqqq1212: " << std::endl;
@@ -721,6 +810,7 @@ uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
             std::cout << it->second << " " << getPyCompFuncName (it->first->getCompAtIndex (0)) << std::endl;
         }
     }
+    
     classify_storage (vec_comps, cmp_to_stg_class, storage_class_map);
     liveouts_size = getLiveoutsSize (hash_id, live_out_groups, number_of_buffers);
     
@@ -988,6 +1078,281 @@ int getNumberOfEdges (uint128_t _hash_id)
     return n_edges;
 }
 
+void update_inlining_next_prev_vertices (InlinedAdjacentType& new_nextGroups,
+                                         InlinedAdjacentType& new_prevGroups,
+                                         Group* inlined_group)
+{
+    for (auto const &next: new_nextGroups [inlined_group])
+    {
+        auto& next_prev = new_prevGroups [next];
+        
+        next_prev.erase (inlined_group);
+        
+        for (auto const &prev: new_prevGroups [inlined_group])
+        {
+            next_prev.insert (prev);
+        }
+    }
+    
+    for (auto const &prev: new_prevGroups [inlined_group])
+    {
+        auto& prev_next = new_nextGroups [prev];
+        
+        prev_next.erase (inlined_group);
+        
+        for (auto const &next: new_nextGroups [inlined_group])
+        {
+            prev_next.insert (next);
+        }
+    }
+    
+    new_nextGroups.erase (inlined_group);
+    new_prevGroups.erase (inlined_group);
+}
+                                 
+/*Finds the groups to be inlined*/
+void update_graph_with_inlining (std::unordered_set<Group*, Group::GroupHasher>& 
+                                 inlined_groups, 
+                                 InlinedAdjacentType& new_nextGroups,
+                                 InlinedAdjacentType& new_prevGroups,
+                                 uint128_t hash_id)
+{
+    static PyObject* str_is_pointwise = Py_BuildValue ("s", "is_pointwise");
+    std::vector <Group*> groups;
+    std::unordered_set<Group*> pointwise_groups;
+    std::unordered_set<Group*, Group::GroupHasher> liveouts;
+    uint128_t _hash_id = hash_id;
+    int bit = 0;
+    
+    while (_hash_id != 0)
+    {
+        if ((_hash_id & 1L) == 1)
+        {
+            uint128_t l = 1L;
+            Group* group = Group::hashIDToGroup[l<<bit];
+            if (group->getPyGroup () != nullptr)
+            {
+                groups.push_back (group);
+                PyObject* pointwise_func = PyObject_GetAttr (group->getPyGroup(), str_is_pointwise);
+                PyObject* is_pointwise = PyObject_CallObject (pointwise_func, NULL);
+                //TODO: Get all pointwise functions as argument to dpgroup function
+                //to increase the speed a little bit
+                if (is_pointwise == Py_True)
+                {
+                    pointwise_groups.insert (group);
+                }
+            }
+        }
+        bit++;
+        _hash_id = _hash_id >> 1;
+    }
+    
+    //Dummy Group
+    if (groups.size() == 0)
+    {
+        return;
+    }
+    
+    if (groups.size () == 1)
+    {
+        //Single Group, don't need to do anything
+        return;
+    }
+    
+    if (pointwise_groups.size () == 0)
+    {
+        //No Pointwise groups means no inlining
+        return;
+    }
+    
+    //Start from the liveouts. Traverse from liveouts to the liveins in a BFS 
+    //fashion not a DFS and inline all the pointwise functions found, until 
+    //there is no spilling, current producer is not a liveout, and the 
+    //current producer has only one consumer because inlining a producer twice
+    //or more will lead to redundant computations.
+    //Moreover, inline the producers of pointwise functions if they
+    //are not liveouts and don't have two consumers, until there is
+    //no spilling. Also, inlining of producer into consumer is only done
+    //when the sizes of each dimensions are same.
+    PRINT_DEBUG_BLOCK_L1
+    {
+        std::cout << "Number of Pointwise groups " << pointwise_groups.size () << std::endl;
+        std::cout << "Pointwise groups are: "<<std::endl;
+        for (auto const &it : pointwise_groups)
+        {
+            std::cout << getPyGroupName (it->getPyGroup()) << ", ";
+        }
+        
+        std::cout << std::endl;
+    }
+    
+    OptGroup::liveoutsForGroup (hash_id, groups, liveouts);
+    PRINT_DEBUG_BLOCK_L1
+        std::cout << "liveouts for group "<<liveouts.size () << std::endl;
+        
+    std::queue<Group*> bfs_queue;
+    
+    //Do BFS and find all pointwise_groups in reverse
+    for (auto const &liveout : liveouts)
+    {
+        bfs_queue.push (liveout);
+        
+        while (bfs_queue.size () != 0)
+        {
+            Group* _front = bfs_queue.front ();
+            bfs_queue.pop();
+            // Inline those functions which are pointwise, not liveouts, and
+            // have only one consumer.
+            if (pointwise_groups.find (_front) != pointwise_groups.end() &&
+                liveouts.find (_front) == liveouts.end () && 
+                _front->nextGroups ().size() == 1 &&
+                (_front->hashID () & hash_id) == _front->hashID ())
+            {
+                inlined_groups.insert (_front);
+                update_inlining_next_prev_vertices (new_nextGroups, 
+                                                    new_prevGroups, _front);
+            }
+            
+            for (auto const &prev : _front->prevGroups ())
+            {
+                //Prev Group should be in this group
+                if ((hash_id & prev->hashID ()) == prev->hashID())
+                    bfs_queue.push (prev);
+            }
+        }
+    }
+    PRINT_DEBUG_BLOCK_L1
+    {
+        std::cout << "Inlined Pointwise and non liveout Groups found: " << inlined_groups.size () << std::endl;
+        for (auto const &g : inlined_groups)
+        {
+            std::cout << getPyGroupName (g->getPyGroup ()) << ", ";
+        }
+        
+        std::cout << std::endl;
+    }
+    
+    PRINT_DEBUG_BLOCK_L1
+    {
+        std::cout << "New Next Groups " << std::endl;
+        for (auto const &it : new_nextGroups)
+        {
+            std::cout << getPyGroupName (it.first->getPyGroup ()) << " -> ";
+            
+            for (auto const &g : it.second)
+            {
+                std::cout << getPyGroupName (g->getPyGroup ()) << ", ";
+            }
+            
+            std::cout << std::endl;
+        }
+        
+        std::cout << "New Prev Groups " << std::endl;
+        for (auto const &it : new_prevGroups)
+        {
+            std::cout << getPyGroupName (it.first->getPyGroup ()) << " <- ";
+            
+            for (auto const &g : it.second)
+            {
+                std::cout << getPyGroupName (g->getPyGroup ()) << ", ";
+            }
+            
+            std::cout << std::endl;
+        }
+    }
+    
+    //At this point we have inlined all the pointwise functions (and non-liveouts, i.e.,
+    //intermediate functions) into their respective children.
+    //In the last stage, again find all the pointwise functions (but also taking 
+    //into account liveouts) and then inline the producer of these pointwise
+    //functions only if they have only one consumer.
+    
+    //TODO: an optimization here can be to consider only pointwise liveouts
+    //and not the whole DAG, since, all pointwise functions before has
+    //been inlined.
+    //Do BFS and find all pointwise_groups in reverse using updated 
+    //New and Prev Groups Set
+    std::unordered_set<Group*, Group::GroupHasher> new_inlined_groups;
+    for (auto const &liveout : liveouts)
+    {
+        bfs_queue.push (liveout);
+        
+        while (bfs_queue.size () != 0)
+        {
+            Group* _front = bfs_queue.front ();
+            bfs_queue.pop();
+            // Inline the producer functions which are pointwise
+            if (pointwise_groups.find (_front) != pointwise_groups.end())
+            {
+                for (auto const &it : new_prevGroups[_front])
+                {
+                    if (new_nextGroups[it].size () == 1 &&
+                        (it->hashID () & hash_id) == it->hashID ())
+                    {
+                        inlined_groups.insert (it);
+                        new_inlined_groups.insert (it);
+                    }
+                }
+            }
+            
+            for (auto const &prev : new_prevGroups[_front])
+            {
+                //Prev Group should be in this group
+                if ((hash_id & prev->hashID ()) == prev->hashID())
+                    bfs_queue.push (prev);
+            }
+        }
+        
+    }
+    
+    //Update New Next and Prev Groups set
+    
+    for (auto const &it : new_inlined_groups)
+    {
+        update_inlining_next_prev_vertices (new_nextGroups, new_prevGroups, it);
+    }
+    
+    PRINT_DEBUG_BLOCK_L1
+    {
+        std::cout << "Final Inlined Groups: " << inlined_groups.size () << std::endl;
+        for (auto const &g : inlined_groups)
+        {
+            std::cout << getPyGroupName (g->getPyGroup ()) << ", ";
+        }
+        
+        std::cout << std::endl;
+    }
+    
+    PRINT_DEBUG_BLOCK_L1
+    {
+        std::cout << "Final New Next Groups " << std::endl;
+        for (auto const &it : new_nextGroups)
+        {
+            std::cout << getPyGroupName (it.first->getPyGroup ()) << " -> ";
+            
+            for (auto const &g : it.second)
+            {
+                std::cout << getPyGroupName (g->getPyGroup ()) << ", ";
+            }
+            
+            std::cout << std::endl;
+        }
+        
+        std::cout << "Final New Prev Groups " << std::endl;
+        for (auto const &it : new_prevGroups)
+        {
+            std::cout << getPyGroupName (it.first->getPyGroup ()) << " <- ";
+            
+            for (auto const &g : it.second)
+            {
+                std::cout << getPyGroupName (g->getPyGroup ()) << ", ";
+            }
+            
+            std::cout << std::endl;
+        }
+    }
+}
+
 inline uint64_t cost (uint128_t hash_id, std::vector <uint64_t>& tile_sizes)
 {
     uint64_t bit = 0;
@@ -1016,30 +1381,25 @@ inline uint64_t cost (uint128_t hash_id, std::vector <uint64_t>& tile_sizes)
     uint64_t liveins_size = 0;
     std::vector <std::vector <uint64_t> > dim_size_diff; // 2-D vector with rows as number of comps and cols as max_dim
     uint64_t tile_size = 0;
-    uint64_t totalsizeused = getTotalSizeUsed (hash_id, n_buffers, 
-                                               liveouts_size, liveins_size);
+    std::unordered_set<Group*, Group::GroupHasher> inlined_groups;
+    InlinedAdjacentType new_nextGroups;
+    InlinedAdjacentType new_prevGroups;
     
     PRINT_DEBUG_BLOCK_L1
-        std::cout << "n_buffers " << n_buffers << std::endl;
-    PRINT_DEBUG_BLOCK_L1
-        std::cout<< "totalsizeused " << totalsizeused << std::endl;
-    
-    if (totalsizeused == 0 && n_buffers == 0)
-    {
-        //Dummy group
-        return 0;
-    }
+        std::cout << "Cost for hash_id " << std::bitset <41> ((uint64_t)hash_id) << std::endl;
     
     while (_hash_id != 0)
     {
         if ((_hash_id & 1L) == 1)
         {
             uint128_t l = 1;
-            PyObject* pyGroup = Group::hashIDToGroup[l<<bit]->getPyGroup ();
+            Group* group;
+            
+            group =  Group::hashIDToGroup[l<<bit];
+            PyObject* pyGroup = group->getPyGroup ();
             nOnes++;
             if (pyGroup != NULL)
-            {                
-                
+            {
                 PyObject* comps = PyObject_GetAttr (pyGroup, str_comps);
                 
                 total_comps += PyList_Size (comps);
@@ -1099,6 +1459,9 @@ inline uint64_t cost (uint128_t hash_id, std::vector <uint64_t>& tile_sizes)
                 }
                 
                 PyList_Append (list_groups_for_overlap, pyGroup);
+                
+                new_nextGroups[group] = std::set <Group*, Group::GroupComparer> (group->nextGroups ());
+                new_prevGroups[group] = std::set <Group*, Group::GroupComparer> (group->prevGroups ());
             }
             else
             {
@@ -1108,6 +1471,54 @@ inline uint64_t cost (uint128_t hash_id, std::vector <uint64_t>& tile_sizes)
         
         _hash_id = _hash_id >> 1;
         bit++;
+    }
+    
+    PRINT_DEBUG_BLOCK_L1
+    {
+        std::cout << "Final New Next Groups in COST" << std::endl;
+        for (auto const &it : new_nextGroups)
+        {
+            std::cout << getPyGroupName (it.first->getPyGroup ()) << " -> ";
+            
+            for (auto const &g : it.second)
+            {
+                std::cout << getPyGroupName (g->getPyGroup ()) << ", ";
+            }
+            
+            std::cout << std::endl;
+        }
+        
+        std::cout << "Final New Prev Groups in COST" << std::endl;
+        for (auto const &it : new_prevGroups)
+        {
+            std::cout << getPyGroupName (it.first->getPyGroup ()) << " <- ";
+            
+            for (auto const &g : it.second)
+            {
+                std::cout << getPyGroupName (g->getPyGroup ()) << ", ";
+            }
+            
+            std::cout << std::endl;
+        }
+    }
+    if (INLINING_ENABLED)
+        update_graph_with_inlining (inlined_groups, new_nextGroups, 
+                                    new_prevGroups, hash_id);
+        
+    uint64_t totalsizeused = getTotalSizeUsed (hash_id, n_buffers, 
+                                               liveouts_size, liveins_size,
+                                               inlined_groups, new_nextGroups, 
+                                               new_prevGroups);
+    
+    PRINT_DEBUG_BLOCK_L1
+        std::cout << "n_buffers " << n_buffers << std::endl;
+    PRINT_DEBUG_BLOCK_L1
+        std::cout<< "totalsizeused " << totalsizeused << std::endl;
+    
+    if (totalsizeused == 0 && n_buffers == 0)
+    {
+        //Dummy group
+        return 0;
     }
     
     _hash_id = hash_id;
@@ -1132,7 +1543,14 @@ inline uint64_t cost (uint128_t hash_id, std::vector <uint64_t>& tile_sizes)
     #ifdef INCLUDE_OVERLAP
     PyObject* pytotalsizeused = PyLong_FromLong (totalsizeused);
     PyObject* pyn_buffers = PyLong_FromLong (n_buffers);
-    PyObject* args = PyTuple_Pack (3, list_groups_for_overlap, pytotalsizeused, pyn_buffers);
+    PyObject* list_inline_comps = PyList_New (0);
+
+    for (auto const &g : inlined_groups)
+    {
+        PyList_Append (list_inline_comps, g->getCompAtIndex (0));
+    }
+    
+    PyObject* args = PyTuple_Pack (4, list_groups_for_overlap, list_inline_comps, pytotalsizeused, pyn_buffers);
     PyObject* tuple_return = PyObject_CallObject (get_overlapping_size_func, args);
     check_and_print_exception ();
     PyObject* overlap_obj = PyTuple_GetItem (tuple_return, 0);
@@ -1155,11 +1573,17 @@ inline uint64_t cost (uint128_t hash_id, std::vector <uint64_t>& tile_sizes)
         overlap_size = 0;
     }
     
+    if (tile_size == 4 && overlap_size == (1L<<30)*IMAGE_ELEMENT_SIZE)
+    {
+        return -1;
+    }
+    
     PRINT_DEBUG_BLOCK_L1
         std::cout << "tile_size "<< tile_size << std::endl;
     assert (tile_size != 0);
     Py_DECREF (args);
     //Py_DECREF (tuple_return);
+    Py_DECREF (list_inline_comps);
     Py_DECREF (pytotalsizeused);
     Py_DECREF (list_groups_for_overlap);
     Py_DECREF (pyn_buffers);
@@ -1167,8 +1591,8 @@ inline uint64_t cost (uint128_t hash_id, std::vector <uint64_t>& tile_sizes)
     int64_t overlap_size = 0;
     #endif
     
-     PRINT_DEBUG_BLOCK_L1
-            std::cout<< "totalsizeused " << totalsizeused << " tile_size for " << std::bitset<41>((uint64_t)_hash_id)<<" " << tile_size << " liveins_size " << liveins_size <<std::endl;
+    PRINT_DEBUG_BLOCK_L1
+        std::cout<< "totalsizeused " << totalsizeused << " tile_size for " << std::bitset<41>((uint64_t)_hash_id)<<" " << tile_size << " liveins_size " << liveins_size <<std::endl;
     
     uint64_t mean_dim_diff = dim_size_std_dev (dim_size_diff, max_dims);
 
@@ -2462,10 +2886,12 @@ PyObject* dpgroup(PyObject* self, PyObject* args)
     std::unordered_set<OptGroup*> done;
     while (opt_queue.size () != 0)
     {
+        InlinedAdjacentType new_nextGroups, new_prevGroups;
+        PyObject* new_grp;
+        
         opt_temp = opt_queue.front ();
         opt_queue.pop();
-        
-        PyObject* new_grp = firstPyGroup (opt_temp->hashID(), dummySource, maxID);
+        new_grp = firstPyGroup (opt_temp->hashID(), dummySource, maxID);
         
         if (done.find(opt_temp) == done.end() && opt_temp->hashID() != 0)
         {
@@ -2475,26 +2901,36 @@ PyObject* dpgroup(PyObject* self, PyObject* args)
             {
                 uint64_t bit = 0;
                 uint128_t hash_id = opt_temp->hashID();
-                
+                Group* g;
+                uint128_t l = 1;
                 while (bit <= first)
                 {
                     hash_id = hash_id >> 1;
                     bit++;
                 }
                 
+                l = l << first;
+                
+                g = Group::hashIDToGroup[l];
+                new_nextGroups[g] = std::set <Group*, Group::GroupComparer> (g->nextGroups ());
+                new_prevGroups[g] = std::set <Group*, Group::GroupComparer> (g->prevGroups ());
+                
                 while (hash_id != 0)
                 {                    
                     if ((hash_id & 1L) == 1 && !(dummySource && bit == maxID-1))
                     {   
-                        uint128_t l = 1;
+                        l = 1;
                         l = l<<bit;
     
-                        Group* g = Group::hashIDToGroup[l];
+                        g = Group::hashIDToGroup[l];
                         PyObject* pp = g->getPyGroup ();
                         if (pp == NULL)
                             continue;
                         PyObject* args = PyTuple_Pack (2, new_grp, pp);
                         new_grp = PyObject_CallObject (merge_groups_func, args);
+                        new_nextGroups[g] = std::set <Group*, Group::GroupComparer> (g->nextGroups ());
+                        new_prevGroups[g] = std::set <Group*, Group::GroupComparer> (g->prevGroups ());
+                
                         if (PyErr_Occurred () != NULL)
                         {
                             PyErr_Print();
@@ -2514,11 +2950,23 @@ PyObject* dpgroup(PyObject* self, PyObject* args)
                                                                   "set_total_used_size");
             static PyObject* set_n_buffers = Py_BuildValue ("s", 
                                                             "set_n_buffers");
-
+            static PyObject* set_inline_comps = Py_BuildValue ("s",
+                                                              "set_inline_comps");
             PyObject* set_total_used_size_func, *set_n_buffers_func;
             int n_buffers=0;
+            std::unordered_set<Group*, Group::GroupHasher> inlined_groups;
             uint64_t liveouts_size, livein_size;
-            total_size_used = getTotalSizeUsed (opt_temp->hashID(), n_buffers, liveouts_size, livein_size);
+            
+            if (INLINING_ENABLED)
+                update_graph_with_inlining (inlined_groups, new_nextGroups, 
+                                            new_prevGroups, opt_temp->hashID ());
+                                            
+            total_size_used = getTotalSizeUsed (opt_temp->hashID(), n_buffers, 
+                                                liveouts_size, livein_size,
+                                                inlined_groups, new_nextGroups,
+                                                new_prevGroups);
+            PRINT_DEBUG_BLOCK_L1
+                std::cout << "total_size_used " << total_size_used << " n_buffers " << n_buffers << std::endl;
             set_total_used_size_func = PyObject_GetAttr (new_grp,
                                                          set_total_used_size);
             PyObject* args = PyTuple_Pack (1,
@@ -2531,6 +2979,20 @@ PyObject* dpgroup(PyObject* self, PyObject* args)
             args = PyTuple_Pack (1,
                                  PyLong_FromLong (n_buffers));
             PyObject_CallObject (set_n_buffers_func, args);
+            Py_DECREF (args);
+            
+            PyObject* list_inline_comps = PyList_New (0);
+            
+            for (auto const &it : inlined_groups)
+            {
+                PyList_Append (list_inline_comps, it->getCompAtIndex (0));
+            }
+            
+            PyObject *set_inline_comps_func = PyObject_GetAttr (new_grp, 
+                                                           set_inline_comps);
+            args = PyTuple_Pack (1, list_inline_comps);
+            PyObject_CallObject (set_inline_comps_func, args);
+            Py_DECREF (list_inline_comps);
             Py_DECREF (args);
         }
         
