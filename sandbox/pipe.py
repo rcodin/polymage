@@ -490,7 +490,7 @@ class ComputeObject:
         #A pointwise function works on only one point (x, y)
         #Hence, all references in the function body should have 
         #same index (x + k, y + k), where k is a constant
-        
+     
         if (len(refs) == 0):
             return False
             
@@ -1838,7 +1838,6 @@ class Pipeline:
         img1 = False
         img2 = False
         denoised = False
-        deinterleaved = False
         #TODO: To solve
         for g in groups:
             if (g.comps[0].func.name.find("img1") != -1):

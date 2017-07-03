@@ -169,8 +169,7 @@ def inline_pass_for_comp(pipeline, inline_comps, final_codegen = True):
 
         # One simply does not walk into Inlining
         #print ("comp ", comp, "len(children) ", len(comp.children))
-        #comp.print_children ()
-        
+        #comp.print_children ()        
         assert comp not in group.liveouts, "comp: "+ str(comp) + " is liveout in " + str(group)
 
         drop_inlined = True
