@@ -208,9 +208,14 @@ class ComputeObject:
         self._storage_class = None
         self._array = None
         self._scratch_info = []
-
-    def clone (self):
-        comp = ComputeObject (self._func, self._is_output)
+        self._is_pointwise = None
+        
+    def clone (self, inline=False):
+        if not inline:
+            comp = ComputeObject (self._func, self._is_output)
+        else:
+            comp = ComputeObject (self._func.clone (), 
+                                  self._is_output)
         comp._parents = list(self.parents)
         comp._is_parents_set = self._is_parents_set
         comp._is_children_set = self._is_children_set
@@ -292,7 +297,19 @@ class ComputeObject:
     @property
     def scratch(self):
         return self._scratch_info
-
+    
+    def print_parent (self):
+        print (self.func.name, " <- ")
+        for c in self.parents:
+            print (str(c)+ " id: " + hex(id(c)), end=', ')
+        print ("")
+    
+    def print_children (self):
+        raise(Exception)
+        print (self.func.name, " -> ")
+        for c in self.children:
+            print (str(c) + " id: " + hex(id(c)), end=', ')
+        print ("")
     def _set_type(self, _func):
         self._compute_type = None
         # NOTE: do NOT change this to if-elif-elif...else
@@ -456,9 +473,58 @@ class ComputeObject:
         else:
             assert isinstance(_array, genc.CArray)
         self._array = _array
+        
     def set_scratch_info(self, _scratch_info):
         self._scratch_info = _scratch_info
 
+    def is_pointwise (self):
+        if (self._is_pointwise != None):
+            return self._is_pointwise
+        
+        self._is_pointwise = False
+        name = self.func.name
+        refs = self._func.getObjects (Reference)
+        
+        if (not self.equal_dim_size_with_children ()):
+            return False
+        #A pointwise function works on only one point (x, y)
+        #Hence, all references in the function body should have 
+        #same index (x + k, y + k), where k is a constant
+        
+        if (len(refs) == 0):
+            return False
+            
+        arg_0 = refs[0].arguments
+        
+        for ref in refs:
+            if (len(arg_0) != len(ref.arguments)):
+                return False
+            
+            for i in range (0, len (arg_0)):
+                if (str(arg_0[i]) != str(ref.arguments[i])):
+                    return False
+                    
+        self._is_pointwise = True
+        return True
+    
+    def equal_dim_size_with_children (self):
+        
+        self_sizes = self.compute_size ()
+        for k in self.children:
+            child_sizes = k.compute_size ()
+            
+            if (len(self_sizes) != len(child_sizes)):
+                return False
+            for i in range(0, len(child_sizes)):
+                if (str (self_sizes[i][0]) != str(child_sizes[i][0]) or
+                    str (self_sizes[i][1]) != str(child_sizes[i][1])):
+                    return False
+        
+        return True
+        
+    def n_refs (self):
+        return len (self.func.getObjects (Reference))
+        
 class Group:
     """ 
         Group is a part of the pipeline which realizes a set of computation
@@ -508,7 +574,11 @@ class Group:
         self._comps_schedule = None
         self._liveness_map = None
         self._total_used_size = -1
-    
+        self._param_constraints = _param_constraints
+        self._ctx = _ctx
+        self._inline_comps = []
+        self._inline_in_all_children = None
+        
     @property
     def tile_sizes(self):
         return self._tile_sizes
@@ -576,6 +646,131 @@ class Group:
     @property
     def liveness_map(self):
         return self._liveness_map
+    
+    @property
+    def inlined_comps(self):
+        return self._inline_comps
+    
+    def inline_in_all_children (self):
+        
+        if (self._inline_in_all_children != None):
+            return self._inline_in_all_children
+        
+        self._inline_in_all_children = False
+        
+        if (self.is_pointwise ()):
+            if (len(self.comps[0].func.getObjects(Reference)) == 1):
+                self._inline_in_all_children = True
+                return True
+        
+        #Find all top-level case statements
+        case_stmts = []
+        for b in self.comps[0].func.defn:
+            if isinstance (b, constructs.Case):
+                case_stmts += [b]
+        
+        if (case_stmts == []):
+            return False
+        
+        #Determine all condition variables of case, their constant values, and
+        #their position in the arguments of the function declaration
+        info = [] #Tuple of [Variable, Index in Function's Declaration, Value]
+        for case_stmt in case_stmts:
+            cond = case_stmt.condition
+            var = None
+            val = None
+            
+            if (isinstance (cond.rhs, Value) and isinstance (cond.lhs, Variable)):
+                var = cond.lhs
+                val = cond.rhs
+            elif isinstance (cond.lhs, Value) and isinstance (cond.rhs, Variable):
+                var = cond.rhs
+                val = cond.lhs
+            
+            try:
+                lhs_index = self.comps[0].func.variables.index (var)
+                if (len(info) > 0):
+                    idx = len(info)-1
+                    if (info[idx][0] == var and info[idx][1] == lhs_index):
+                        pass
+                    else:
+                        return False
+                info += [(var, lhs_index, val)]
+            except ValueError:
+                pass
+        
+        #Collect all references of group's func from its children
+        child_to_ref = {}
+        for child in self.children:
+            refObjects = child.comps[0].func.getObjects(Reference)
+            child_to_ref [child] = []
+            for ref in refObjects:
+                if (ref.objectRef == self.comps[0].func):
+                    child_to_ref [child] += [ref]
+                
+        constant_args= []
+        const_arg_pos_list = []
+        for child in child_to_ref:
+            refs = child_to_ref[child]
+            #Make sure for all refs in a child the constant arg and
+            #its position are same
+            constant_arg = None
+            const_arg_pos = None
+                
+            for ref in refs:
+                args = ref.arguments
+                #print ("arg: ", [str(k) +", " + str(type(k)) for k in args])
+                for i in range(len(args)):
+                    arg = args[i]
+                    if (isinstance (arg, Value)):
+                        
+                        if (constant_arg is None):
+                            constant_arg = arg
+                            const_arg_pos = i
+                        else:
+                            if (constant_arg != arg or const_arg_pos != i):
+                                return False
+                
+                if (constant_arg is None):
+                    return False
+            
+            constant_args += [constant_arg]
+            const_arg_pos_list += [const_arg_pos]
+
+            #Determine whether the constant arg is used in
+            #one of the case statement 
+            found = False
+            for case_info in info:
+                #print ("case_info[2] ", case_info[2],
+                #       " case_info[1] ", case_info[1])
+                if (case_info[2] == constant_arg and
+                    case_info[1] == const_arg_pos):
+                    found = True
+            if not found:
+                return False
+        
+        self._inline_in_all_children = True
+        return True            
+    
+    def set_inline_comps (self, comps):
+        self._inline_comps = list(comps)
+    
+    def is_pointwise (self):
+        assert (len(self.comps) == 1)
+        return self.comps[0].is_pointwise ()
+    def recompute_computation_objs(self):
+        '''After removing computations, recompute the internal representations
+        '''
+        self._set_type()
+        self.set_comp_group()
+
+        self._level_order_comps = self.order_compute_objs()
+        self._comps = self.get_sorted_comps()
+        self._inputs = self.find_root_comps()
+        self._image_refs = self.collect_image_refs()
+
+        if self.isPolyhedral():
+            self._polyrep = PolyRep(self._ctx, self, [], self._param_constraints)
 
     def set_tile_size_for_dim(self, size, dim):
         self._tile_sizes [dim] = size
@@ -987,14 +1182,14 @@ class Group:
                 
                 #mem_refs = mem_refs.union (set(access_type_visitor._refs))
         
-            print (dims_lb, comp.func.name,)
-            s = ""
-            for d in access_type_visitor._refs:
-                s += "["
-                for g in d:
-                    s += str(g) + ", "
-                s += "] "
-            print (s)
+            #print (dims_lb, comp.func.name,)
+            #s = ""
+            #for d in access_type_visitor._refs:
+            #    s += "["
+            #    for g in d:
+            #        s += str(g) + ", "
+            #    s += "] "
+            #print (s)
             
             references = access_type_visitor._refs
             for ref in references:
@@ -1415,7 +1610,10 @@ class Group:
         print ("tile_sizes from L2 ", tile_sizes)
         self._tile_sizes = tile_sizes
         return tile_size
+    
+    def dims_size_same_as_children (self):
         
+        pass
     def __str__(self):
         comp_str  = '[' + \
                     ', '.join([comp.func.name \
@@ -1448,6 +1646,7 @@ class Pipeline:
         self._size_threshold = _size_threshold
         self._tile_sizes = _tile_sizes
         self._dim_reuse = {}
+        self._do_inline = True
         
         ''' CONSTRUCT DAG '''
         # Maps from a compute object to its parents and children by
@@ -1494,11 +1693,23 @@ class Pipeline:
         # self._initial_graph = self.draw_pipeline_graph()
 
         # Checking bounds
+        #print ("START: bounds_check_pass")
         bounds_check_pass(self)
-
+        #print ("END: bounds_check_pass")
+        #self._inline_directives = [self._groups[1]]
         # inline pass
-        inline_pass(self)
-
+        #TODO: Remove
+        inline_after_grouping = True
+        if (self._do_inline):
+            self.pre_grouping_inline_phase ()
+            
+        if (not inline_after_grouping):
+            #print ("START:inline_pass")
+            inline_pass(self)
+            #print ("END:inlile_pass")
+            #print ("Comps After Inlining ", [str(k) for k in self.comps])
+            #print ("comps not inlined ", [str(k) for k in self._inline_directives if k in self._func_map and self._func_map[k] in self.comps])
+            
         # make sure the set of functions to be inlined and those to be grouped
         # are disjoint
         if self._inline_directives and self._grouping:
@@ -1532,8 +1743,26 @@ class Pipeline:
             auto_group(self)
             #self.merge_groups (self.groups[1], self.groups[2])
             pass
-
         
+        if (inline_after_grouping):
+            for group in self.groups:
+                #clones = [self._clone_map[comp.func] for comp in group.inlined_comps]
+                #inline_pass_for_comp (self, [self._func_map[f] for f in clones])
+                inline_pass_for_comp (self, group.inlined_comps)
+                
+            print ("After Inlining: ")
+            for group in self.groups[0].comps:
+                print (str(group.func))
+            
+            for g in self.groups[0].comps:
+                print ("comp ", g.func.name, " -> ")
+                for _c in g.children:
+                    print (_c.func.name, ", ")
+                print("")
+                print ("comp ", g.func.name, " <- ")
+                for _c in g.parents:
+                    print (_c.func.name, ", ")
+                print("")
         ''' GRAPH UPDATES '''
         # level order traversal of groups
         self._level_order_groups = self.order_group_objs()
@@ -1572,6 +1801,10 @@ class Pipeline:
         # comps and poly parts
         for group in self._grp_schedule:
             group.set_comp_and_parts_sched()
+            #print ("group.comps_schedule-------")
+            #for k in group.comps_schedule:
+            #    print (str(k) + ", " + str(group.comps_schedule[k]))
+            #print ("---------")
         self._liveouts_schedule = schedule_liveouts(self)
 
         ''' COMPUTE LIVENESS '''
@@ -1599,12 +1832,13 @@ class Pipeline:
         # use graphviz to create pipeline graph
         self._pipeline_graph = self.draw_pipeline_graph()
 
-    def get_overlapping_size_for_groups (self, groups, tile_size, _n_buffers):
+    def get_overlapping_size_for_groups (self, groups, inlined_comps, 
+                                         tile_size, _n_buffers):
         print ("get_overlapping_size_for_groups for ", [g.comps[0].func.name for g in groups])
         img1 = False
         img2 = False
         denoised = False
-        Ix = Iy = Iyy = Ixx = Ixy = Sxx = harris = False
+        deinterleaved = False
         #TODO: To solve
         for g in groups:
             if (g.comps[0].func.name.find("img1") != -1):
@@ -1613,10 +1847,17 @@ class Pipeline:
                 img2 = True
             elif (g.comps[0].func.name.find("denoised") != -1):
                 denoised = True
-        if ((img1 and img2) or denoised):
+            #elif (g.comps[0].func.name.find("deinterleaved") != -1):
+            #    deinterleaved = True
+        if ((img1 and img2)):
             return -1, 0
-
-        g = self.create_group (groups)
+        for c in inlined_comps:
+            if (c.func.name.find ("deinterleaved") != -1):
+                assert False, "deinterleaved in inlined_comps in " + str([str(g) for g in groups])
+                
+        #if (denoised and deinterleaved and len(groups) > 2):
+        #    return -1, 0
+        g = self.create_group (groups, inlined_comps)
         g.set_total_used_size (tile_size)
         g.set_n_buffers (_n_buffers)
         #print ("create_group = ", [comp.func.name for comp in g.comps])
@@ -1669,6 +1910,10 @@ class Pipeline:
             print ("hmax ", hmax-hmin)
             det_tile_size = g.get_tile_sizes (self.param_estimates, slope_min, slope_max, 
                                               g_all_parts, hmax - hmin, False)
+            
+            #Restore original body of all functions
+            #for comp in g.comps:
+                #comp.func.restore_original_body ()
             tile_sizes = g._tile_sizes
             all_slope_invalid = True
             for slope in slope_min:
@@ -1715,7 +1960,28 @@ class Pipeline:
             
         print ("Getting Overlap for non stencil? Not Good")
         assert (False)
+    
+    def pre_grouping_inline_phase (self):
+        '''Inline those functions which 
+            (i) has only one reference and only one child,
+            or 
+            (ii) has n cases with n children, each child is associated with
+                one case, s.t. no other child is associated with the same case
+                and each case has only one reference.
+        '''
+        self._pre_grouping_inline_groups = []
+        for g in list(self.groups):
+            if (len(g.children) == 1 and g.comps[0].n_refs () == 1):
+                self._pre_grouping_inline_groups += [g.comps[0].func]
+            else:
+                if (g.inline_in_all_children () and not g.is_pointwise ()):
+                    self._pre_grouping_inline_groups += [g.comps[0].func]
         
+        inline_pass (self, self._pre_grouping_inline_groups)
+    
+    @property
+    def do_inline (self):
+        return self._do_inline
     @property
     def dim_reuse (self):
         return self._dim_reuse
@@ -1785,7 +2051,7 @@ class Pipeline:
     @property
     def free_arrays(self):
         return self._free_arrays
-
+        
     def get_tile_sizes_for_group (self, group):
         dim_reuse = {}
         
@@ -1793,30 +2059,75 @@ class Pipeline:
         for group in self.groups:
             self._dim_reuse [group.comps[0]] = group.get_dimensional_reuse (self.param_estimates)
         
-    def create_group(self, args):
-        groups = args
+    def create_group(self, groups, inlined_comps):
+        print ("Pipeline.create_group: inlined_comps ", [str(k) for k in inlined_comps])
         comps = []
         for g in groups:
             comps += g.comps
-        
+        #for c in comps:
+            #c.print_parent ()
+            #c.print_children ()
+            
+        orig_comps = list(comps)
         comp_to_clone = dict ()
+        inlined_comp_to_clone = dict ()
+        cloned_inlined_comps = []
+        will_inline = inlined_comps != []
+        func_to_clone_func = dict()
+        clone_func_to_func = dict()
         for i in range(len(comps)):
             #print ("comps [i] ", hex(id(comps[i])),)
-            cloneComp = comps[i].clone()
+            cloneComp = comps[i].clone(will_inline)
             comp_to_clone [comps[i]] = cloneComp
+            func_to_clone_func [comps[i].func] = cloneComp.func
+            clone_func_to_func [cloneComp.func] = comps[i].func
+            if (comps[i] in inlined_comps):
+                #inlined_comp_to_clone [comps[i]] = cloneComp
+                cloned_inlined_comps.append (cloneComp)
             comps[i] = cloneComp
             #print ("clone comps [i] ", hex(id(comps[i])))
         
+        #print ("clone_func_to_func ", [str(k) + " id: " + hex(id(k)) for k in clone_func_to_func])
+        #print ("func_to_clone_func ", [str(k) + " id: " + hex(id(k)) for k in func_to_clone_func])
+        
         for i in range(len(comps)):
+            parents = []
             for j in range(len(comps[i].parents)):
                 if (comps[i].parents[j] in comp_to_clone):
-                    comps[i].parents[j] = comp_to_clone[comps[i].parents[j]]
+                    parents.append (comp_to_clone[comps[i].parents[j]])
+            comps[i].set_parents (parents)
+            children = []
             for j in range(len(comps[i].children)):
-                if (comps[i].children[j] in comp_to_clone):
-                    comps[i].children[j] = comp_to_clone[comps[i].children[j]]
+                if comps[i].children[j] in comp_to_clone:
+                    children.append(comp_to_clone[comps[i].children[j]])
+            comps[i].set_children (children)
+        
+        g = Group (self._ctx, comps, self._param_constraints)
+        
+        if (will_inline == True):
+            for comp in comps:
+                #print ("comp is ", comp.func.name)
+                comp = comp
+                refs = comp.func.getObjects (Reference)
+                for ref in refs:
+                #    print ("ref.objecRef ", ref.objectRef, " ", hex(id(ref.objectRef)))
+                    if (ref.objectRef in func_to_clone_func):
+                        ref._replace_ref_object (func_to_clone_func[ref.objectRef])
+                    else:
+                        pass
                 
-        print (comps)
-        return Group (self._ctx, comps, self._param_constraints)
+        #print ("Pipeline.create_group: orig_comps ", [str(k) + " id: " + hex(id(k)) for k in orig_comps])
+        #print ("Pipeline.create_group: orig_comps.func ", [str(k.func) + " id: " + hex(id(k.func)) for k in orig_comps])
+        #print ("Pipeline.create_group: comp_to_clone ", [str(k) + " id: " + hex(id(k)) for k in comps])
+        #print ("Pipeline.create_group: comp_to_clone.func ", [str(k.func) + " id: " + hex(id(k.func)) for k in comps])
+        #print ("Pipeline.create_group: cloned_inlined_comps ", [str(k) for k in cloned_inlined_comps])
+        inline_pass_for_comp (self, cloned_inlined_comps, False)
+        print ("Pipeline.create_group: g after inlining ", g)
+        
+        #for c in g.comps:
+            #c.print_parent ()
+            #c.print_children ()
+        return g
 
     def get_size_for_group (self, group):
         size = group.get_total_size ()
@@ -2091,7 +2402,38 @@ class Pipeline:
         self._groups.append(new_group)
 
         return
-
+    
+    def make_func_independent_for_comp(self, comp_a, comp_b):
+        """
+        makes func_b independent of func_b and updates parent children
+        relations in the graph structure
+        [ assumes that func_b is a child of func_a, and that func_a is inlined
+        into func_b ]
+        """
+        #Group should be same, since, these computations have been merged
+        assert (comp_a.group == comp_b.group)
+        assert (comp_b in comp_a.children)
+        parent = comp_a.group
+        #print ("comp_a ", comp_a.func.name, " id: ", hex(id(comp_a)), "comp_b ", comp_b.func.name)
+        if parent:
+            # remove relation between a and b
+            comp_a.remove_child(comp_b)
+            #print ("comp_a.children ", [str(k) for k in comp_a.children])
+            #print ("comp_b.parent before removing", [str(k)+ " id: "+hex(id(k)) for k in comp_b.parents])
+            comp_b.remove_parent(comp_a)
+            #print ("comp_b.parent ", [str(k)+ " id: "+hex(id(k)) for k in comp_b.parents])
+            for p in comp_a.parents:
+                if p in parent.comps:
+                    p.add_child(comp_b)
+                    p.remove_child (comp_a)
+            
+            parents_of_b = comp_b.parents
+            for p in comp_a.parents:
+                if (p in parent.comps):
+                    parents_of_b.append(p)
+            comp_b.set_parents (list(set(parents_of_b)))
+            #print ("new comp_b.parents ", [str(k) for k in comp_b.parents])
+            
     def make_func_independent(self, func_a, func_b):
         """
         makes func_b independent of func_b and updates parent children
@@ -2103,7 +2445,7 @@ class Pipeline:
         comp_b = self.func_map[func_b]
         group_a = comp_a.group
         group_b = comp_b.group
-        # if parent_comp has any parent
+       
         if comp_a.parents:
             parents_of_a = comp_a.parents
             parents_of_b = comp_b.parents
@@ -2133,7 +2475,7 @@ class Pipeline:
                 p_comp.add_child(comp_b)
             for p_group in parents_of_grp_b:
                 p_group.add_child(group_b)
-
+        
         return
 
     def __str__(self):

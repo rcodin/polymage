@@ -42,7 +42,7 @@ def main():
         input ("wait for executing")
         input ("22222222222222")
         min_avg = 100000
-        for i in range (0, 5):
+        for i in range (0, 10000000):
             min_avg = min (min_avg, unsharp_mask(app_data))
         
         print ("minimum average ", min_avg)

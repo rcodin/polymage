@@ -408,7 +408,7 @@ def remap_storage_for_comps(comps, storage_class_map, schedule,
     
     # sort comps according to their schedule
     sorted_comps = get_sorted_objs(schedule)
-
+    
     # initialize a pool of arrays for each storage class
     stg_classes = list(set([comp.storage_class for comp in sorted_comps]))
     array_pool = {}
@@ -455,7 +455,6 @@ def remap_storage_for_comps(comps, storage_class_map, schedule,
         if time in liveness_map:
             free_comps = liveness_map[time]
             for free_comp in free_comps:
-                #print ("free comp ", free_comp)
                 comp_stg_class = free_comp.storage_class
                 storage_index = storage_map[free_comp][1] \
                     if free_comp.is_tstencil_type \

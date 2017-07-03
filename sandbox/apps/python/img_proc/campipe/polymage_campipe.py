@@ -102,19 +102,19 @@ def camera_pipe(pipe_data):
 
     g_gr = Function(([x, y], [half_ghost_zone_2x, half_ghost_zone_2y]), \
                     Short, "g_gr")
-    g_gr.defn = [deinterleaved(0, x, y)]
+    g_gr.defn = [deinterleaved(0,x,y)]
 
     r_r = Function(([x, y], [half_ghost_zone_2x, half_ghost_zone_2y]), \
                    Short, "r_r")
-    r_r.defn = [deinterleaved(1, x, y)]
+    r_r.defn = [deinterleaved(1,x,y)]
 
     b_b = Function(([x, y], [half_ghost_zone_2x, half_ghost_zone_2y]), \
                    Short, "b_b")
-    b_b.defn = [deinterleaved(2, x, y)]
+    b_b.defn = [deinterleaved(2,x,y)]
 
     g_gb = Function(([x, y], [half_ghost_zone_2x, half_ghost_zone_2y]), \
                     Short, "g_gb")
-    g_gb.defn = [deinterleaved(3, x, y)]
+    g_gb.defn = [deinterleaved(3,x,y)]
 
     # Halide :
     # "These are the ones we need to interpolate
@@ -224,14 +224,20 @@ def camera_pipe(pipe_data):
         out.defn = [Select(Condition((y%2), '==', 0), a(x, y/2), b(x, y/2))]
         return out
 
-    red = interleave_x(interleave_y(r_gr, r_r, "red_x1"), \
-                       interleave_y(r_b, r_gb, "red_x2"), \
+    red_x1 = interleave_y(r_gr, r_r, "red_x1")
+    red_x2 = interleave_y(r_b, r_gb, "red_x2")
+    red = interleave_x(red_x1, \
+                       red_x2, \
                        "red")(x, y)
-    green = interleave_x(interleave_y(g_gr, g_r, "green_x1"), \
-                         interleave_y(g_b, g_gb, "green_x2"), \
+    green_x1 = interleave_y(g_gr, g_r, "green_x1")
+    green_x2 = interleave_y(g_b, g_gb, "green_x2")
+    green = interleave_x(green_x1, \
+                         green_x2, \
                          "green")(x, y)
-    blue = interleave_x(interleave_y(b_gr, b_r, "blue_x1"), \
-                        interleave_y(b_b, b_gb, "blue_x2"), \
+    blue_x1 = interleave_y(b_gr, b_r, "blue_x1")
+    blue_x2 = interleave_y(b_b, b_gb, "blue_x2")
+    blue = interleave_x(blue_x1, \
+                        blue_x2, \
                         "blue")(x, y)
 
     # 5. Colour Correction
@@ -301,4 +307,4 @@ def camera_pipe(pipe_data):
     # (3) compute everything on-the-fly
     # curved.defn = [lut_value(corrected(c, x, y))]
 
-    return curved
+    return curved, [] #[red_x1, red_x2] #[deinterleaved, r_r, b_b, g_gb] #[g_gr, r_r, b_b, g_gb, r_gr, b_gr, r_gb, b_gb] #r_b, b_r, r_gr

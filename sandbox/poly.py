@@ -69,7 +69,7 @@ def add_constraints_from_list(obj, local_space, constraint_list,
                 m = (abs(constr[coeff].denominator) * m)//den
         assert m.denominator == 1
         m = m.numerator
-
+        #print ("normalization factor ", m)
         # normalize
         for coeff in constr:
             if isinstance(constr[coeff], Fraction):
@@ -111,7 +111,10 @@ def add_constraints_from_list(obj, local_space, constraint_list,
                 # handling with an isl function, if any, to test for the
                 # existence of a dimension in that part.
                 pass
+        #print ("c ", c)
+        #print ("obj before add_constraint ", obj)
         obj = obj.add_constraint(c)
+        #print ("obj after obj.add_constraint", obj)
     return obj
 
 def add_constraints(obj, ineqs, eqs):
@@ -124,6 +127,7 @@ def add_constraints(obj, ineqs, eqs):
         return obj
 
     space = obj.get_space()
+    #print ("add_constraints type", type(obj))
     if (isinstance(obj, isl.Map)):
         for bmap in obj.get_basic_maps():
             local_space = bmap.get_local_space()
@@ -135,7 +139,9 @@ def add_constraints(obj, ineqs, eqs):
     elif (isinstance(obj, isl.BasicSet) or
           isinstance(obj, isl.BasicMap)):
         local_space = obj.get_local_space()
+        #print ("local_space ", local_space)
         obj = add_constraints_for_element(obj, local_space, ineqs, eqs)
+        #print ("obj ", obj)
     else:
         assert False
 
@@ -144,6 +150,7 @@ def add_constraints(obj, ineqs, eqs):
 def extract_value_dependence(part, ref, ref_poly_dom):
     # Dependencies are calculated between values. There is no storage
     # mapping done yet.
+    #raise (Exception)
     assert(part.sched)
     deps = []
     access_region = isl.BasicSet.universe(ref_poly_dom.dom_set.get_space())
@@ -155,18 +162,23 @@ def extract_value_dependence(part, ref, ref_poly_dom):
     dim_out = rel.dim(isl._isl.dim_type.out)
     source_dims = [ ('out', i) for i in range(0, dim_out)]
     num_args = len(ref.arguments)
-
+    #print ("extract_value_dependence: ref.arguments ", [str(k) for k in ref.arguments])
     for i in range(0, num_args):
         arg = ref.arguments[i]
         # If the argument is not affine the dependence reflects that
         # the computation may depend on any value of the referenced object
+        #print ("arg ", arg, " isAffine ", isAffine(arg))
         if (isAffine(arg)):
             coeff = get_affine_var_and_param_coeff(arg)
             coeff = map_coeff_to_dim(coeff)
 
             coeff[('constant', 0)] = get_constant_from_expr(arg, affine=True)
             coeff[source_dims[i]] = -1
+            #print ("coeff ", coeff)
             rel = add_constraints(rel, [], [coeff])
+            #print ("rel ", rel)
+            
+    #print ("extract_value_dependence: rel.is_empty () = ", rel.is_empty())
     if not rel.is_empty():
         deps.append(PolyDep(ref.objectRef, part.comp.func, rel))
     return deps 

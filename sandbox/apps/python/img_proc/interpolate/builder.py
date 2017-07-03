@@ -64,7 +64,7 @@ def build_interpolate(app_data, g_size = None, t_size = None):
     p_constraints = [ Condition(R, "==", rows), \
                       Condition(C, "==", cols) ]
     if (t_size == None):
-	    t_size = [1, 32, 128]
+	    t_size = [4, 64, 128]
     if (g_size == None):
         g_size = 4
 

@@ -6,8 +6,8 @@ PYTHON=python3
 ROOT="../../../../"
 
 # app inputs
-#IMG=$(ROOT)"/../images/bayer_raw.png"
-IMG="bayer_raw.png"
+IMG=$(ROOT)"/../images/bayer_raw.png"
+#IMG="bayer_raw.png"
 KELVIN=3700
 CONTRAST=50
 GAMMA=2.0

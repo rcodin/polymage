@@ -74,5 +74,5 @@ def unsharp_mask(pipe_data):
                                        sharpen(c, x, y) ))]
 
     #####################################################################################
-    return masked
+    return masked, []#[sharpen]
 # END

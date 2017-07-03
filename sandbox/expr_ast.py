@@ -27,6 +27,7 @@ from fractions import gcd
 
 # TODO remove this at some point
 from expr_types import *
+from expression import substitute_refs
 
 class AbstractExpression(object):
     """ AbstractExpression class is a tree representation for expressions
