@@ -49,7 +49,7 @@ def get_input(app_data):
     app_data['early_free'] = bool(app_args.early_free)
     # pool allocate option
     app_data['pool_alloc'] = bool(app_args.pool_alloc)
-
+    app_data['inline']  = bool (app_args.inline)
     return
 
 def init_all(app_data):

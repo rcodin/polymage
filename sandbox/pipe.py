@@ -1646,7 +1646,7 @@ class Pipeline:
         self._size_threshold = _size_threshold
         self._tile_sizes = _tile_sizes
         self._dim_reuse = {}
-        self._do_inline = True
+        self._do_inline = 'inline' in self._options
         
         ''' CONSTRUCT DAG '''
         # Maps from a compute object to its parents and children by
@@ -1754,23 +1754,19 @@ class Pipeline:
             for group in self.groups[0].comps:
                 print (str(group.func))
             
-            for g in self.groups[0].comps:
-                print ("comp ", g.func.name, " -> ")
-                for _c in g.children:
-                    print (_c.func.name, ", ")
-                print("")
-                print ("comp ", g.func.name, " <- ")
-                for _c in g.parents:
-                    print (_c.func.name, ", ")
-                print("")
+            #for g in self.groups[0].comps:
+            #    print ("comp ", g.func.name, " -> ")
+            #    for _c in g.children:
+            #        print (_c.func.name, ", ")
+            #    print("")
+            #    print ("comp ", g.func.name, " <- ")
+            #    for _c in g.parents:
+            #        print (_c.func.name, ", ")
+            #    print("")
         ''' GRAPH UPDATES '''
         # level order traversal of groups
         self._level_order_groups = self.order_group_objs()
         self._groups = self.get_sorted_groups()
-
-        #TESTING HERE
-        if (False):
-            self.get_overlapping_size_for_groups ([self.groups[0], self.groups[1], self.groups[2], self.groups[3]])
             
         for group in self.groups:
             # update liveness of compute objects in each new group
@@ -1848,7 +1844,7 @@ class Pipeline:
                 denoised = True
             #elif (g.comps[0].func.name.find("deinterleaved") != -1):
             #    deinterleaved = True
-        if ((img1 and img2)):
+        if ((img1 and img2) or (denoised and not self.do_inline)):
             return -1, 0
         for c in inlined_comps:
             if (c.func.name.find ("deinterleaved") != -1):

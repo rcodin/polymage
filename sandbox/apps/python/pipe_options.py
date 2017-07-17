@@ -55,3 +55,11 @@ parser.add_option('--multipar',
                   default=False,
                   help='True : Mark omp \'collapse\' directive if possible, \
                         False: Simply mark \'omp parallel for\'')
+
+#To enable automatic inlining
+parser.add_option('--inline',
+                  action='store_true',
+                  dest='inline',
+                  default=False,
+                  help='True : Enable Inlining, \
+                        False: Disable Inlining')

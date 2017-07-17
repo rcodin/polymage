@@ -74,7 +74,9 @@ def build_unsharp(app_data, g_size = None, t_size = None):
         opts += ['optimize_storage']
     if app_data['pool_alloc']:
         opts += ['pool_alloc']
-
+    if app_data['inline']:
+        opts += ['inline']
+        
     pipe = buildPipeline(live_outs,
                          param_estimates=p_estimates,
                          param_constraints=p_constraints,
@@ -94,6 +96,7 @@ def create_lib(build_func, pipe_name, app_data, g_size = None, t_size = None):
     pipe_src  = pipe_name+".cpp"
     pipe_so   = pipe_name+".so"
     app_args = app_data['app_args']
+    
     graph_gen = bool(app_args.graph_gen)
 
     if build_func != None:

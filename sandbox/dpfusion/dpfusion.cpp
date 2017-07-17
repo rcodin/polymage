@@ -2612,6 +2612,7 @@ PyObject* dpgroup(PyObject* self, PyObject* args)
     PyObject *in_group;
     PyObject *out_group;
     PyObject *groups;    
+    PyObject *do_inline;
     
     std::vector <PyObject*> pygroups_vector;
     
@@ -2619,13 +2620,19 @@ PyObject* dpgroup(PyObject* self, PyObject* args)
     int ee;
     PRINT_DEBUG_L1(std::cin >> ee);
     PRINT_DEBUG_L1 (std::cin >> ee);
-    PyArg_ParseTuple (args, "OOOOOOOOOOOOOO", &in_group, &out_group, &groups, &pipeline, 
+    PyArg_ParseTuple (args, "OOOOOOOOOOOOOOO", &in_group, &out_group, &groups, &pipeline, 
                       &reduction_cls, &small_comps, &comp_size_map, &tstencil_cls,
                       &pygroup_topological_order, &pygroup_dim_reuse, &pylive_size,
-                      &pydim_size, &storage_mapping_get_dim_size, &cls_Storage);
+                      &pydim_size, &storage_mapping_get_dim_size, &cls_Storage, &do_inline);
     get_overlapping_size_func = PyObject_GetAttr (pipeline, 
                                                   Py_BuildValue ("s", 
                                                   "get_overlapping_size_for_groups"));
+    if (do_inline == Py_True)
+        INLINING_ENABLED = true;
+    else if (do_inline == Py_False)
+        INLINING_ENABLED = false;
+    else
+        assert (false);
     
     if (PyList_Size (in_group) == 1)
     {

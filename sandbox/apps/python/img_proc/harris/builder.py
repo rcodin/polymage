@@ -74,7 +74,9 @@ def build_harris(app_data, g_size = None, t_size = None):
         opts += ['optimize_storage']
     if app_data['pool_alloc']:
         opts += ['pool_alloc']
-
+    if app_data['inline']:
+        opts += ['inline']
+        
     pipe = buildPipeline(live_outs,
                          param_estimates=p_estimates,
                          param_constraints=p_constraints,
