@@ -51,7 +51,7 @@ pipe_logger = logging.getLogger("pipe.py")
 pipe_logger.setLevel(logging.INFO)
 LOG = pipe_logger.log
 
-MACHINE_TYPE = ['personal', 'mcastle1', 'mcastle2'][1]
+MACHINE_TYPE = ['personal', 'mcastle1', 'mcastle2', 'polymage'][3]
     
 if (MACHINE_TYPE == 'personal'):
     #global IMAGE_ELEMENT_SIZE, L2_CACHE_SIZE, N_CORES, TILING_THRESHOLD, VECTOR_WIDTH_THRESHOLD
@@ -66,6 +66,19 @@ elif (MACHINE_TYPE == 'mcastle1'): #Intel Haswell machine
     #For mcastle
     IMAGE_ELEMENT_SIZE = 4
     L2_CACHE_SIZE = int(512*1024/IMAGE_ELEMENT_SIZE)
+    N_CORES = 16
+    TILING_THRESHOLD = 1
+    VECTOR_WIDTH_THRESHOLD = 64 #TODO: 
+    L2_INNER_MOST_DIM_SIZE = 256
+    L1_INNER_MOST_DIM_SIZE = 256
+    L1_CACHE_SIZE = int(32*1024/IMAGE_ELEMENT_SIZE)
+    OUTER_DIM_TILING_THRESH = 4
+    THRESHOLD_TILE_SIZE = 4
+elif (MACHINE_TYPE == 'polymage'): #Intel Haswell machine
+    #global IMAGE_ELEMENT_SIZE, L2_CACHE_SIZE, N_CORES, TILING_THRESHOLD, VECTOR_WIDTH_THRESHOLD
+    #For mcastle
+    IMAGE_ELEMENT_SIZE = 4
+    L2_CACHE_SIZE = int(256*1024/IMAGE_ELEMENT_SIZE)
     N_CORES = 16
     TILING_THRESHOLD = 1
     VECTOR_WIDTH_THRESHOLD = 64 #TODO: 
@@ -1529,15 +1542,16 @@ class Group:
         return _tile_sizes, tile_size
             
     def get_tile_sizes (self, param_estimates, slope_min, slope_max, group_parts, 
-                        h, use_only_l2 = False):
+                        h, use_only_l2 = False, multi_level_tiling = False):
         print ("get_tile_sizes for ", self)
         #self._tile_sizes = {1:8, 2:256}
         #print ("total_size ", self._total_used_size/IMAGE_ELEMENT_SIZE)
         #self._tile_sizes = {1:32, 2:256}
         #return
-        if (str(self) == "[1Dx_1_img2, Dy_1_img2, Ux_0_img2, Dx_2_img2]"):
-            self._tile_sizes = {1:32, 2:256}
-            return
+#        if (str(self) == "[1Dx_1_img2, Dy_1_img2, Ux_0_img2, Dx_2_img2]"):
+#            self._tile_sizes = {1:32, 2:256}
+#            return
+
         if (self._total_used_size == -1):
             #print (self)
             assert (False)
@@ -1570,11 +1584,27 @@ class Group:
                             dim_sizes [i-1] = 0
         
         self._dim_sizes_part = dim_sizes
+        overlap_shifts_zero = False
         
-        if (not use_only_l2):
+        if (multi_level_tiling):
+            overlap_shifts_zero = True
+            for i in range(len(slope_min)):
+                if (slope_min[i] != '*'):
+                    right = int(math.floor(Fraction(slope_min[i][0],
+                                                    slope_min[i][1])))
+                    left = int(math.ceil(Fraction(slope_max[i][0],
+                                                slope_max[i][1])))
+                    # Compute the overlap shift
+                    overlap_shift = abs(left * (h)) + abs(right * (h))
+                    if (overlap_shift != 0):
+                        overlap_shifts_zero = False
+        
+        if ((not use_only_l2 and not multi_level_tiling) 
+            or (multi_level_tiling and not overlap_shifts_zero)):
             #try with L1 Cache
             tile_sizes, tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
-                slope_min, slope_max, group_parts, dim_reuse, dim_sizes, L1_CACHE_SIZE, L1_INNER_MOST_DIM_SIZE)
+                slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
+                L1_CACHE_SIZE, L1_INNER_MOST_DIM_SIZE)
             
             overlap_shift_greater = False
             
@@ -1607,13 +1637,26 @@ class Group:
             slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
             L2_CACHE_SIZE, L2_INNER_MOST_DIM_SIZE)
         
+        if (multi_level_tiling):
+            l1tile_sizes, l1tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
+                slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
+                L1_CACHE_SIZE, L1_INNER_MOST_DIM_SIZE)
+            
+            tile_sizes_keys = list(tile_sizes.keys ())
+            for k in tile_sizes_keys:
+                if (tile_sizes[k] != l1tile_sizes[k]):
+                    if (l1tile_sizes[k] == 16): 
+                        #Bug in Bilateral Grid group [interpolate, filtered].
+                        #Seg Fault due to 16, and 8.
+                        #Runs fine if l1 tile size is not multiple of l2 tile size.
+                        l1tile_sizes[k] -= 1
+                    tile_sizes["L1"+str(k)] = l1tile_sizes[k]
+                    tile_sizes[k] = int(tile_sizes[k]/2)
+                    
         print ("tile_sizes from L2 ", tile_sizes)
         self._tile_sizes = tile_sizes
         return tile_size
     
-    def dims_size_same_as_children (self):
-        
-        pass
     def __str__(self):
         comp_str  = '[' + \
                     ', '.join([comp.func.name \
@@ -1974,6 +2017,9 @@ class Pipeline:
         
         inline_pass (self, self._pre_grouping_inline_groups)
     
+    @property
+    def multi_level_tiling (self):
+        return False
     @property
     def do_inline (self):
         return self._do_inline

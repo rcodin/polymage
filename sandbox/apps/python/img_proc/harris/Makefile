@@ -11,7 +11,7 @@ IMG=$(ROOT)"/../images/venice_wikimedia.jpg"
 RUNS=500
 
 APP_ARGS=--img=${IMG}
-OPT_ARGS=--pool_alloc --optimize_storage --early_free --inline
+OPT_ARGS=--pool_alloc --optimize_storage --early_free #--inline
 TOOL_ARGS=--graph-gen --runs=${RUNS} --display --timer
 CXX_ARGS=--cxx="${CXX}" --cxx_flags="${CXX_FLAGS}"
 

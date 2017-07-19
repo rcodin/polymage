@@ -34,7 +34,11 @@ bool const checkForAssertions = false;
 bool const checkPythonExceptions = true;
 static bool INLINING_ENABLED = true;
 
-#define __MCASTLE1_SERVER__
+#undef INLINING
+#undef HEIRARICHAL_TILING
+#undef MULTI_LEVEL_TILING
+
+#define __POLYMAGE_SERVER__
 
 #ifdef __PERSONAL_COMPUTER__
 static int const IMAGE_ELEMENT_SIZE = 4; //Each image element is of 4 bytes
@@ -48,6 +52,106 @@ static int const L2_CACHE_SIZE = 512*1024;  //The L2_CACHE_SIZE is 512KB
 static int const N_CORES = 16; //Number of Cores is 16
 static int const L1_CACHE_SIZE = 32*1024;
 static int const VECTOR_REGISTERS = 8;
+
+#if defined (INLINING) && defined(HEIRARICHAL_TILING) && defined (MULTI_LEVEL_TILING)
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#elif defined (INLINING) && defined (HEIRARICHAL_TILING)
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#elif defined (INLINING) && defined (MULTI_LEVEL_TILING)
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#elif defined (MULTI_LEVEL_TILING) && defined (HEIRARICHAL_TILING)
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#elif defined (INLINING)
+//INLINING
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#elif defined (HEIRARICHAL_TILING)
+//HEIRARICHAL_TILING
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#elif defined (MULTI_LEVEL_TILING)
+//MULTI_LEVEL_TILING
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#else
+//None of those are defined.
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#endif
+#endif
+
+#ifdef __POLYMAGE_SERVER__
+static int const IMAGE_ELEMENT_SIZE = 4; //Each image element is of 4 bytes
+static int const L2_CACHE_SIZE = 256*1024;  //The L2_CACHE_SIZE is 512KB
+static int const N_CORES = 16; //Number of Cores is 16
+static int const L1_CACHE_SIZE = 32*1024;
+static int const VECTOR_REGISTERS = 8;
+
+#if defined (INLINING) && defined(HEIRARICHAL_TILING) && defined (MULTI_LEVEL_TILING)
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#elif defined (INLINING) && defined (HEIRARICHAL_TILING)
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#elif defined (INLINING) && defined (MULTI_LEVEL_TILING)
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#elif defined (MULTI_LEVEL_TILING) && defined (HEIRARICHAL_TILING)
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#elif defined (INLINING)
+//INLINING
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#elif defined (HEIRARICHAL_TILING)
+//HEIRARICHAL_TILING
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#elif defined (MULTI_LEVEL_TILING)
+//MULTI_LEVEL_TILING
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#else
+//None of those are defined.
+static float const DIM_STD_DEV_WEIGHT = 1.5;
+static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+#endif
 #endif
 
 #ifdef __MCASTLE2_SERVER__
@@ -1036,7 +1140,18 @@ inline uint64_t dim_size_std_dev (std::vector <std::vector <uint64_t> >& dim_siz
     double sum_mean_diff = std::accumulate (mean_diff.begin(), mean_diff.end (), 0.0);
     std::cout <<"mean sum" << std::accumulate (mean.begin(), mean.end (), 0.0) << " mean_diff sum " <<std::accumulate (mean_diff.begin(), mean_diff.end (), 0.0) <<std::endl;
     if (sum_mean_diff == 0)
-        return 500;
+    {
+        #ifdef __MCASTLE1_SERVER__
+            return 500;
+        #else
+            #ifdef __POLYMAGE_SERVER__
+                return 1200;
+            #else
+                return 0;
+            #endif
+        #endif
+    }
+    
     if (sum_mean_diff/sum_mean_dim > 0.1f)
         return sum_mean_diff;
     else
@@ -1664,15 +1779,23 @@ inline uint64_t cost (uint128_t hash_id, std::vector <uint64_t>& tile_sizes)
             " threads ratio " << (((n_threads+N_CORES-1)%N_CORES)*100)/N_CORES << " all_n_dims_equal " << all_n_dims_equal << " overlap " << overlap_size << " tile_size " << tile_size << std::endl
             << " overlap cost " << (1000.0f*50.0f*1.5*overlap_size)/(tile_size*n_buffers) << " n_buffers " << n_buffers << std::endl;
 
-    _cost = mean_dim_diff*1.5 + 
-            ((liveins_size+liveouts_size))/(tile_size*n_buffers) - 
-            (((n_threads+N_CORES-1)%N_CORES)*100.0f)/N_CORES + 
-            (1000.0f*50.0f*1.5*overlap_size)/(tile_size*n_buffers);
+    _cost = mean_dim_diff*DIM_STD_DEV_WEIGHT + 
+            (LIVE_SIZE_TO_TILE_SIZE_WEIGHT*(liveins_size+liveouts_size))/(tile_size*n_buffers) - 
+            (((n_threads+N_CORES-1)%N_CORES)*CLEANUP_THREADS_WEIGHT)/N_CORES + 
+            (RELATIVE_OVERLAP_WEIGHT*overlap_size)/(tile_size*n_buffers);
     
     
     if (!all_n_dims_equal)
-        _cost += 500;
-        
+    {
+        #ifdef __POLYMAGE_SERVER__
+            _cost += 1200;
+        #else
+            #ifdef __MCASTLE1_SERVER__
+                _cost += 500;
+            #endif
+        #endif
+    }
+    
     PRINT_DEBUG_BLOCK_L1
         std::cout << "total cost " << _cost << std::endl;
         
