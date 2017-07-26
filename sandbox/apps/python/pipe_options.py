@@ -63,3 +63,11 @@ parser.add_option('--inline',
                   default=False,
                   help='True : Enable Inlining, \
                         False: Disable Inlining')
+
+#To enable automatic inlining
+parser.add_option('--multi-level-tiling',
+                  action='store_true',
+                  dest='multi_level_tiling',
+                  default=False,
+                  help='True : Enable Multi Level L2 and L1 Tiling, \
+                        False: Disable Multi Level L2 and L1 Tiling')

@@ -64,7 +64,7 @@ def build_unsharp(app_data, g_size = None, t_size = None):
     p_constraints = [ Condition(R, "==", rows), \
                       Condition(C, "==", cols) ]
     if (t_size == None):
-        t_size = [1, 5, 256]
+        t_size = [1, 8, 256]
     if (g_size == None):
         g_size = 4
     opts = []
@@ -76,6 +76,8 @@ def build_unsharp(app_data, g_size = None, t_size = None):
         opts += ['pool_alloc']
     if app_data['inline']:
         opts += ['inline']
+    if app_data['multi-level-tiling']:
+        opts += ['multi-level-tiling']
         
     pipe = buildPipeline(live_outs,
                          param_estimates=p_estimates,

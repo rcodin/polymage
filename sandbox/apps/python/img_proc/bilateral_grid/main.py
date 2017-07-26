@@ -1,6 +1,7 @@
 import numpy as np
 import time
 import sys
+import os
 
 from __init__ import *
 
@@ -35,6 +36,8 @@ def main():
     else:
         create_lib(build_bilateral, app, app_data)
         _min_time = 10000
+        input ("wait to run amplxe " + str(os.getpid()))
+        input ("wwww")
         for t in range(0, 5):
             _min_time = min (_min_time, bilateralgrid(app_data))
         print ("Minimum Time = ", _min_time)

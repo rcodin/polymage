@@ -68,7 +68,7 @@ def get_input(app_data):
     # pool allocate option
     app_data['pool_alloc'] = bool(app_args.pool_alloc)
     app_data['inline'] = bool (app_args.inline)
-    
+    app_data['multi-level-tiling'] = bool(app_args.multi_level_tiling)
     return
 
 def init_all(app_data):

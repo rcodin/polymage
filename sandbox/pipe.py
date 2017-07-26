@@ -1555,13 +1555,15 @@ class Group:
         if (self._total_used_size == -1):
             #print (self)
             assert (False)
-            
+
         tileable_dims = set()
         tile_size = 0
         dim_reuse = [i*IMAGE_ELEMENT_SIZE for i in self.get_dimensional_reuse (param_estimates)]
         
         dim_sizes = {}
-        
+        #if (len(slope_min) == 4): #For Bilateral Grid
+        #    multi_level_tiling = False
+            
         for i in range(1, len(slope_min) + 1):
             # Check if every part in the group has enough iteration
             # points in the dimension to benefit from tiling.
@@ -1599,16 +1601,58 @@ class Group:
                     if (overlap_shift != 0):
                         overlap_shifts_zero = False
         
-        if ((not use_only_l2 and not multi_level_tiling) 
-            or (multi_level_tiling and not overlap_shifts_zero)):
-            #try with L1 Cache
+        #if ((not use_only_l2 and not multi_level_tiling) 
+        #    or (multi_level_tiling and not overlap_shifts_zero)):
+        if (not multi_level_tiling):
+            if (not use_only_l2):
+                #try with L1 Cache
+                tile_sizes, tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
+                    slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
+                    L1_CACHE_SIZE, L1_INNER_MOST_DIM_SIZE)
+                
+                overlap_shift_greater = False
+                
+                for i in tile_sizes.keys ():
+                    if (slope_min[i] != '*'):
+                        right = int(math.floor(Fraction(slope_min[i][0],
+                                                        slope_min[i][1])))
+                        left = int(math.ceil(Fraction(slope_max[i][0],
+                                                    slope_max[i][1])))
+                        # Compute the overlap shift
+                        overlap_shift = abs(left * (h)) + abs(right * (h))
+                            
+                        if (overlap_shift + 0 > tile_sizes[i]):
+                            overlap_shift_greater = True
+                            break
+                
+                threshold_tile_size_met = True
+                for i in tile_sizes.keys ():
+                    pass#if tile_sizes[i] < THRESHOLD_TILE_SIZE:
+                        #threshold_tile_size_met = False
+                        #break
+                        
+                print ("tile_sizes from L1 ", tile_sizes)
+                
+                if (not overlap_shift_greater and threshold_tile_size_met):
+                    self._tile_sizes = tile_sizes
+                    return tile_size
+
             tile_sizes, tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
+                slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
+                L2_CACHE_SIZE, L2_INNER_MOST_DIM_SIZE)
+            
+            print ("tile_sizes from L2 ", tile_sizes)
+            self._tile_sizes = tile_sizes
+            return tile_size
+            
+        else:
+            l1tile_sizes, l1tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
                 slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
                 L1_CACHE_SIZE, L1_INNER_MOST_DIM_SIZE)
             
             overlap_shift_greater = False
-            
-            for i in tile_sizes.keys ():
+            overlap_shifts = {}
+            for i in l1tile_sizes.keys ():
                 if (slope_min[i] != '*'):
                     right = int(math.floor(Fraction(slope_min[i][0],
                                                     slope_min[i][1])))
@@ -1616,46 +1660,95 @@ class Group:
                                                 slope_max[i][1])))
                     # Compute the overlap shift
                     overlap_shift = abs(left * (h)) + abs(right * (h))
-                        
-                    if (overlap_shift + 0 > tile_sizes[i]):
+                    overlap_shifts [i] = overlap_shift    
+                    if (overlap_shift + 0 > l1tile_sizes[i]):
                         overlap_shift_greater = True
                         break
-            
-            threshold_tile_size_met = True
-            for i in tile_sizes.keys ():
-                pass#if tile_sizes[i] < THRESHOLD_TILE_SIZE:
-                    #threshold_tile_size_met = False
-                    #break
                     
-            print ("tile_sizes from L1 ", tile_sizes)
+            print ("tile_sizes from L1 ", l1tile_sizes)
             
-            if (not overlap_shift_greater and threshold_tile_size_met):
-                self._tile_sizes = tile_sizes
-                return tile_size
-
-        tile_sizes, tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
-            slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
-            L2_CACHE_SIZE, L2_INNER_MOST_DIM_SIZE)
-        
-        if (multi_level_tiling):
-            l1tile_sizes, l1tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
-                slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
-                L1_CACHE_SIZE, L1_INNER_MOST_DIM_SIZE)
-            
-            tile_sizes_keys = list(tile_sizes.keys ())
-            for k in tile_sizes_keys:
-                if (tile_sizes[k] != l1tile_sizes[k]):
-                    if (l1tile_sizes[k] == 16): 
-                        #Bug in Bilateral Grid group [interpolate, filtered].
-                        #Seg Fault due to 16, and 8.
-                        #Runs fine if l1 tile size is not multiple of l2 tile size.
-                        l1tile_sizes[k] -= 1
-                    tile_sizes["L1"+str(k)] = l1tile_sizes[k]
-                    tile_sizes[k] = int(tile_sizes[k]/2)
+            if (not overlap_shift_greater):
+                total_used_size = self._total_used_size/IMAGE_ELEMENT_SIZE
+                tile_size = total_used_size/N_CORES
+                if (tile_size < 2*L2_CACHE_SIZE or len([d for d in dim_reuse if d > 0]) == 0):
+                    #if tile size is less than L2 cache then return the L1 tile size
+                    #no need of making code more complex, such a program will 
+                    #automatically have a good L2 locality.
+                    #Also, no need to do multi level tiling if dimensional reuse
+                    #is 0 along all the dimensions
+                    tile_sizes = l1tile_sizes
+                    tile_size = l1tile_size
+                else:
+                    #Overlap is not greater than L1, hence, increase the L2 tile sizes
+                    #in each dimension according to the dim reuse.
+                    last_dim = len(dim_reuse)-1
+                    tile_size = l1tile_size*(L2_CACHE_SIZE/L1_CACHE_SIZE)
+                    if (last_dim in l1tile_sizes and dim_reuse [last_dim] > 0):
+                        print ("overlap_shifts ", overlap_shifts, " l1tile_sizes ", l1tile_sizes, " dim_sizes ", dim_sizes, " last_dim " , last_dim)
+                        if (l1tile_sizes[last_dim]*2 + overlap_shifts[last_dim] < dim_sizes[last_dim]):
+                            last_dim_size = l1tile_sizes[last_dim]*2
+                        else:
+                            last_dim_size = l1tile_sizes[last_dim]
+                    else:
+                        last_dim_size = l1tile_sizes[last_dim]
+                        
+                    #dim_reuse.pop (last_dim)
+                    tile_sizes, tile_size = self.get_tile_sizes_for_cache_size(param_estimates, 
+                        slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
+                        L2_CACHE_SIZE, last_dim_size)
                     
-        print ("tile_sizes from L2 ", tile_sizes)
-        self._tile_sizes = tile_sizes
-        return tile_size
+                    #dim_with_max_reuse = max(dim_reuse.iterkeys (), key=(lambda key:dim_reuse[key]))
+                    #max_dim_reuse = dim_reuse[dim_with_max_reuse]
+                    #max_dim_tile_size = remaining_l2_tile_size
+                    
+                    #for k in dim_reuse:
+                    #    if 
+            else:
+                #overlap size is greater than L1, hence, generate an L2 tile size
+                #and then generate an L1 tile size
+                tile_sizes, tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
+                    slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
+                    L2_CACHE_SIZE, L2_INNER_MOST_DIM_SIZE)
+                
+                l1tile_sizes, l1tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
+                    slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
+                    L1_CACHE_SIZE, L1_INNER_MOST_DIM_SIZE)
+                    
+            if (tile_sizes != l1tile_sizes):
+                tile_sizes_keys = list(tile_sizes.keys ())
+                print ("tile_sizes ", tile_sizes, l1tile_sizes)
+                for k in tile_sizes_keys:
+                    if (k in l1tile_sizes and tile_sizes[k] >= l1tile_sizes[k]):
+                        if ((l1tile_sizes[k] == 16 or l1tile_sizes[k] == 256) and 
+                            "filtered" in str(self)): 
+                            #Bug in Bilateral Grid group [interpolate, filtered].
+                            #Seg Fault due to 16, and 8.
+                            #Runs fine if l1 tile size is not multiple of l2 tile size.
+                            #In Multi Level Tiling, if tile_sizes[1] is 64, then Bilateral Grid
+                            #runs very fast. Also, l1 tile size [1] should be set to 
+                            #10, not 16. Correct the tile size determination algorithm
+                            l1tile_sizes[k] -= 1
+                        tile_sizes["L1"+str(k)] = l1tile_sizes[k]
+                
+            #if (len (self.comps) == 4):
+                #if (1 in l1tile_sizes):
+                #    For Bilateral Grid
+                #    tile_sizes = dict()
+                #    tile_sizes [1] = 64 #l1tile_sizes[1]
+                #    tile_sizes ['L11'] = 15
+                #    tile_sizes ["L12"] = 257
+                #    tile_sizes [2] = 512
+                
+                #For Unsharp Mask
+                #tile_sizes = dict ()
+                #tile_sizes[1] = 42
+                #tile_sizes[2] = 512
+                #tile_sizes["L11"] = l1tile_sizes[1]
+                #tile_sizes["L12"] = l1tile_sizes[2]
+                
+            print ("tile_sizes from L2 ", tile_sizes)
+            self._tile_sizes = tile_sizes
+            return tile_size
     
     def __str__(self):
         comp_str  = '[' + \
@@ -1945,9 +2038,9 @@ class Pipeline:
             #elif(Ix and Iy and Iyy and Ixx and Ixy and Sxy):
             #    hmax=2
                 
-            print ("hmax ", hmax-hmin)
+            #print ("hmax ", hmax-hmin)
             det_tile_size = g.get_tile_sizes (self.param_estimates, slope_min, slope_max, 
-                                              g_all_parts, hmax - hmin, False)
+                                              g_all_parts, hmax - hmin, False, self.multi_level_tiling)
             
             #Restore original body of all functions
             #for comp in g.comps:
@@ -1981,6 +2074,8 @@ class Pipeline:
             print ("overlap_shifts ", overlap_shifts)
             overlap_shift = 1
             for i in tile_sizes:
+                if ("L1" in str(i)):
+                    continue
                 if (overlap_shifts[i] != 0 and tile_sizes[i] < g._dim_sizes_part[i]):
                     if ((i-1) in tile_sizes):
                         overlap_shift *= overlap_shifts[i]*(tile_sizes[i-1] + overlap_shifts[i-1])
@@ -2019,7 +2114,7 @@ class Pipeline:
     
     @property
     def multi_level_tiling (self):
-        return False
+        return "multi-level-tiling" in self._options
     @property
     def do_inline (self):
         return self._do_inline

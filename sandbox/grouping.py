@@ -183,7 +183,7 @@ def auto_group(pipeline):
         
     return
 
-def auto_groupd(pipeline):
+def auto_group1(pipeline):
     param_est = pipeline._param_estimates
     size_thresh = pipeline._size_threshold
     grp_size = pipeline._group_size

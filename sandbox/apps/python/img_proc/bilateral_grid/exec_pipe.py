@@ -41,8 +41,7 @@ def bilateralgrid(app_data):
    
     runs = int(app_args.runs)
     timer = app_args.timer
-    #input ("attach to amplxe-cl")
-    #input ("attach to amplxe-cl11111")
+    
     avg = 0
     while it < runs :
         t1 = time.time()

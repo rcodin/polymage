@@ -76,6 +76,8 @@ def build_harris(app_data, g_size = None, t_size = None):
         opts += ['pool_alloc']
     if app_data['inline']:
         opts += ['inline']
+    if app_data['multi-level-tiling']:
+        opts += ['multi-level-tiling']
         
     pipe = buildPipeline(live_outs,
                          param_estimates=p_estimates,

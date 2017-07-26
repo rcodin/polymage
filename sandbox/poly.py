@@ -1131,7 +1131,7 @@ class PolyRep(object):
         for comp in self.poly_parts:
             for part in self.poly_parts[comp]:
                 polystr = polystr + part.__str__() + '\n'
-
+        print ("self.polyast", self.polyast)
         if (self.polyast != []):
             for ast in self.polyast:
                 printer = isl.Printer.to_str(self.ctx)

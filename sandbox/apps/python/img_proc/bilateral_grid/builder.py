@@ -117,7 +117,8 @@ def create_lib(build_func, pipe_name, app_data, g_size = None, t_size = None):
 
             # generate pipeline cpp source
             codegen(pipe, pipe_src, app_data)
-
+    input("WAIT")
+    input ("WAIT")
     if mode != 'ready':
         # compile the cpp code
         c_compile(pipe_src, pipe_so, app_data)

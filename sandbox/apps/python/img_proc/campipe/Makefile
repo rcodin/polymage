@@ -14,7 +14,7 @@ GAMMA=2.0
 RUNS=500
 
 APP_ARGS=--img=$(IMG) --colour_temp=$(KELVIN) --contrast=$(CONTRAST) --gamma=$(GAMMA)
-OPT_ARGS=--pool_alloc --optimize_storage --early_free #--inline
+OPT_ARGS=--pool_alloc --optimize_storage --early_free --multi-level-tiling #--inline
 TOOL_ARGS=--graph-gen --display --runs=$(RUNS) --timer
 CXX_ARGS=--cxx="$(CXX)" --cxx_flags="$(CXX_FLAGS)"
 

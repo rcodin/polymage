@@ -44,7 +44,7 @@ def init_images(app_data):
 
     app_data['rowbase'] = int(app_args.rowbase)
     app_data['colbase'] = int(app_args.colbase)
-
+    
     return
 
 def get_input(app_data):
@@ -67,7 +67,8 @@ def get_input(app_data):
     app_data['pool_alloc'] = bool(app_args.pool_alloc)
     # inline
     app_data['inline'] = bool (app_args.inline)
-    
+    app_data['multi-level-tiling'] = bool(app_args.multi_level_tiling)
+
     return
 
 def init_all(app_data):
