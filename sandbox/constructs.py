@@ -1648,14 +1648,21 @@ class GetSizeVisitor(AbstractExpressionVisitor):
         return self.visit_variable (parameter)
 
 class MemRefsAtIterationVisitor(AbstractExpressionVisitor):
-    def __init__ (self, _dim, _iter):
+    def __init__ (self, _dim, _iter, comps_to_exclude = []):
         self._dim = _dim
         self._iter = _iter
         self._dim_refs = []
-
+        self._funcs_to_exclude = []
+        for c in comps_to_exclude:
+            self._funcs_to_exclude.append (c.func)
+            
     @property
     def dim_refs (self):
         return self._dim_refs
+    
+    @property
+    def funcs_to_exclude (self):
+        return self._funcs_to_exclude
         
     def visit_value (self, value):
         return value.value
@@ -1770,7 +1777,7 @@ class MemRefsAtIterationVisitor(AbstractExpressionVisitor):
     
     def visit_reference (self, reference):
         #self._dim_refs.append ((reference.args[self._dim], reference.args[self._dim].visit (self)))
-        if (self._dim < len(reference.arguments)):
+        if (reference.objectRef not in self.funcs_to_exclude and self._dim < len(reference.arguments)):
             ##print (reference.arguments, reference.arguments[self._dim], type (reference.arguments[self._dim]))
             l = reference.arguments[self._dim].visit (self)
             #if (isinstance (reference.arguments[self._dim], Variable)):

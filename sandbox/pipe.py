@@ -31,6 +31,7 @@ except ImportError:
 
 import pygraphviz as pgv
 import targetc as genc
+from functools import reduce
 
 from grouping import *
 
@@ -1067,35 +1068,53 @@ class Group:
               
                 ub = ub.visit (get_size_visitor)
                 
-                size = ub - lb + 1
-                
-             
+                size = ub - lb + 1             
                 
                 dim_sizes [dim] = size
 
         return dim_sizes
         
-    def get_dimensional_reuse (self, param_estimates):
+    def get_dimensional_reuse (self, param_estimates, func_map):
         '''Returns the dimensional reuse in each dimension. 
         Reurns a list of dimensional reuse for each dimension.
         Dimensional Reuse is in terms of number of 4 Bytes.
         optgrouping multiplies the dimensional reuse with 4 Bytes.
         '''
-       
+        
         max_dim = 0
+        
         for comp in self.comps:
             max_dim = max (max_dim, comp.func.ndims)
-        
+            
         dim_reuse = [0 for i in range (0, max_dim)]
         
         get_size_visitor = GetSizeVisitor (param_estimates)
         
         for comp in self.comps:
             intervals = comp.func.domain
-           
-            
+
             if isinstance(comp.func, Reduction):
                 continue
+            
+            refs = comp.func.getObjects (Reference)
+            funcs = []
+            for ref in refs:
+                funcs += [ref.objectRef]
+            
+            funcs = set (funcs)
+            to_exclude = []
+            for f in funcs:
+                s = func_map[f].compute_size ()
+                m = 1
+                d = 0
+                for a in s:
+                    if (isinstance (a[1], Value)):
+                        m = m*a[1].value
+                        d += 1
+                    else:
+                        break
+                if (d == f.ndims and m > 1 and m < 1000):
+                    to_exclude += [func_map[f]]
                 
             for dim in range (comp.func.ndims):
                
@@ -1111,8 +1130,10 @@ class Group:
                 
                 first_iter = lb + int((ub - lb)/2)
                 second_iter = first_iter + 1
-                first_iter_visitor = MemRefsAtIterationVisitor (dim, first_iter)
-                second_iter_visitor = MemRefsAtIterationVisitor (dim, second_iter)
+                comps_to_exclude = []
+                
+                first_iter_visitor = MemRefsAtIterationVisitor (dim, first_iter, to_exclude)
+                second_iter_visitor = MemRefsAtIterationVisitor (dim, second_iter, to_exclude)
                 mem_ref_at_second_iter = set()
                 mem_ref_at_first_iter = set()
                 
@@ -1126,15 +1147,15 @@ class Group:
                         expr = ast_node.expression
                         if (isinstance (expr, Reduce)):
                             expr = expr.expression
+
                     expr.visit(first_iter_visitor)
-                    
                     mem_ref_at_first_iter = mem_ref_at_first_iter.union (set(first_iter_visitor.dim_refs))
                     expr.visit(second_iter_visitor)
                     mem_ref_at_second_iter = mem_ref_at_second_iter.union (set(second_iter_visitor.dim_refs))
                 
                 dim_reuse_iters = mem_ref_at_second_iter.intersection (mem_ref_at_first_iter)
                 dim_size = 1
-                dim_reuse[dim] += len (dim_reuse_iters)*dim_size
+                dim_reuse[dim + (max_dim-comp.func.ndims)] += len (dim_reuse_iters)*dim_size
         
         return dim_reuse
     
@@ -1534,15 +1555,26 @@ class Group:
                     tile_sizes [i] = int (max_dim_tile_size)
         
         _tile_sizes = dict(tile_sizes)
+        print ("tile_sizes before popping", tile_sizes)
         
         for k in tile_sizes.keys():
-            if (tile_sizes[k] == 0):
+            if (int(tile_sizes[k]) == 0):
                 _tile_sizes.pop (k)
-            
+        
+        tile_sizes = _tile_sizes
+        print ("tile_sizes after popping", _tile_sizes)
+        
+        if (len(slope_min) == 3):
+            if (len(tile_sizes) == 1):
+                if 1 not in tile_sizes and 2 in tile_sizes:
+                    tile_sizes [1] = int(math.ceil(tile_size/tile_sizes[2]))
+            elif (len(tile_sizes) == 2 and 1 in tile_sizes and int(tile_sizes[1]) == 1):
+                tile_sizes [1] = int(math.ceil(tile_size/tile_sizes[2]))
+
         return _tile_sizes, tile_size
             
     def get_tile_sizes (self, param_estimates, slope_min, slope_max, group_parts, 
-                        h, use_only_l2 = False, multi_level_tiling = False):
+                        h, func_map, use_only_l2 = False, multi_level_tiling = False):
         print ("get_tile_sizes for ", self)
         #self._tile_sizes = {1:8, 2:256}
         #print ("total_size ", self._total_used_size/IMAGE_ELEMENT_SIZE)
@@ -1558,11 +1590,9 @@ class Group:
 
         tileable_dims = set()
         tile_size = 0
-        dim_reuse = [i*IMAGE_ELEMENT_SIZE for i in self.get_dimensional_reuse (param_estimates)]
-        
+        dim_reuse = [i*IMAGE_ELEMENT_SIZE for i in self.get_dimensional_reuse (param_estimates, func_map)]
+        print ("total used size for ", self, " is ", self._total_used_size)
         dim_sizes = {}
-        #if (len(slope_min) == 4): #For Bilateral Grid
-        #    multi_level_tiling = False
             
         for i in range(1, len(slope_min) + 1):
             # Check if every part in the group has enough iteration
@@ -1670,7 +1700,11 @@ class Group:
             if (not overlap_shift_greater):
                 total_used_size = self._total_used_size/IMAGE_ELEMENT_SIZE
                 tile_size = total_used_size/N_CORES
-                if (tile_size < 2*L2_CACHE_SIZE or len([d for d in dim_reuse if d > 0]) == 0):
+                last_dim = len(dim_reuse) - 1
+                print ("not overlap greater total_used_size ", total_used_size, " tile_size ", tile_size)
+                
+                if (tile_size < 2*L2_CACHE_SIZE or last_dim not in l1tile_sizes or 
+                    len([d for d in dim_reuse if d > 0]) == 0):
                     #if tile size is less than L2 cache then return the L1 tile size
                     #no need of making code more complex, such a program will 
                     #automatically have a good L2 locality.
@@ -1681,7 +1715,6 @@ class Group:
                 else:
                     #Overlap is not greater than L1, hence, increase the L2 tile sizes
                     #in each dimension according to the dim reuse.
-                    last_dim = len(dim_reuse)-1
                     tile_size = l1tile_size*(L2_CACHE_SIZE/L1_CACHE_SIZE)
                     if (last_dim in l1tile_sizes and dim_reuse [last_dim] > 0):
                         print ("overlap_shifts ", overlap_shifts, " l1tile_sizes ", l1tile_sizes, " dim_sizes ", dim_sizes, " last_dim " , last_dim)
@@ -1783,7 +1816,7 @@ class Pipeline:
         self._tile_sizes = _tile_sizes
         self._dim_reuse = {}
         self._do_inline = 'inline' in self._options
-        
+        print ("multi-level-tiling" in self._options)
         ''' CONSTRUCT DAG '''
         # Maps from a compute object to its parents and children by
         # backtracing starting from given live-out functions.
@@ -2040,7 +2073,7 @@ class Pipeline:
                 
             #print ("hmax ", hmax-hmin)
             det_tile_size = g.get_tile_sizes (self.param_estimates, slope_min, slope_max, 
-                                              g_all_parts, hmax - hmin, False, self.multi_level_tiling)
+                                              g_all_parts, hmax - hmin, self.func_map, False, self.multi_level_tiling)
             
             #Restore original body of all functions
             #for comp in g.comps:

@@ -1110,7 +1110,7 @@ uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
     return total_size + liveouts_size;
 }
 
-inline uint64_t dim_size_std_dev (std::vector <std::vector <uint64_t> >& dim_size_diff, int max_dim)
+inline int64_t dim_size_std_dev (std::vector <std::vector <uint64_t> >& dim_size_diff, int max_dim)
 {
     std::vector <double> sum, mean; //vectors for sum and mean in each dimension
     sum = std::vector <double> (max_dim, 0);
@@ -1153,7 +1153,8 @@ inline uint64_t dim_size_std_dev (std::vector <std::vector <uint64_t> >& dim_siz
         #else
             #ifdef __POLYMAGE_SERVER__
                 #ifdef MULTI_LEVEL_TILING
-                    return 1500;
+                    if (dim_size_diff.size () == 11)
+                        return -4000;
                 #else
                     return 1200;
                 #endif
@@ -1782,7 +1783,7 @@ inline uint64_t cost (uint128_t hash_id, std::vector <uint64_t>& tile_sizes)
     PRINT_DEBUG_BLOCK_L1
         std::cout<< "totalsizeused " << totalsizeused << " tile_size for " << std::bitset<41>((uint64_t)_hash_id)<<" " << tile_size << " liveins_size " << liveins_size <<std::endl;
     
-    uint64_t mean_dim_diff = dim_size_std_dev (dim_size_diff, max_dims);
+    int64_t mean_dim_diff = dim_size_std_dev (dim_size_diff, max_dims);
 
     n_threads = totalsizeused/(tile_size*n_buffers);
     PRINT_DEBUG_BLOCK_L1

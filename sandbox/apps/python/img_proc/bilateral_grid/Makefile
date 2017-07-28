@@ -12,7 +12,7 @@ RUNS=500
 
 APP_ARGS=--img=${IMG}
 OPT_ARGS=--pool_alloc --optimize_storage --early_free
-TOOL_ARGS=--graph-gen --runs=${RUNS} --display --timer
+TOOL_ARGS=--graph-gen --runs=${RUNS} --display --timer --multi-level-tiling
 CXX_ARGS=--cxx="${CXX}" --cxx_flags="${CXX_FLAGS}"
 
 all: new

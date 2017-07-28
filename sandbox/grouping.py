@@ -111,7 +111,7 @@ def auto_group(pipeline):
     
     out_group = [group for group in pipeline.groups if not group.children]
     for group in pipeline.groups:
-        dim_reuse [group] = group.get_dimensional_reuse (pipeline.param_estimates)
+        dim_reuse [group] = group.get_dimensional_reuse (pipeline.param_estimates, pipeline.func_map)
         live_size [group] = group.get_max_live_size (pipeline.param_estimates)
         dim_size [group] = group.get_size_for_each_dim (pipeline.param_estimates)
         #group.set_type_of_access (pipeline.param_estimates)

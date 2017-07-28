@@ -642,16 +642,12 @@ def overlap_tile(pipeline, group, group_parts, slope_min, slope_max):
     l1tile_in_l2_dims = 0
     h = get_group_height(group_parts)
     num_tile_dims = 0
-    
-    print ("SLOPES ", slope_min, slope_max, " h ", h, " pipeline.multi_level_tiling", pipeline.multi_level_tiling)
-    
+        
     if (pipeline.use_different_tile_sizes):
         group.get_tile_sizes (pipeline.param_estimates, slope_min, slope_max, 
-                              group_parts, h, #len(group.comps) == 2,
+                              group_parts, h, pipeline.func_map, #len(group.comps) == 2,
                               multi_level_tiling = pipeline.multi_level_tiling)   
-    
-    print ("overlap_tile tile sizes: ", group.tile_sizes)
-    
+        
     no_tile_dims_set = set()
     tile_dims_set = set ()
     
@@ -726,7 +722,6 @@ def overlap_tile(pipeline, group, group_parts, slope_min, slope_max):
                     ##print ("Tile size for dim ", i-1, " is ", tile_size)
                 # Compute the overlap shift
                 overlap_shift = abs(left * (h)) + abs(right * (h))
-                print ("OVERLAP SHIFT", overlap_shift, left, right, "dim = ", i-1)
                 for j in range(0, len(part.align)):
                     if i == part.align[j]:
                         assert j not in part.dim_tile_info
@@ -740,9 +735,6 @@ def overlap_tile(pipeline, group, group_parts, slope_min, slope_max):
                 it_dim = comp_dim + no_tile_dims + 2*tile_dims + 2 + l1tile_in_l2_dims
                 tile_dim = comp_dim + tile_dims
                 time_dim = comp_dim + tile_dims + 1 + l1tile_in_l2_dims
-                print ("tile_dim ", tile_dim, " time_dim ", time_dim, " it_dim ", it_dim)
-                print ("comp_dim ", comp_dim, " tile_dims ", tile_dims, " no_tile_dims ", 
-                        no_tile_dims, "l1tile_in_l2_dims", l1tile_in_l2_dims)
                 
                 coeff[('out', time_dim)] = -left
                 coeff[('out', it_dim)] = 1
@@ -798,8 +790,6 @@ def overlap_tile(pipeline, group, group_parts, slope_min, slope_max):
                     part.dim_tile_info['L1TileDim'] = ('L1tile', _name, '_T' + _name,
                                                         l1tile_l2_size, left,
                                                         right, l1tile_in_l2_dims)
-                    print ("l1_tile_dim ", l1_tile_dim, " tile_dim ", tile_dim,
-                            "l1tile_in_l2_dims", l1tile_in_l2_dims)
                     ineqs = []
                     eqs = []
                     coeff = {}
@@ -827,9 +817,7 @@ def overlap_tile(pipeline, group, group_parts, slope_min, slope_max):
                     ineqs.append(coeff)
                     
                     prior_dom = part.sched.domain()
-                    print ("BEFORE L1 ", part.sched)
                     part.sched = add_constraints(part.sched, ineqs, eqs)
-                    print ("AFTER L1 ", part.sched)
                     post_dom = part.sched.domain()
 
                     assert(part.sched.is_empty() == False)
