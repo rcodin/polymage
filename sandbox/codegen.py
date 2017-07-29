@@ -117,7 +117,7 @@ def isl_expr_to_cgen(expr, prologue_stmts = None):
                    expr.get_op_n_arg() == 2)
             return isl_expr_to_cgen(expr.get_op_arg(0), prolog) / \
                    isl_expr_to_cgen(expr.get_op_arg(1), prolog)
-        if op_typ == isl._isl.ast_op_type.pdiv_r or op_typ == 14: #TODO: find a better way, this is just a jugad
+        if op_typ == isl._isl.ast_op_type.pdiv_r or op_typ == 14: #TODO: Find a better way
             assert("Division must have exactly 2 arguments!" and \
                    expr.get_op_n_arg() == 2)
             print ("op is pdiv_r")
@@ -390,10 +390,52 @@ def log_loop_end(indent, log_level=logging.DEBUG-1):
     LOG(log_level, indent_str+"}")
     return
 
+def rec_is_perfect_loopnest (node, it):
+    assert (type(node) == isl._isl.AstExpr)
+    
+    #if (node.get_op_n_arg() == 1):
+    if (node.get_type () == isl._isl.ast_expr_type.id):
+        name = node.get_id().get_name()
+        v = name.find ("_T")
+        if (name != it and v == 0):
+            return False
+    if (node.get_type () == isl._isl.ast_expr_type.int):
+        return True
+    
+    if node.get_type() == isl._isl.ast_expr_type.op:
+        for i in range (0, node.get_op_n_arg ()):
+            if (not rec_is_perfect_loopnest (node.get_op_arg (i), it)):
+                return False
+    
+    return True
+    
+def is_perfect_loopnest(node):
+    '''Returns True if the given loop in node is a perfect loop nest, i.e.,
+        checks if the bounds and increment of the loop are not dependent on
+        previous loop iterations.
+    '''
+    
+    if node.get_type () == isl._isl.ast_node_type.for_:
+        init = node.for_get_init()
+        cond = node.for_get_cond ()
+        it = node.for_get_iterator()
+        it = it.get_id().get_name()
+        print (cond, it)
+        print (rec_is_perfect_loopnest (init, it), rec_is_perfect_loopnest (cond, it))
+        
+        if (rec_is_perfect_loopnest (init, it) and 
+            rec_is_perfect_loopnest (cond, it)):
+            return True
+            
+    return False
+    
 def rec_perfect_loopnest(node, perfect_loopnest=[]):
     if node.get_type() == isl._isl.ast_node_type.for_:
         var = isl_expr_to_cgen(node.for_get_iterator())
-        if "_T" in str(var):
+        print ("NODE for var", var, " is ", type(node.for_get_init()), 
+               node.for_get_init(), "perfect?", is_perfect_loopnest (node))#node.for_get_init().get_type())
+
+        if "_T" in str(var) and is_perfect_loopnest (node):
             perfect_loopnest.append(node)
             rec_perfect_loopnest(node.for_get_body(), perfect_loopnest)
 
@@ -411,6 +453,7 @@ def collect_perfect_loopnest(node):
     var_list = []
     for loop_node in perfect_loopnest:
         var_list.append(isl_expr_to_cgen(loop_node.for_get_iterator()))
+    print (var_list)
     LOG(log_level, [str(var) for var in var_list])
     LOG(log_level, "")
 

@@ -66,7 +66,7 @@ def build_pyramid(app_data, g_size = None, t_size = None):
     if (t_size == None):
         t_size = [16, 256]
     if (g_size == None):
-        g_size = 5
+        g_size = 5 
     
     opts = []
 
