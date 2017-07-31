@@ -93,7 +93,7 @@ def build_campipe(app_data, g_size = None, t_size = None):
 def create_lib(build_func, pipe_name, app_data, g_size = None, t_size = None):
     pipe_data = app_data['pipe_data']
     mode = app_data['mode']
-    pipe_src  = pipe_name+"3.cpp"
+    pipe_src  = pipe_name+"_L2.cpp"
     pipe_so   = pipe_name+".so"
     app_args = app_data['app_args']
     graph_gen = bool(app_args.graph_gen)

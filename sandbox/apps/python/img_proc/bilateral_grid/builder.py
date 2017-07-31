@@ -51,7 +51,7 @@ def build_bilateral(app_data, g_size = None, t_size = None):
     pipe_data = app_data['pipe_data']
     
     out_bilateral = bilateral_grid(pipe_data)
-    
+
     R = pipe_data['R']
     C = pipe_data['C']
 
@@ -66,7 +66,7 @@ def build_bilateral(app_data, g_size = None, t_size = None):
                       Condition(C, "==", cols) ]
 
     if (t_size == None):
-	    t_size = [1, 8, 128]
+	    t_size = [8, 128]
     #t_size = [16, 32, 32, 32]
     if (g_size == None):
         g_size = 7

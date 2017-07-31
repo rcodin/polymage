@@ -1593,9 +1593,7 @@ class Group:
         dim_reuse = [i*IMAGE_ELEMENT_SIZE for i in self.get_dimensional_reuse (param_estimates, func_map)]
         print ("total used size for ", self, " is ", self._total_used_size)
         dim_sizes = {}
-        #multi_level_tiling = False
-        #if (len(self.comps) == 2 and "filtered" in str(self)):
-        #    multi_level_tiling = True
+            
         for i in range(1, len(slope_min) + 1):
             # Check if every part in the group has enough iteration
             # points in the dimension to benefit from tiling.
@@ -1667,6 +1665,9 @@ class Group:
                 
                 if (not overlap_shift_greater and threshold_tile_size_met):
                     self._tile_sizes = tile_sizes
+                    #if (len(self.comps) == 2 and "filtered" in str(self)):
+                    #    self._tile_sizes= {1:32, 2:256}
+                        
                     return tile_size
 
             tile_sizes, tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
@@ -1675,6 +1676,11 @@ class Group:
             
             print ("tile_sizes from L2 ", tile_sizes)
             self._tile_sizes = tile_sizes
+            
+            if ("denoised" in str(self)):
+                #TODO: denoised group requires even tile size in dimension 0
+                self._tile_sizes[0] += 1
+                
             return tile_size
             
         else:
@@ -1763,6 +1769,12 @@ class Group:
                             #runs very fast. Also, l1 tile size [1] should be set to 
                             #10, not 16. Correct the tile size determination algorithm
                             l1tile_sizes[k] -= 1
+                        if ("denoised" in str(self)):
+                            if (l1tile_sizes[k] %2 == 1):
+                                l1tile_sizes[k] += 1
+                            if (tile_sizes[k] %2 == 1):
+                                tile_sizes[k] += 1
+                                
                         tile_sizes["L1"+str(k)] = l1tile_sizes[k]
                 
             #if (len (self.comps) == 4):
@@ -1875,7 +1887,6 @@ class Pipeline:
             self.pre_grouping_inline_phase ()
             
         if (not inline_after_grouping):
-            #print ("START:inline_pass")
             inline_pass(self)
             #print ("END:inlile_pass")
             #print ("Comps After Inlining ", [str(k) for k in self.comps])
@@ -2075,7 +2086,7 @@ class Pipeline:
                 
             #print ("hmax ", hmax-hmin)
             det_tile_size = g.get_tile_sizes (self.param_estimates, slope_min, slope_max, 
-                                              g_all_parts, hmax - hmin, self.func_map, False, self.multi_level_tiling)
+                                              g_all_parts, hmax - hmin, _func_map, False, self.multi_level_tiling)
             
             #Restore original body of all functions
             #for comp in g.comps:

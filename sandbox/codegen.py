@@ -420,8 +420,6 @@ def is_perfect_loopnest(node):
         cond = node.for_get_cond ()
         it = node.for_get_iterator()
         it = it.get_id().get_name()
-        print (cond, it)
-        print (rec_is_perfect_loopnest (init, it), rec_is_perfect_loopnest (cond, it))
         
         if (rec_is_perfect_loopnest (init, it) and 
             rec_is_perfect_loopnest (cond, it)):
@@ -432,8 +430,6 @@ def is_perfect_loopnest(node):
 def rec_perfect_loopnest(node, perfect_loopnest=[]):
     if node.get_type() == isl._isl.ast_node_type.for_:
         var = isl_expr_to_cgen(node.for_get_iterator())
-        print ("NODE for var", var, " is ", type(node.for_get_init()), 
-               node.for_get_init(), "perfect?", is_perfect_loopnest (node))#node.for_get_init().get_type())
 
         if "_T" in str(var) and is_perfect_loopnest (node):
             perfect_loopnest.append(node)
@@ -453,7 +449,6 @@ def collect_perfect_loopnest(node):
     var_list = []
     for loop_node in perfect_loopnest:
         var_list.append(isl_expr_to_cgen(loop_node.for_get_iterator()))
-    print (var_list)
     LOG(log_level, [str(var) for var in var_list])
     LOG(log_level, "")
 

@@ -650,7 +650,7 @@ def overlap_tile(pipeline, group, group_parts, slope_min, slope_max):
         
     no_tile_dims_set = set()
     tile_dims_set = set ()
-    
+        
     for i in range(1, len(slope_min) + 1):
         # Check if every part in the group has enough iteration
         # points in the dimension to benefit from tiling.
@@ -664,15 +664,16 @@ def overlap_tile(pipeline, group, group_parts, slope_min, slope_max):
             if (size.is_cst() and size.n_piece() == 1):
                 aff = (size.get_pieces())[0][1]
                 val = aff.get_constant_val()
-                print ("i-1 = ", i - 1, "val = ", val, " num_tile_dims ", 
-                       num_tile_dims, 
-                       pipeline.use_different_tile_sizes and group.tile_sizes and (i-1) in group.tile_sizes)
+                #print ("i-1 = ", i - 1, "val = ", val, " num_tile_dims ", 
+                #       num_tile_dims, 
+                #       pipeline.use_different_tile_sizes and group.tile_sizes and (i-1) in group.tile_sizes)
                 if (pipeline.use_different_tile_sizes and group.tile_sizes and (i-1) in group.tile_sizes):
                     if val > group.tile_sizes[i-1]:
                         tile = True
                     #else:
                         #dims_with_no_tiles.add (i-1)
                 else:
+                    #print (i, val, num_tile_dims, pipeline._tile_sizes[num_tile_dims])
                     if val > pipeline._tile_sizes[num_tile_dims]:
                         tile = True
                 

@@ -34,7 +34,7 @@ bool const checkForAssertions = false;
 bool const checkPythonExceptions = true;
 static bool INLINING_ENABLED = true;
 
-#undef INLINING
+#define INLINING
 #undef HEIRARICHAL_TILING
 #define MULTI_LEVEL_TILING
 
@@ -121,9 +121,9 @@ static int const N_CORES = 4; //Number of Cores is 4
         
     #elif defined (INLINING) && defined (MULTI_LEVEL_TILING)
         static float const DIM_STD_DEV_WEIGHT = 1.5;
-        static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+        static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1.5f;
         static float const CLEANUP_THREADS_WEIGHT = 100.0f;
-        static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+        static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f/1.5f;
         
     #elif defined (MULTI_LEVEL_TILING) && defined (HEIRARICHAL_TILING)
         static float const DIM_STD_DEV_WEIGHT = 1.5;
@@ -1152,7 +1152,9 @@ inline int64_t dim_size_std_dev (std::vector <std::vector <uint64_t> >& dim_size
             return 500;
         #else
             #ifdef __POLYMAGE_SERVER__
-                #ifdef MULTI_LEVEL_TILING
+                #if defined (INLINING) && defined (MULTI_LEVEL_TILING)
+                    return 0;
+                #elif defined (INLINING)
                     if (dim_size_diff.size () == 11)
                         return -4000;
                 #else
