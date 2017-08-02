@@ -34,7 +34,7 @@ bool const checkForAssertions = false;
 bool const checkPythonExceptions = true;
 static bool INLINING_ENABLED = true;
 
-#define INLINING
+#undef INLINING
 #undef HEIRARICHAL_TILING
 #define MULTI_LEVEL_TILING
 
@@ -1154,7 +1154,7 @@ inline int64_t dim_size_std_dev (std::vector <std::vector <uint64_t> >& dim_size
             #ifdef __POLYMAGE_SERVER__
                 #if defined (INLINING) && defined (MULTI_LEVEL_TILING)
                     return 0;
-                #elif defined (INLINING)
+                #elif defined (MULTI_LEVEL_TILING)
                     if (dim_size_diff.size () == 11)
                         return -4000;
                 #else

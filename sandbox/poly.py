@@ -1095,7 +1095,8 @@ class PolyRep(object):
             else:
                 part_map = isl.UnionMap.from_map(part.sched)
                 sched_map = sched_map.union(part_map)
-
+            
+            #print ("PART_sched ", part.sched, type(part.sched), " Sched_map ", sched_map, type(sched_map))
             srange = part.sched.range()
             unroll_union_set = \
                 isl.UnionSet.from_set(isl.Set("{:}", self.ctx))
@@ -1108,6 +1109,7 @@ class PolyRep(object):
                 opt_map = opt_map.union( \
                             isl.UnionMap.from_domain_and_range( \
                                 dom_union_set, unroll_union_set) )
+            #print ("opt_map", opt_map)
         astbld = astbld.set_options(opt_map)
 
         # All parts in the group will have the same schedule dimension

@@ -92,7 +92,7 @@ def group_topological_sort (pipeline):
     
     return stack;
 
-def auto_group(pipeline):    
+def auto_group1(pipeline):    
     
     stack = group_topological_sort (pipeline)
     order = 0
@@ -183,7 +183,7 @@ def auto_group(pipeline):
         
     return
 
-def auto_group1(pipeline):
+def auto_group(pipeline):
     param_est = pipeline._param_estimates
     size_thresh = pipeline._size_threshold
     grp_size = pipeline._group_size

@@ -1593,7 +1593,7 @@ class Group:
         dim_reuse = [i*IMAGE_ELEMENT_SIZE for i in self.get_dimensional_reuse (param_estimates, func_map)]
         print ("total used size for ", self, " is ", self._total_used_size)
         dim_sizes = {}
-            
+        
         for i in range(1, len(slope_min) + 1):
             # Check if every part in the group has enough iteration
             # points in the dimension to benefit from tiling.
