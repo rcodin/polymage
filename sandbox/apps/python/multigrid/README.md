@@ -10,19 +10,19 @@
 
 The following parameters can be changed in the Makefile for each benchmark. 
 
- # Multigrid Cycle : V / W  &nbsp; &nbsp;          CYCLE='V'
+ 1. Multigrid Cycle (V / W) : CYCLE='V'
 
- # Multigrid levels  &nbsp; &nbsp;                 L=3      
+ 2. Multigrid levels : L=3      
 
- # coarse-grid size along each dimension &nbsp;   SIZE=31  
+ 3. coarse-grid size along each dimension : SIZE=31  
 
- # V / W Cycle iterations   &nbsp; &nbsp;          NIT=10   
+ 4. V / W Cycle iterations : NIT=10   
 
- # pre-smoothing steps      &nbsp; &nbsp;          NU1=10   
+ 5. pre-smoothing steps : NU1=10   
 
- # post-smoothing steps      &nbsp; &nbsp;         NU2=0    
+ 6. post-smoothing steps : NU2=0    
 
- # corase-smoothing steps    &nbsp; &nbsp;         NUC=0    
+ 7. corase-smoothing steps : NUC=0    
 
 
 **How to run**
