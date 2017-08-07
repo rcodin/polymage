@@ -27,14 +27,14 @@ The following parameters can be changed in the Makefile for each benchmark.
 
 **How to run**
 
-In order to run any benchmark, navigate to its folder and run make command.
+In order to run any benchmark, navigate to its directory and run 'make' 
 
 Example:
 
 $ cd jacobi2d
+$ make
 
-$ cd make
-
-The optimized code is available in the \*.cpp file and it also creates a shared library (\*.so file).
+The optimized code is written to the \*.cpp file, and it is also turned into 
+a shared library (\*.so file).
 
 
