@@ -22,12 +22,12 @@ The following parameters can be changed in the Makefile for each benchmark.
 
  6. post-smoothing steps : NU2=0    
 
- 7. corase-smoothing steps : NUC=0    
+ 7. coarse-smoothing steps : NUC=0    
 
 
 **How to run**
 
-In order to run any benchmark, navigate to its directory and run 'make' 
+In order to run any benchmark, navigate to its directory and run 'make'. 
 
 Example:
 
