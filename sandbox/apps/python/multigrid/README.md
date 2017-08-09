@@ -58,4 +58,4 @@ The make command optionally takes the following parameters:
 The optimized code is written to the \*.cpp file, and it is also turned into 
 a shared library (\*.so file).
 
-
+The polymage DSL code is written in the file named polymage\_\*.py
