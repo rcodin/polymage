@@ -22,7 +22,7 @@ The following parameters can be changed in the Makefile for each benchmark.
 
  6. post-smoothing steps : NU2=0    
 
- 7. corase-smoothing steps : NUC=0    
+ 7. coarse-smoothing steps : NUC=0    
 
 
 **How to run**
@@ -33,21 +33,21 @@ $ export KMP\_PLACE\_THREADS=24c,1t
 
 $ export OMP\_NUM\_THREADS=24
 
-In order to run any benchmark, navigate to its folder and run make command.
+In order to run any benchmark, navigate to its directory and run 'make'. 
 
 Example:
 
 $ cd jacobi2d
 
-$ cd make 
+$ make
 
-The make command optionally takes the follwing parameters:
+The make command optionally takes the following parameters:
 
 1. all - same as running make. (reads the polymage code, creates a new C file and compiles and executes the code.)
 
 2. new - same as the previous option.
 
-3. tune - uses the app_tuner.py file and tunes for various configurations of group and tile size.
+3. tune - uses the app\_tuner.py file and tunes for various configurations of group and tile size.
 
 4. existing - compiles and runs an existing optimized C file.
 
@@ -55,6 +55,7 @@ The make command optionally takes the follwing parameters:
 
 6. clean/cleaner - deletes the shared object and the optimized C file. 
 
-The optimized code is available in the \*.cpp file and it also creates a shared library (\*.so file).
+The optimized code is written to the \*.cpp file, and it is also turned into 
+a shared library (\*.so file).
 
 
