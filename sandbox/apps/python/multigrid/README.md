@@ -1,3 +1,7 @@
+**Install polymage**
+
+The instructions to install Polymage is present here - https://bitbucket.org/udayb/polymage
+
 **Benchmarks**: 
 
  1. Jacobi 2D
@@ -8,7 +12,7 @@
 
 **Required Parameters**
 
-The following parameters can be changed in the Makefile for each benchmark. 
+The various configurations as mentioned in the paper can be obtained by variying the following parameters in the Makefile.
 
  1. Multigrid Cycle (V / W) : CYCLE='V'
 
@@ -59,3 +63,19 @@ The optimized code is written to the \*.cpp file, and it is also turned into
 a shared library (\*.so file).
 
 The polymage DSL code is written in the file named polymage\_\*.py
+
+To get results for polymg-opt+:
+
+1. Storage optimizations are enabled by default. Running make command gives the result for polymg-opt+
+
+To get results for polymg-opt:
+
+1. comment OPT\_ARGS from the Makefile and run the make command.
+
+To get results for polymg-dtile-opt+:
+
+1. change the branch to Tstencil.
+
+$ git fetch && git checkout origin/Tstencils
+
+$ make
