@@ -1,14 +1,20 @@
+**How to run Multigrid benchmarks**
+-------------------------------
+
+
 **Install polymage**
 
 The instructions to install Polymage is present here - https://bitbucket.org/udayb/polymage
 
+*Note*: Install Pluto to run the benchmarks in polymg-dtile-opt+ configuration
+
 **Benchmarks**: 
 
- 1. Jacobi 2D
+- Jacobi 2D
 
- 2. Jacobi 3D
+- Jacobi 3D
 
- 3. NAS-MG
+- NAS-MG
 
 **Required Parameters**
 
@@ -33,31 +39,31 @@ The various configurations as mentioned in the paper can be obtained by variying
 
 Run the following commands before running any of the experiments.
 
-$ export KMP\_PLACE\_THREADS=24c,1t
+> $ export KMP\_PLACE\_THREADS=24c,1t
 
-$ export OMP\_NUM\_THREADS=24
+> $ export OMP\_NUM\_THREADS=24
 
 In order to run any benchmark, navigate to its directory and run 'make'. 
 
 Example:
 
-$ cd jacobi2d
+> $ cd jacobi2d
 
-$ make
+> $ make
 
 The make command optionally takes the following parameters:
 
-1. all - same as running make. (reads the polymage code, creates a new C file and compiles and executes the code.)
+- all - same as running make. (reads the polymage code, creates a new C file and compiles and executes the code.)
 
-2. new - same as the previous option.
+- new - same as the previous option.
 
-3. tune - uses the app\_tuner.py file and tunes for various configurations of group and tile size.
+- tune - uses the app\_tuner.py file and tunes for various configurations of group and tile size.
 
-4. existing - compiles and runs an existing optimized C file.
+- existing - compiles and runs an existing optimized C file.
 
-5. ready - runs an already compiled version of the optimized C code.
+- ready - runs an already compiled version of the optimized C code.
 
-6. clean/cleaner - deletes the shared object and the optimized C file. 
+- clean/cleaner - deletes the shared object and the optimized C file. 
 
 The optimized code is written to the \*.cpp file, and it is also turned into 
 a shared library (\*.so file).
@@ -66,16 +72,16 @@ The polymage DSL code is written in the file named polymage\_\*.py
 
 To get results for polymg-opt+:
 
-1. Storage optimizations are enabled by default. Running make command gives the result for polymg-opt+
+- Storage optimizations are enabled by default. Running make command gives the result for polymg-opt+
 
 To get results for polymg-opt:
 
-1. comment OPT\_ARGS from the Makefile and run the make command.
+- comment OPT\_ARGS from the Makefile and run the make command.
 
 To get results for polymg-dtile-opt+:
 
-1. change the branch to Tstencil.
+- change the branch to Tstencil.
 
-$ git fetch && git checkout origin/Tstencils
+>   $ git fetch && git checkout origin/Tstencils
 
-$ make
+>   $ make
