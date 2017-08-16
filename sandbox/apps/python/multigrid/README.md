@@ -7,8 +7,11 @@
 The instructions to install Polymage is present here - https://bitbucket.org/udayb/polymage
 
 *Note*:
+
 - Install Pluto to run the benchmarks in polymg-dtile-opt+ configuration
+
 - In case you get pygraphviz not found error, uninstall pygraphviz and install with the below options
+
 > sudo pip3 install pygraphviz --install-option="--include-path=/usr/include/graphviz" --install-option="--library-path=/usr/lib/graphviz/"
 
 
