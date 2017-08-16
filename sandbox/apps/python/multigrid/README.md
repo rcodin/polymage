@@ -6,7 +6,11 @@
 
 The instructions to install Polymage is present here - https://bitbucket.org/udayb/polymage
 
-*Note*: Install Pluto to run the benchmarks in polymg-dtile-opt+ configuration
+*Note*:
+- Install Pluto to run the benchmarks in polymg-dtile-opt+ configuration
+- In case you get pygraphviz not found error, uninstall pygraphviz and install with the below options
+> sudo pip3 install pygraphviz --install-option="--include-path=/usr/include/graphviz" --install-option="--library-path=/usr/lib/graphviz/"
+
 
 **Benchmarks**: 
 
@@ -18,7 +22,7 @@ The instructions to install Polymage is present here - https://bitbucket.org/uda
 
 **Required Parameters**
 
-The various configurations as mentioned in the paper can be obtained by variying the following parameters in the Makefile.
+The various configurations as mentioned in the paper can be obtained by varying the following parameters in the Makefile.
 
  1. Multigrid Cycle (V / W) : CYCLE='V'
 
@@ -46,6 +50,8 @@ Run the following commands before running any of the experiments.
 In order to run any benchmark, navigate to its directory and run 'make'. 
 
 Example:
+
+> $ cd sandbox/apps/python/multigrid
 
 > $ cd jacobi2d
 
@@ -76,7 +82,7 @@ To get results for polymg-opt+:
 
 To get results for polymg-opt:
 
-- comment OPT\_ARGS from the Makefile and run the make command.
+- comment OPT\_ARGS (line no: 19) from the Makefile and run the make command.
 
 To get results for polymg-dtile-opt+:
 

@@ -42,6 +42,8 @@ $ git submodule update --init
 
 $ cd cgen
 
+$ sudo python3 setup.py install
+
 $ git am ../patches/0001-ctye-to-dtype-handle-void.patch
 
 $ cd ..
