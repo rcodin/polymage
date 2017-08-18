@@ -9,8 +9,6 @@ https://bitbucket.org/udayb/polymage
 
 *Note*:
 
-- Install Pluto to run the benchmarks in polymg-dtile-opt+ configuration
-
 - If you encounter a 'pygraphviz not found' error, uninstall pygraphviz and 
   install with the below options
 
@@ -93,7 +91,8 @@ a shared library (\*.so file).
 
 The Polymage DSL code is written in the file named polymage\_\*.py
 
-To get results for polymg-dtile-opt+:
+To get results for polymg-dtile-opt+ (Multigrid smoothing optimized with 
+diamond tiling), libpluto (included as a submodule) is needed.
 
 - change the branch to Tstencil.
 
