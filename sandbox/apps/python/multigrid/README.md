@@ -62,7 +62,7 @@ Example:
 
 > $ make
 
-The make command optionally takes the following parameters:
+The make command can be run with the following arguments:
 
 - all - same as running make. (runs polymg-opt+, polymg-opt, handopt and handopt-pluto configurations)
 
@@ -72,15 +72,11 @@ The make command optionally takes the following parameters:
 
 - polymg-opt - runs polymg-opt configurations.
 
-- handopt - runs hand optimized code.
+- handopt - runs hand optimized code (for Jacobi2D and Jacobi3D only).
 
-- handopt-pluto - runs hand optimized code with Pluto's diamond tiling.
+- handopt-pluto - runs hand optimized code with Pluto's diamond tiling (for Jacobi2D and Jacobi3D only).
 
 - tune - uses the app\_tuner.py file and tunes for various group and tile size for polymg code.
-
-- existing - compiles and runs an existing optimized Polymage generated C file.
-
-- ready - runs an already compiled version of the optimized Polymage generated C code.
 
 - clean/cleaner - deletes the shared object and the optimized Polymage generated C file. 
 
