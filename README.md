@@ -50,7 +50,7 @@ $ cd ..
 
 [Optional (needed for diamond tiling with multigrid)]
 
-$ cd pluto/
+$ cd libpluto/
 
 $ (follow installation instructions for pluto)
 

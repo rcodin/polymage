@@ -68,8 +68,6 @@ below:
 - all (runs polymg-opt+, polymg-opt, handopt and handopt-pluto 
   configurations)
 
-- new - runs polymg-opt+ configurations.
-
 - polymg-opt-plus - runs polymg-opt+ configurations.
 
 - polymg-opt - runs polymg-opt configurations.

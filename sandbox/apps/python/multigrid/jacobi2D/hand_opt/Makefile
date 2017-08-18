@@ -23,12 +23,10 @@ all: mgm mgm-pluto
 ready: mgm-ready pluto-ready
 
 mgm: $(SRC)
-	$(info ============== Handopt  ===============)
 	$(CXX) $(CFLAGS) $(SRC) -o $@ $(LDFLAGS)
 	echo "$(SIZE) 3 $(CYCLE) $(NU1) $(NU2) $(NUC) $(NIT) y" | ./mgm
 
 mgm-pluto: $(SRCPLUTO)
-	$(info ============== Handopt+Pluto  ===============)
 	$(CXX) $(CFLAGS) $(SRCPLUTO) -o $@ $(LDFLAGS)
 	echo "$(SIZE) 3 $(CYCLE) $(NU1) $(NU2) $(NUC) $(NIT) y" | ./mgm-pluto
 

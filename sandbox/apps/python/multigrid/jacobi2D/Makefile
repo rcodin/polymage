@@ -20,9 +20,10 @@ OPT_ARGS=--pool_alloc --optimize_storage --early_free --multipar
 TOOL_ARGS=--graph-gen --runs=$(RUNS) --timer
 CXX_ARGS=--cxx="$(CXX)" --cxx_flags="$(CXX_FLAGS)"
 
-all: new polymg-opt handopt handopt-pluto
+all: polymg-opt-plus polymg-opt handopt handopt-pluto
 
 new:
+	@echo "=================  Building $@  ================="
 	$(PYTHON) main.py --mode='new' $(APP_ARGS) $(OPT_ARGS) $(TOOL_ARGS) $(CXX_ARGS)
 
 tune:
@@ -35,15 +36,19 @@ ready:
 	$(PYTHON) main.py --mode='ready' $(APP_ARGS) $(TOOL_ARGS)
 
 handopt-pluto:
+	@echo "=================  Building $@  ================="
 	make -C hand_opt mgm-pluto CYCLE=${CYCLE} SIZE=${SIZE} NIT=${NIT} NU1=${NU1} NU2=${NU2} NUC=${NUC}
 
 handopt:
+	@echo "=================  Building $@  ================="
 	make -C hand_opt mgm CYCLE=${CYCLE} SIZE=${SIZE} NIT=${NIT} NU1=${NU1} NU2=${NU2} NUC=${NUC}
 
 polymg-opt:
+	@echo "=================  Building $@  ================="
 	$(PYTHON) main.py --mode='new' $(APP_ARGS) $(TOOL_ARGS) $(CXX_ARGS)
 
 polymg-opt-plus:
+	@echo "=================  Building $@  ================="
 	$(PYTHON) main.py --mode='new' $(APP_ARGS) $(OPT_ARGS) $(TOOL_ARGS) $(CXX_ARGS)
 
 clean:
