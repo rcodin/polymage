@@ -20,7 +20,7 @@ OPT_ARGS=--pool_alloc --optimize_storage --early_free --multipar
 TOOL_ARGS=--graph-gen --runs=$(RUNS) --timer
 CXX_ARGS=--cxx="$(CXX)" --cxx_flags="$(CXX_FLAGS)"
 
-all: new
+all: new polymg-opt handopt handopt-pluto
 
 new:
 	$(PYTHON) main.py --mode='new' $(APP_ARGS) $(OPT_ARGS) $(TOOL_ARGS) $(CXX_ARGS)
@@ -34,8 +34,22 @@ existing:
 ready:
 	$(PYTHON) main.py --mode='ready' $(APP_ARGS) $(TOOL_ARGS)
 
+handopt-pluto:
+	make -C hand_opt mgm-pluto CYCLE=${CYCLE} SIZE=${SIZE} NIT=${NIT} NU1=${NU1} NU2=${NU2} NUC=${NUC}
+
+handopt:
+	make -C hand_opt mgm CYCLE=${CYCLE} SIZE=${SIZE} NIT=${NIT} NU1=${NU1} NU2=${NU2} NUC=${NUC}
+
+polymg-opt:
+	$(PYTHON) main.py --mode='new' $(APP_ARGS) $(TOOL_ARGS) $(CXX_ARGS)
+
+polymg-opt-plus:
+	$(PYTHON) main.py --mode='new' $(APP_ARGS) $(OPT_ARGS) $(TOOL_ARGS) $(CXX_ARGS)
+
 clean:
 	rm -rf *.pyc *.so *.dot *.png __pycache__
+	make -C hand_opt clean
 
 cleaner:
 	rm -rf *.pyc *.so *.dot *.png __pycache__ *cycle.cpp
+	make -C hand_opt clean

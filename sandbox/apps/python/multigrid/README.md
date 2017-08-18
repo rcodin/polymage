@@ -52,6 +52,8 @@ Run the following commands before running any of the experiments.
 
 In order to run any benchmark, navigate to its directory and run 'make'. 
 
+'make' runs polymg-opt+, polymg-opt, handopt and handopt-pluto configurations.
+
 Example:
 
 > $ cd sandbox/apps/python/multigrid
@@ -62,30 +64,30 @@ Example:
 
 The make command optionally takes the following parameters:
 
-- all - same as running make. (reads the polymage code, creates a new C file and compiles and executes the code.)
+- all - same as running make. (runs polymg-opt+, polymg-opt, handopt and handopt-pluto configurations)
 
-- new - same as the previous option.
+- new - runs polymg-opt+ configurations.
 
-- tune - uses the app\_tuner.py file and tunes for various configurations of group and tile size.
+- polymg-opt-plus - runs polymg-opt+ configurations.
 
-- existing - compiles and runs an existing optimized C file.
+- polymg-opt - runs polymg-opt configurations.
 
-- ready - runs an already compiled version of the optimized C code.
+- handopt - runs hand optimized code.
 
-- clean/cleaner - deletes the shared object and the optimized C file. 
+- handopt-pluto - runs hand optimized code with Pluto's diamond tiling.
 
-The optimized code is written to the \*.cpp file, and it is also turned into 
+- tune - uses the app\_tuner.py file and tunes for various group and tile size for polymg code.
+
+- existing - compiles and runs an existing optimized Polymage generated C file.
+
+- ready - runs an already compiled version of the optimized Polymage generated C code.
+
+- clean/cleaner - deletes the shared object and the optimized Polymage generated C file. 
+
+The optimized Polymage code is written to the \*.cpp file, and it is also turned into 
 a shared library (\*.so file).
 
-The polymage DSL code is written in the file named polymage\_\*.py
-
-To get results for polymg-opt+:
-
-- Storage optimizations are enabled by default. Running make command gives the result for polymg-opt+
-
-To get results for polymg-opt:
-
-- comment OPT\_ARGS (line no: 19) from the Makefile and run the make command.
+The Polymage DSL code is written in the file named polymage\_\*.py
 
 To get results for polymg-dtile-opt+:
 
