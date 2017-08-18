@@ -2,15 +2,17 @@
 -------------------------------
 
 
-**Install polymage**
+**Install PolyMage**
 
-The instructions to install Polymage is present here - https://bitbucket.org/udayb/polymage
+Instructions on general pre-requisites to run Polymage apps are here: 
+https://bitbucket.org/udayb/polymage
 
 *Note*:
 
 - Install Pluto to run the benchmarks in polymg-dtile-opt+ configuration
 
-- In case you get pygraphviz not found error, uninstall pygraphviz and install with the below options
+- If you encounter a 'pygraphviz not found' error, uninstall pygraphviz and 
+  install with the below options
 
 > sudo pip3 install pygraphviz --install-option="--include-path=/usr/include/graphviz" --install-option="--library-path=/usr/lib/graphviz/"
 
@@ -62,9 +64,11 @@ Example:
 
 > $ make
 
-The make command optionally takes the following parameters:
+The various make targets available and what they correspond to are listed 
+below:
 
-- all - same as running make. (runs polymg-opt+, polymg-opt, handopt and handopt-pluto configurations)
+- all (runs polymg-opt+, polymg-opt, handopt and handopt-pluto 
+  configurations)
 
 - new - runs polymg-opt+ configurations.
 
@@ -93,6 +97,6 @@ To get results for polymg-dtile-opt+:
 
 - change the branch to Tstencil.
 
->   $ git fetch && git checkout origin/Tstencils
+>   $ git checkout origin/Tstencils
 
 >   $ make
