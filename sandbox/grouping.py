@@ -30,7 +30,7 @@ import storage_mapping
 
 # LOG CONFIG #
 grouping_logger = logging.getLogger("grouping.py")
-grouping_logger.setLevel(logging.DEBUG)
+grouping_logger.setLevel(logging.INFO)
 LOG = grouping_logger.log
 
 def get_group_dep_vecs(pipe, group, parts_list=[], scale_map = None, func_map = None):

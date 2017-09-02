@@ -43,9 +43,18 @@ $ git submodule update --init
 
 $ cd cgen
 
+$ sudo python3 setup.py install
+
 $ git am ../patches/0001-ctye-to-dtype-handle-void.patch
 
 $ cd ..
+
+[Optional (needed for diamond tiling with multigrid)]
+
+$ cd libpluto/
+
+$ (follow installation instructions for pluto)
+
 ```
 
 Also make sure to have install `libpluto` from the [Pluto website](http://pluto-compiler.sourceforge.net/) to be able to use time-iterated stencils
