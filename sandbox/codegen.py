@@ -52,12 +52,10 @@ def add_users_as_comment(pipeline, array):
     return comment
 
 def isl_expr_to_cgen(expr, prologue_stmts = None):
-    #print ("isl_expr_to_cgen", expr)
     prolog = prologue_stmts
     if expr.get_type() == isl._isl.ast_expr_type.op:
         # short hand
         op_typ = expr.get_op_type()
-        #print (op_typ, isl._isl.ast_op_type.pdiv_r)
         if (op_typ == isl._isl.ast_op_type.access or  # 23
             op_typ == isl._isl.ast_op_type.call or  # 22
             op_typ == isl._isl.ast_op_type.cond or  # 15
@@ -120,7 +118,6 @@ def isl_expr_to_cgen(expr, prologue_stmts = None):
         if op_typ == isl._isl.ast_op_type.pdiv_r or op_typ == 14: #TODO: Find a better way
             assert("Division must have exactly 2 arguments!" and \
                    expr.get_op_n_arg() == 2)
-            print ("op is pdiv_r")
             return isl_expr_to_cgen(expr.get_op_arg(0), prolog) % \
                    isl_expr_to_cgen(expr.get_op_arg(1), prolog)
         if op_typ == isl._isl.ast_op_type.sub:
@@ -175,8 +172,6 @@ def isl_cond_to_cgen(cond, prologue_stmts = None):
     else:
         left = isl_expr_to_cgen(cond.get_op_arg(0), prologue_stmts)
         right = isl_expr_to_cgen(cond.get_op_arg(1), prologue_stmts)
-    #print (cond, cond.get_op_arg(0), type(cond))
-    #print (left, comp_op, right)
     return genc.CCond(left, comp_op, right)
 
 def is_inner_most_parallel(node):
@@ -254,9 +249,7 @@ def get_arrays_for_user_nodes(pipe, polyrep, user_nodes):
         part = isl_get_id_user(part_id)
         array = part.comp.array
         scratch = part.comp.scratch
-        #print (array.name, scratch, part.comp.func.name,)
         if array not in arrays and True in scratch:
-            #print ("not in array and true in scratch")
             arrays.append(array)
     return arrays
 
@@ -355,7 +348,6 @@ def generate_c_naive_from_expression_node(pipe, polyrep, node, body,
     expr = generate_c_expr(pipe, poly_part.expr,
                            cparam_map, cvar_map,
                            scratch_map, prologue_stmts = prologue)
-    #print (type(expr), expr)
     if isinstance(array, tuple):  # TStencil array tuple
         array = array[1]  # Second entry is the output of TStencil
     assign = genc.CAssign(array(*arglist), expr)
@@ -371,15 +363,9 @@ def generate_c_naive_from_expression_node(pipe, polyrep, node, body,
         with cif.if_block as ifblock:
             ifblock.add(assign)
         body.add(cif)
-        #var = genc.CVariable(genc.c_int, "_c_" + poly_part.comp.func.name)
-        #incr = genc.CAssign(var, var + 1)
-        #body.add(incr)
     else:
         body.add(assign)
-        #var = genc.CVariable(genc.c_int, "_c_" + poly_part.comp.func.name)
-        #incr = genc.CAssign(var, var + 1)
-        #body.add(inc)
-
+        
 def log_loop_start(var, indent, log_level=logging.DEBUG-1):
     indent_str = ''.join(' ' for i in range(0, indent))
     loop_str = "for : "+str(var)+" {"
@@ -471,7 +457,6 @@ def generate_c_naive_from_isl_ast(pipe, polyrep, node, body, cparam_map,
         num_nodes = (node.block_get_children().n_ast_node())
         for i in range(0, num_nodes):
             child = node.block_get_children().get_ast_node(i)
-            #print ("indent ", indent, " child", child)
             generate_c_naive_from_isl_ast(pipe, polyrep, child, body,
                                           cparam_map, pooled,
                                           perfect_loopnest, fused_comps, indent+1)
@@ -508,8 +493,6 @@ def generate_c_naive_from_isl_ast(pipe, polyrep, node, body, cparam_map,
                             
                     need_to_set_fused_comps_loop = True
                     comp_in_dict[name] = (True, None)
-            
-            print (generated_comp)
             
             if (generated_comp == None):
                 # Convert lb and ub expressions to C expressions
@@ -667,7 +650,6 @@ def generate_c_naive_from_isl_ast(pipe, polyrep, node, body, cparam_map,
                                 array.allocate_contiguous(lbody)
                                 freelist.append(array)
                 
-                #print (loop, generated_comp_loop)
                 loop = generated_comp_loop
 
                                 
@@ -714,7 +696,6 @@ def generate_c_naive_from_isl_ast(pipe, polyrep, node, body, cparam_map,
             # Retrieving the polyPart.
             part_id = node.user_get_expr().get_op_arg(0).get_id()
             poly_part = isl_get_id_user(part_id)
-            #print ("user ", node)
             if isinstance(poly_part.expr, Reduce):
                 generate_c_naive_from_accumlate_node(pipe, polyrep, node,
                                                      body, cparam_map)
@@ -1068,7 +1049,6 @@ def generate_code_for_group(pipeline, g, body, alloc_arrays,
                 initial_comps.append (comp)
         
         for comp in comps_with_same_parent:
-            print (comp.func.name, [c.func.name for c in comps_with_same_parent[comp]])
             if (len(comps_with_same_parent[comp]) != 0):
                 comps_to_fuse = {}
                 comps_to_fuse[comp.func.name] = (False, None)
@@ -1086,7 +1066,6 @@ def generate_code_for_group(pipeline, g, body, alloc_arrays,
             initial_comps_to_fuse[comp.func.name] = (False, None)
             
         fused_comps.append (initial_comps_to_fuse)
-        print (fused_comps)
     
     for comp in sorted_comps:
         func = comp.func
@@ -1102,7 +1081,6 @@ def generate_code_for_group(pipeline, g, body, alloc_arrays,
         # full array
         if comp.is_liveout:
             array = comp.array
-            #print ("F ", array, comp.func.name)
             # do not allocate output arrays
             if not comp.is_output:
                 if not array in alloc_arrays and not array in out_arrays:

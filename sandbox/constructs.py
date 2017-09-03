@@ -1628,8 +1628,6 @@ class GetSizeVisitor(AbstractExpressionVisitor):
         return cast.expression.visit (self)
     
     def visit_variable (self, variable):
-        #print ('variable is', variable)
-        #print (self.param_estimates)
         for p in self.param_estimates:
             if (variable in p):
                 return p[1]
@@ -1671,11 +1669,6 @@ class MemRefsAtIterationVisitor(AbstractExpressionVisitor):
         left_visit = binop.left.visit (self)
         right_visit = binop.right.visit (self)
         
-        ##print (binop.op)
-        ##print (binop.left, type(binop.left), left_visit, type(left_visit))
-        ##print (binop.right, type(binop.right), right_visit, type(right_visit))
-            
-            
         if (isinstance (binop.left, Reference) or
             isinstance (binop.right, Reference)):
             return self._dim_refs
@@ -1753,18 +1746,12 @@ class MemRefsAtIterationVisitor(AbstractExpressionVisitor):
         return cast.expression.visit (self)
     
     def visit_variable (self, variable):
-        ##print ("variable ", variable)
         return self._iter
     
     def visit_select (self, select):        
         left_visit = select.true_expression.visit (self)
         right_visit = select.false_expression.visit (self)
-        
-        ##print (binop.op)
-        ##print (binop.left, type(binop.left), left_visit, type(left_visit))
-        ##print (binop.right, type(binop.right), right_visit, type(right_visit))
-            
-            
+                    
         if (isinstance (select.true_expression, Reference) or
             isinstance (select.false_expression, Reference)):
             return self._dim_refs
@@ -1776,16 +1763,11 @@ class MemRefsAtIterationVisitor(AbstractExpressionVisitor):
         return select.true_expression.visit (self) + select.false_expression.visit (self)
     
     def visit_reference (self, reference):
-        #self._dim_refs.append ((reference.args[self._dim], reference.args[self._dim].visit (self)))
         if (reference.objectRef not in self.funcs_to_exclude and self._dim < len(reference.arguments)):
-            ##print (reference.arguments, reference.arguments[self._dim], type (reference.arguments[self._dim]))
             l = reference.arguments[self._dim].visit (self)
-            #if (isinstance (reference.arguments[self._dim], Variable)):
             if not isinstance (l, list):
                 self._dim_refs.append (int(l))
 
-        ##print ("a ", reference, self._dim_refs)
-        ##print ("REF is ", reference)
         return self._dim_refs
         
     def visit_reduce (self, reduce):
@@ -1811,11 +1793,6 @@ class AccessTypesVisitor(AbstractExpressionVisitor):
     def visit_abstractbinaryopnode(self, binop):
         left_visit = binop.left.visit (self)
         right_visit = binop.right.visit (self)
-        
-        ##print (binop.op)
-        ##print (binop.left, type(binop.left), left_visit, type(left_visit))
-        ##print (binop.right, type(binop.right), right_visit, type(right_visit))
-            
             
         if (isinstance (binop.left, Reference) or
             isinstance (binop.right, Reference)):
@@ -1901,7 +1878,6 @@ class AccessTypesVisitor(AbstractExpressionVisitor):
         return 1
         
     def visit_variable (self, variable):
-        print ("variable ", variable, "dd ", self._curr_dim)
         if (self._curr_dim == -1):
             #raise Exception ("Current Dimension is -1")
             return []
@@ -1912,10 +1888,6 @@ class AccessTypesVisitor(AbstractExpressionVisitor):
         left_visit = select.true_expression.visit (self)
         right_visit = select.false_expression.visit (self)
         
-        ##print (binop.op)
-        ##print (binop.left, type(binop.left), left_visit, type(left_visit))
-        ##print (binop.right, type(binop.right), right_visit, type(right_visit))
-
         if (isinstance (select.true_expression, Reference) or
             isinstance (select.false_expression, Reference)):
             return self._refs
@@ -1927,22 +1899,6 @@ class AccessTypesVisitor(AbstractExpressionVisitor):
         return select.true_expression.visit (self) + select.false_expression.visit (self)
     
     def visit_reference (self, reference):
-        #self._dim_refs.append ((reference.args[self._dim], reference.args[self._dim].visit (self)))
-        #references = []
-        #for dim in range(0, len(reference.arguments)):
-            ###print (reference.arguments, reference.arguments[self._dim], type (reference.arguments[self._dim]))
-            #self._curr_dim = dim
-            #l = reference.arguments[dim].visit(self)
-            ##if (isinstance (reference.arguments[self._dim], Variable)):
-            #if not isinstance (l, list):
-                #references.append (int(l))
-        
-        #if (references):
-            #self._refs.append (references)
-            
-        #self._curr_dim = -1
-        ##print ("a ", reference, self._dim_refs)
-        ##print ("REF is ", reference)
         
         references = []
         for dim in range(0, len(reference.arguments)):

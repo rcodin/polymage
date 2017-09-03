@@ -577,13 +577,16 @@ void naive_sched_objs (const map <Group*, int, Group::GroupComparer>& order,
         max_level = max (max_level, l);
     }
     
-    std::cout << "reverse_map: " << std::endl;
-    for (auto it = reverse_map.begin (); it != reverse_map.end (); it++)
+    PRINT_DEBUG_BLOCK_L1
     {
-        std::cout << it->first << std::endl;
-        for (auto& it2 : it->second)
+        std::cout << "reverse_map: " << std::endl;
+        for (auto it = reverse_map.begin (); it != reverse_map.end (); it++)
         {
-            std::cout << "    " <<getPyGroupName (it2->getPyGroup ()) << std::endl;
+            std::cout << it->first << std::endl;
+            for (auto& it2 : it->second)
+            {
+                std::cout << "    " <<getPyGroupName (it2->getPyGroup ()) << std::endl;
+            }
         }
     }
     
@@ -631,15 +634,18 @@ void naive_sched_objs (const map <Group*, int, Group::GroupComparer>& order,
         }
     }
     
-    std::cout<< "optnaiveorder is"<<std::endl;
-    for (auto it = naive_order.begin(); it != naive_order.end(); it++)
+    PRINT_DEBUG_BLOCK_L1
     {
-        PyObject* func = PyObject_GetAttr (it->first->getCompAtIndex(0), str_func);
-        PyObject* name = PyObject_GetAttr (func,
-                                           Py_BuildValue ("s", "name"));
-        PyObject* pyStr = PyUnicode_AsEncodedString(name, "utf-8", "Error ~");
-        const char* ss = PyBytes_AS_STRING (pyStr);
-        std::cout<< "     "<< ss<< "  " << it->second << std::endl;
+        std::cout<< "optnaiveorder is"<<std::endl;
+        for (auto it = naive_order.begin(); it != naive_order.end(); it++)
+        {
+            PyObject* func = PyObject_GetAttr (it->first->getCompAtIndex(0), str_func);
+            PyObject* name = PyObject_GetAttr (func,
+                                               Py_BuildValue ("s", "name"));
+            PyObject* pyStr = PyUnicode_AsEncodedString(name, "utf-8", "Error ~");
+            const char* ss = PyBytes_AS_STRING (pyStr);
+            std::cout<< "     "<< ss<< "  " << it->second << std::endl;
+        }
     }
 }
 
@@ -1004,17 +1010,19 @@ uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
     }
         
     PRINT_DEBUG_BLOCK_L1
+    {
         std::cout << "liveout buffers "<< number_of_buffers << std::endl;
     
-    std::cout<< "cmp_to_stg_class is"<<std::endl;
-    for (auto it = vec_comps.begin(); it != vec_comps.end(); it++)
-    {
-        PyObject* func = PyObject_GetAttr (*it, str_func);
-        PyObject* name = PyObject_GetAttr (func,
-                                           Py_BuildValue ("s", "name"));
-        PyObject* pyStr = PyUnicode_AsEncodedString(name, "utf-8", "Error ~");
-        const char* ss = PyBytes_AS_STRING (pyStr);
-        std::cout<< "     "<< ss<< (cmp_to_stg_class [*it]) << std::endl;
+        std::cout<< "cmp_to_stg_class is"<<std::endl;
+        for (auto it = vec_comps.begin(); it != vec_comps.end(); it++)
+        {
+            PyObject* func = PyObject_GetAttr (*it, str_func);
+            PyObject* name = PyObject_GetAttr (func,
+                                               Py_BuildValue ("s", "name"));
+            PyObject* pyStr = PyUnicode_AsEncodedString(name, "utf-8", "Error ~");
+            const char* ss = PyBytes_AS_STRING (pyStr);
+            std::cout<< "     "<< ss<< (cmp_to_stg_class [*it]) << std::endl;
+        }
     }
     
     for (auto it = vec_comps.begin(); it != vec_comps.end(); it++)
@@ -1111,17 +1119,20 @@ uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
         }
     }
 
-    std::cout<< "optarray pool" << std::endl;
-    for (auto it = array_pool.begin(); it != array_pool.end(); it++)
+    PRINT_DEBUG_BLOCK_L1
     {
-        PyObject* name = PyObject_Str (it->first);
-        PyObject* pyStr = PyUnicode_AsEncodedString(name, "utf-8", "Error ~");
-        const char* ss = PyBytes_AS_STRING (pyStr);
-        std::cout<<ss<<std::endl;
-        
-        for (auto it2 = it->second.begin(); it2 != it->second.end(); it2++)
+        std::cout<< "optarray pool" << std::endl;
+        for (auto it = array_pool.begin(); it != array_pool.end(); it++)
         {
-            std::cout<< "   " << *it2 << std::endl;
+            PyObject* name = PyObject_Str (it->first);
+            PyObject* pyStr = PyUnicode_AsEncodedString(name, "utf-8", "Error ~");
+            const char* ss = PyBytes_AS_STRING (pyStr);
+            std::cout<<ss<<std::endl;
+            
+            for (auto it2 = it->second.begin(); it2 != it->second.end(); it2++)
+            {
+                std::cout<< "   " << *it2 << std::endl;
+            }
         }
     }
     
@@ -1153,7 +1164,8 @@ uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
                 std::cout << "(dim: " << i << ", size: " << __size << ")" << std::endl;
             stg_size *= __size;
         }
-        std::cout << std::endl;
+        PRINT_DEBUG_BLOCK_L1
+            std::cout << std::endl;
         total_size += stg_size*n_arrays*IMAGE_ELEMENT_SIZE;
     }
     
@@ -1543,7 +1555,9 @@ void update_graph_with_inlining (std::unordered_set<Group*, Group::GroupHasher>&
             //     be in inline_all_children_group)
             if (pointwise_groups.find (_front) != pointwise_groups.end())
             {
-                std::cout << "pointwise group is " << getPyGroupName(_front->getPyGroup ()) << std::endl;
+                PRINT_DEBUG_BLOCK_L1
+                    std::cout << "pointwise group is " << getPyGroupName(_front->getPyGroup ()) << std::endl;
+                    
                 for (auto const &it : new_prevGroups[_front])
                 {
                     bool inline_producer = false;

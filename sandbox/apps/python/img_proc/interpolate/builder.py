@@ -66,7 +66,7 @@ def build_interpolate(app_data, g_size = None, t_size = None):
     if (t_size == None):
 	    t_size = [4, 64, 128]
     if (g_size == None):
-        g_size = 4
+        g_size = 4 
  
     opts = []
     if app_data['early_free']:

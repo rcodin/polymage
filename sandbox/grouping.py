@@ -39,21 +39,16 @@ def get_group_dep_vecs(pipe, group, parts_list=[], scale_map = None, func_map = 
     dep_vecs = []
     g_poly_rep = group.polyRep
     g_poly_parts = g_poly_rep.poly_parts
-    #print ("g_poly_parts ", g_poly_parts)
     gcomps = group.comps
     gfuncs = [comp.func for comp in gcomps]
-    #print (parts_list)
+    
     if parts_list == []:
         for comp in gcomps:
             parts_list.extend(g_poly_parts[comp])
     for part in parts_list:
-        #print (part.refs)
         for ref in part.refs:
-            #print (ref.objectRef)
             if ref.objectRef in gfuncs:
-                #print (ref.objectRef, " in ", gfuncs)
                 ref_comp = func_map[ref.objectRef]
-                #print (ref_comp, type(ref_comp), hex(id(ref_comp)))
                 for pp in g_poly_parts[ref_comp]:
                     if pp not in parts_list:
                         continue
@@ -66,9 +61,8 @@ def _group_topological_sort (pipeline, g, visited, stack):
     visited[g] = True
     sorted_children = [_g for _g in g.children]
     sorted_children = sorted (sorted_children, key = lambda __g: __g.name)
-    #print ("parent ", g.name)
     for child in sorted_children:
-        pass #print (child)
+        pass 
     for _g in sorted_children:
         if (visited[_g] == False):
             _group_topological_sort (pipeline, _g, visited, stack)
@@ -104,7 +98,6 @@ def auto_group(pipeline):
     
     for g in stack:
         topological_order [g] = order
-        #print (g.name, g, order)
         order+= 1
     
     in_group = [group for group in pipeline.groups if not group.parents]
@@ -114,21 +107,9 @@ def auto_group(pipeline):
         dim_reuse [group] = group.get_dimensional_reuse (pipeline.param_estimates, pipeline.func_map)
         live_size [group] = group.get_max_live_size (pipeline.param_estimates)
         dim_size [group] = group.get_size_for_each_dim (pipeline.param_estimates)
-        #group.set_type_of_access (pipeline.param_estimates)
-        #print ("DIM size for ", group, " ", dim_size[group])
-    
-    #print ("DIM reuse ", dim_reuse)
-    for g in pipeline.groups:
-        #print (g)
-        for _g in g.parents:
-            pass#print ("P    ", _g)
-        for _g in g.children:
-            pass#print ("C    ", _g)
+        
     param_est = pipeline._param_estimates
     size_thresh = pipeline._size_threshold
-    #print ("size_thresh", size_thresh)
-    #input("2323232322323")
-    #input("232323qqqqqqqqq322323")
     
     grp_size = pipeline._group_size
 
@@ -188,10 +169,7 @@ def auto_group(pipeline):
                        pipeline.MachineInformation.get_live_to_tile_size_weight (*w_args),
                        pipeline.MachineInformation.get_cleanup_threads_weight (*w_args),
                        pipeline.MachineInformation.get_relative_overlap_weight (*w_args))
-                       
-    for group in pipeline.groups:
-        pass#print ("group ", group, " tile sizes ", group.tile_sizes)
-        
+
     return
 
 def auto_group1(pipeline):
@@ -290,10 +268,7 @@ def auto_group1(pipeline):
             is_const_grp = False
             for comp in group.comps:
                 if not comp in small_comps:
-                    #print ("NOT IN SMALL COMP ", group.name)
                     is_small_grp = False
-                else:
-                    pass#print ("IS IN SMALL COMP ", group.name)
                 if isinstance(comp.func, Reduction):
                     is_reduction_grp = True
                 elif isinstance(comp.func, TStencil):
@@ -303,7 +278,6 @@ def auto_group1(pipeline):
             for g_child in group.children:
                 for comp in g_child.comps:
                     if isinstance(comp.func, Reduction):
-                        #print ("IS REDUCTION ", g_child.name)
                         is_reduction_grp = True
                     elif isinstance(comp.func, TStencil):
                         is_tstencil_grp = True

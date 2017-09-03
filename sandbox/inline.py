@@ -112,12 +112,9 @@ def inline_pass(pipeline, inlined_funcs =[]):
         drop_inlined = True
         inlined = []
         
-        #print ("group ", group, "len(children) ", len(group.children))
         for child in list(group.children):
-        #    print ("child ", child)
             ref_to_inline_expr_map = \
                 piecewise_inline_check(child, group, no_split=True)
-            #print ("ref_to_inline_expr_map", ref_to_inline_expr_map)
             if ref_to_inline_expr_map:
                 inline_and_update_graph(pipeline, group, child,
                                         ref_to_inline_expr_map)
@@ -125,8 +122,7 @@ def inline_pass(pipeline, inlined_funcs =[]):
                 # for this child inlining did not happen, hence do not drop
                 # the compute object and its group
                 drop_inlined = False
-                print ("ref_to_inline_expr_map is empty")
-            
+                
         if drop_inlined:
             # remove comp_obj
             pipeline.drop_comp(comp)
@@ -152,7 +148,6 @@ def inline_pass_for_comp(pipeline, inline_comps, final_codegen = True):
     
     #all comps to be inlined should be a part of the same group
     all_comps_in_same_group = True
-    print ("inline_comps ", [str(k) for k in inline_comps])
     for comp in inline_comps:
         if (comp.group != inline_comps[0].group):
             raise (AttributeError ("All computations to be inlined should be\
@@ -165,27 +160,19 @@ def inline_pass_for_comp(pipeline, inline_comps, final_codegen = True):
         # Only function constructs can be inlined for now
         assert isinstance(comp, pipe.ComputeObject)
 
-#        clone = pipeline._clone_map[directive]
-
         # One simply does not walk into Inlining
-        #print ("comp ", comp, "len(children) ", len(comp.children))
-        #comp.print_children ()        
         assert comp not in group.liveouts, "comp: "+ str(comp) + " is liveout in " + str(group)
 
         drop_inlined = True
         inlined = []
         
         for child in list(comp.children):
-         #   print ("child ", child)
             ref_to_inline_expr_map = \
                 piecewise_inline_check_for_comp(child, comp, no_split=True)
-         #   print ([(str(k)+ " id: " + hex(id(k)), str(ref_to_inline_expr_map[k])) for k in ref_to_inline_expr_map])
             if ref_to_inline_expr_map:
                 child.func.replace_refs(ref_to_inline_expr_map)
                 pipeline.make_func_independent_for_comp(comp, child)
                 group.recompute_computation_objs ()
-         #       print (child.func)
-         #       print ("child.parents ", [str(k) for k in child.parents])
             else:
                 # for this child inlining did not happen, hence do not drop
                 # the compute object and its group
@@ -248,9 +235,6 @@ def piecewise_inline_check_for_comp(child_comp, parent_comp, no_split = False):
             child_refs = child_part.refs
             child_refs = []
             for ref in child_part.refs:
-                #print ("ref.objectRef " + str(ref.objectRef) + " id: " + 
-                        #hex(id(ref.objectRef)) + "\n parent_comp.func " + 
-                        #str(parent_comp.func) +" id: " + hex(id(parent_comp.func)))
                 if ref.objectRef == parent_comp.func:
                     child_refs.append(ref)
             # Compute dependence relations between child and parent
@@ -328,25 +312,16 @@ def piecewise_inline_check(child_group, parent_group, no_split = False):
             child_refs = []
             
             for ref in child_part.refs:
-                #print ("ref.objectRef " + str(ref.objectRef) + " id: " + 
-                #        hex(id(ref.objectRef)) + "\n parent_comp.func " + 
-                #        str(parent_comp.func) +" id: " + hex(id(parent_comp.func)))
                 if ref.objectRef == parent_comp.func:
                     child_refs.append(ref)
             
-            #print ("child_refs ", [ref.objectRef.name for ref in child_refs])
             # Compute dependence relations between child and parent
             deps = []
-            #print ("parent_doms[parent_comp]", parent_doms[parent_comp])
-
+            
             for ref in child_refs:
-                #print ("child_part ", child_part)
-                #print ("ref ", ref)
                 _deps = extract_value_dependence(child_part, ref,
                             parent_doms[parent_comp])
-                #print ("_deps ", _deps)
                 deps += _deps
-            #print ("deps ", deps)
             # Check if all the values come from the same parent part
             dep_to_part_map = {}
             for dep in deps:
@@ -371,10 +346,8 @@ def piecewise_inline_check(child_group, parent_group, no_split = False):
                 if (not left_over.is_empty()):
                     assert False, "Inlining cannot be done."
 
-            #print ("dep_to_part_map ", dep_to_part_map)
             parts = list(set(dep_to_part_map.values()))
             single_part = (len(parts) == 1)
-            #print ("single_part is ", single_part)
             if(single_part):
                 parent_expr = parts[0].expr
                 if parts[0].pred:

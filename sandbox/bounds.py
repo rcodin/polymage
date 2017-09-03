@@ -59,8 +59,6 @@ def check_refs(child_group, parent_group):
     parent_func = parent_comp.func
     child_comp = child_group.comps[0]
     child_func = child_comp.func
-    #print ("parent_group ", parent_group)
-    #print ("child ", child_group)
     # Only verifying if both child and  parent group have a polyhedral
     # representation
     if child_group.polyRep.poly_parts and parent_group.polyRep.poly_doms:
@@ -87,11 +85,7 @@ def check_refs(child_group, parent_group):
             log_level = logging.DEBUG
             deps = []
             parent_dom = parent_group.polyRep.poly_doms[parent_comp]
-            #print ("child_refs ", [ref.objectRef.name for ref in child_refs])
-            #print ("parent_dom ", parent_dom)
             for ref in child_refs:
-                #print ("child_part ", child_part)
-                #print ("ref ", ref)
                 deps += extract_value_dependence(child_part, ref, parent_dom)
                 LOG(log_level, "ref : "+str(ref))
             for dep in deps:

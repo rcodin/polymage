@@ -561,9 +561,6 @@ def align_and_scale(pipeline, group):
 
         poly_parts = info.group.polyRep.poly_parts
         parent_order = {}
-        #print ("parents:")
-        #for p in parents:
-            #print ("p", p)
         for parent in parents:
             parent_order[parent] = poly_parts[parent][0].level
             # index 0 picks the first poly part
@@ -602,7 +599,6 @@ def align_and_scale(pipeline, group):
         if comp in info.solved:
             return
         
-        print (comp.func.name)
         func_map = info.pipe.func_map
         comp_parts = info.group.polyRep.poly_parts[comp]
         all_parents = [p for p in comp.parents \
@@ -614,14 +610,11 @@ def align_and_scale(pipeline, group):
         discovered_parents = set(all_parents).difference(set(solved_pars))
         info.discovered = list(set(info.discovered).union(discovered_parents))
         
-        #print ([(str(k) + " id: " +hex(id(k)), str(func_map[k])) for k in func_map])
         # solve for each part
         for p in comp_parts:
             # collect the references to solved parents
             refs = []
-            #print ("p: ", p)
             for ref in p.refs:
-         #       print ("ref: ", ref.objectRef, "id", hex(id(ref.objectRef)))
                 if not isinstance(ref.objectRef, Image) and \
                              func_map[ref.objectRef] in solved_pars:
                     refs.append(ref)
@@ -807,7 +800,6 @@ def align_and_scale(pipeline, group):
         
         assert (base_part != None)
         base_comp = base_part.comp
-        #print ("base_comp ", base_comp.func.name)
         abs_min_parts.remove (base_part)
         
         # initial alignment and scaling for the base comp parts
@@ -845,10 +837,8 @@ def align_and_scale(pipeline, group):
                     break
                         
     
-    #print ("align scale for ", str(group)) 
     # set all the solutions into polypart object members
     for comp in comps:
-     #   print ("comp is ", comp)
         for part in group_part_map[comp]:
             # after solving, no poly part cannot not have a solution
             assert part in info.align_scale

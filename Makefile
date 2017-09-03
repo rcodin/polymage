@@ -10,7 +10,7 @@ sandbox/dpfusion.so: sandbox/dpfusion/dpfusion.cpp
 	g++ -D DEBUG=0 $(INCLUDES) $(CPPFLAGS) -O3 -o $@ $< $(LDFLAGS)
 
 debug1:	sandbox/dpfusion/dpfusion.cpp
-	g++ -D DEBUG=1 $(INCLUDES) $(CPPFLAGS) -O3 -o $@ $< $(LDFLAGS)
+	g++ -D DEBUG=1 $(INCLUDES) $(CPPFLAGS) -O3 -o sandbox/dpfusion.so $< $(LDFLAGS)
 
 debug2:	sandbox/dpfusion/dpfusion.cpp
 	g++ -D DEBUG=2 $(INCLUDES) $(CPPFLAGS) -O3 -o $@ $< $(LDFLAGS)
