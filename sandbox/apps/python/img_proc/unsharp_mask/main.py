@@ -39,8 +39,6 @@ def main():
         auto_tune(app_data)
     else:
         create_lib(build_unsharp, app, app_data)
-        input ("wait for executing")
-        input ("22222222222222")
         min_avg = 100000
         for i in range (0, 10000000):
             min_avg = min (min_avg, unsharp_mask(app_data))

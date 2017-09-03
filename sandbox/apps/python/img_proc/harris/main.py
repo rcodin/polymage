@@ -35,8 +35,6 @@ def main():
     else:
         create_lib(build_harris, app, app_data)
         _m = 10000000
-        input ("enter something to start running")
-        input("enter aaaaa")
         for i in range (0,5):
             _m = min (_m, harrispipe(app_data))
         print ("min time is ", _m)
