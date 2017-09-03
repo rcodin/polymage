@@ -1,13 +1,25 @@
-VERSION=3.4
+VERSION=3.5
 
 INCLUDES=-I/usr/include/python$(VERSION)m/ 
-CPPFLAGS=-shared -lpython3 -fPIC -O3 -std=c++11 -Wall
+CPPFLAGS=-shared -lpython3 -fPIC -std=c++11 -Wall
 LDFLAGS=-lboost_system 
 
 all: sandbox/dpfusion.so
 
 sandbox/dpfusion.so: sandbox/dpfusion/dpfusion.cpp
-	g++ $(INCLUDES) $(CPPFLAGS) -o $@ $< $(LDFLAGS)
+	g++ -D DEBUG=0 $(INCLUDES) $(CPPFLAGS) -O3 -o $@ $< $(LDFLAGS)
+
+debug1:	sandbox/dpfusion/dpfusion.cpp
+	g++ -D DEBUG=1 $(INCLUDES) $(CPPFLAGS) -O3 -o $@ $< $(LDFLAGS)
+
+debug2:	sandbox/dpfusion/dpfusion.cpp
+	g++ -D DEBUG=2 $(INCLUDES) $(CPPFLAGS) -O3 -o $@ $< $(LDFLAGS)
+	
+debug3:	sandbox/dpfusion/dpfusion.cpp
+	g++ -D DEBUG=3 $(INCLUDES) $(CPPFLAGS) -O3 -o $@ $< $(LDFLAGS)
+
+gdbdebug: sandbox/dpfusion/dpfusion.cpp
+	g++ -g -D DEBUG=3 $(INCLUDES) $(CPPFLAGS) -O0 -o $@ $< $(LDFLAGS)
 
 clean:
 	rm -f sandbox/dpfusion.so

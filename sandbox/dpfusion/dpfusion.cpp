@@ -28,17 +28,28 @@
  * Highest Level Print all messages below that level
  * No Print level 0
  * */ 
-#define DEBUG 1
 
 bool const checkForAssertions = false;
 bool const checkPythonExceptions = true;
-static bool INLINING_ENABLED = true;
+static bool INLINING_ENABLED = false;
+static bool MULTI_LEVEL_TILING_ENABLED = false;
+
+static int IMAGE_ELEMENT_SIZE = 4; //Each image element is of 4 bytes
+static uint64_t L2_CACHE_SIZE = 256*1024;  //The L2_CACHE_SIZE is 256KB
+static uint64_t L1_CACHE_SIZE = 32*1024;  //The L2_CACHE_SIZE is 32KB
+static int N_CORES = 4; //Number of Cores is 4
+
+static float DIM_STD_DEV_WEIGHT;
+static float LIVE_SIZE_TO_TILE_SIZE_WEIGHT;
+static float CLEANUP_THREADS_WEIGHT;
+static float RELATIVE_OVERLAP_WEIGHT;
+
 
 #undef INLINING
 #undef HEIRARICHAL_TILING
-#define MULTI_LEVEL_TILING
+#undef MULTI_LEVEL_TILING
 
-#define __POLYMAGE_SERVER__
+#undef __MCASTLE2_SERVER__
 
 #ifdef __PERSONAL_COMPUTER__
 static int const IMAGE_ELEMENT_SIZE = 4; //Each image element is of 4 bytes
@@ -162,9 +173,55 @@ static int const N_CORES = 4; //Number of Cores is 4
 #endif
 
 #ifdef __MCASTLE2_SERVER__
-static int const IMAGE_ELEMENT_SIZE = 4; //Each image element is of 4 bytes
-static int const L2_CACHE_SIZE = 2*512*1024;  //The L2_CACHE_SIZE is 512KB
-static int const N_CORES = 16; //Number of Cores is 16
+    static int const IMAGE_ELEMENT_SIZE = 4; //Each image element is of 4 bytes
+    static int const L2_CACHE_SIZE = 2*512*1024;  //The L2_CACHE_SIZE is 1MB per core
+    static int const N_CORES = 16; //Number of Cores is 16
+    #if defined (INLINING) && defined(HEIRARICHAL_TILING) && defined (MULTI_LEVEL_TILING)
+        static float const DIM_STD_DEV_WEIGHT = 1.5;
+        static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+        static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+        static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+        
+    #elif defined (INLINING) && defined (HEIRARICHAL_TILING)
+        static float const DIM_STD_DEV_WEIGHT = 1.5;
+        static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+        static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+        static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+        
+    #elif defined (INLINING) && defined (MULTI_LEVEL_TILING)
+        static float const DIM_STD_DEV_WEIGHT = 1.5;
+        static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1.5f;
+        static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+        static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f/1.5f;
+        
+    #elif defined (MULTI_LEVEL_TILING) && defined (HEIRARICHAL_TILING)
+        static float const DIM_STD_DEV_WEIGHT = 1.5;
+        static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+        static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+        static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+        
+    #elif defined (HEIRARICHAL_TILING)
+    //HEIRARICHAL_TILING
+        static float const DIM_STD_DEV_WEIGHT = 1.5;
+        static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1;
+        static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+        static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5;
+        
+    #elif defined (MULTI_LEVEL_TILING)
+    //MULTI_LEVEL_TILING
+        static float const DIM_STD_DEV_WEIGHT = 2;
+        static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 1.0f;
+        static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+        static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f/1.2f;
+    
+    #else
+    //INLINING defined or None of those are defined.
+        static float const DIM_STD_DEV_WEIGHT = 2;
+        static float const LIVE_SIZE_TO_TILE_SIZE_WEIGHT = 0.3f;
+        static float const CLEANUP_THREADS_WEIGHT = 100.0f;
+        static float const RELATIVE_OVERLAP_WEIGHT = 1000.0f*50.0f*1.5f;
+    #endif
+
 #endif
 
 //To Compile g++ -shared -I/usr/include/python3.4m/ -lpython3 -o optgrouping.so optgrouping_incremental.cpp -fPIC -O3 -std=c++11 -lboost_system
@@ -1084,14 +1141,16 @@ uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
         PRINT_DEBUG_BLOCK_L1
             std::cout << "pygroup " << pygroup << std::endl;
         uint64_t stg_size = 1;
-        std::cout << "dim size : ";
+        PRINT_DEBUG_BLOCK_L1
+            std::cout << "dim size : ";
         for (int i = 0; i < get_n_dimensions (pygroup); i++)
         {
             //TODO: Optimize it because for every get_dim_reuse_for_pygroup call
             //dict and list are accessed again. Make them access only once 
             //and then iterate over list
             uint64_t __size = get_dim_size_for_pygroup (pygroup, i);
-            std::cout << "(dim: " << i << ", size: " << __size << ")" << std::endl;
+            PRINT_DEBUG_BLOCK_L1
+                std::cout << "(dim: " << i << ", size: " << __size << ")" << std::endl;
             stg_size *= __size;
         }
         std::cout << std::endl;
@@ -1145,25 +1204,52 @@ inline int64_t dim_size_std_dev (std::vector <std::vector <uint64_t> >& dim_size
     
     double sum_mean_dim = std::accumulate (mean.begin(), mean.end (), 0.0);
     double sum_mean_diff = std::accumulate (mean_diff.begin(), mean_diff.end (), 0.0);
-    std::cout <<"mean sum" << std::accumulate (mean.begin(), mean.end (), 0.0) << " mean_diff sum " <<std::accumulate (mean_diff.begin(), mean_diff.end (), 0.0) <<std::endl;
+    PRINT_DEBUG_BLOCK_L1
+        std::cout <<"mean sum" << std::accumulate (mean.begin(), mean.end (), 0.0) << " mean_diff sum " <<std::accumulate (mean_diff.begin(), mean_diff.end (), 0.0) <<std::endl;
     if (sum_mean_diff == 0)
     {
-        #ifdef __MCASTLE1_SERVER__
-            return 500;
-        #else
-            #ifdef __POLYMAGE_SERVER__
-                #if defined (INLINING) && defined (MULTI_LEVEL_TILING)
-                    return 0;
-                #elif defined (MULTI_LEVEL_TILING)
-                    if (dim_size_diff.size () == 11)
-                        return -4000;
-                #else
-                    return 1200;
-                #endif
-            #else
+        if (L2_CACHE_SIZE == 256*1024 and L1_CACHE_SIZE == 32*1024)
+        {
+            if (INLINING_ENABLED == true and MULTI_LEVEL_TILING_ENABLED == true)
                 return 0;
-            #endif
-        #endif
+            else if (MULTI_LEVEL_TILING_ENABLED == true)
+            {
+                if (dim_size_diff.size () == 11)
+                {
+                    return -4000;
+                }
+            }
+            else
+                return 1200;
+        }
+        else if (L2_CACHE_SIZE == 256*1024 and L1_CACHE_SIZE == 16*1024)
+        {
+            if (INLINING_ENABLED)
+                return 0;
+            else if (MULTI_LEVEL_TILING_ENABLED)
+            {
+                 if (dim_size_diff.size () == 11)
+                    return -4500;
+            }
+            else
+                if (dim_size_diff.size () == 11)
+                    return -6000;
+        }
+        else if (L2_CACHE_SIZE == 1024*1024)
+        {
+            if (INLINING_ENABLED)
+                return 0;
+            else if (MULTI_LEVEL_TILING_ENABLED)
+            {
+                 if (dim_size_diff.size () == 11)
+                    return -4500;
+            }
+            else
+                if (dim_size_diff.size () == 11)
+                    return -6000;
+        }
+        else
+            return 0;
     }
     
     if (sum_mean_diff/sum_mean_dim > 0.1f)
@@ -1692,10 +1778,27 @@ inline uint64_t cost (uint128_t hash_id, std::vector <uint64_t>& tile_sizes)
             std::cout << std::endl;
         }
     }
+    
     if (INLINING_ENABLED)
         update_graph_with_inlining (inlined_groups, new_nextGroups, 
                                     new_prevGroups, hash_id);
+    
+    for (auto &it : new_nextGroups)
+    {
+        Group* g = it.first;
         
+        for (auto &next : it.second)
+        {
+            if ((hash_id & g->hashID ()) == g->hashID () && 
+                (hash_id & next->hashID ()) == next->hashID () &&
+                get_n_dimensions (g->getPyGroup ()) < get_n_dimensions (next->getPyGroup ()))
+            {
+                
+                return -1;
+            }
+        }
+    }
+    
     uint64_t totalsizeused = getTotalSizeUsed (hash_id, n_buffers, 
                                                liveouts_size, liveins_size,
                                                inlined_groups, new_nextGroups, 
@@ -1813,9 +1916,10 @@ inline uint64_t cost (uint128_t hash_id, std::vector <uint64_t>& tile_sizes)
     PRINT_DEBUG_BLOCK_L1
         std::cout << "total cost " << _cost << std::endl;
         
+    
     if (total_comps <= grp_size)
     {
-       return _cost ;
+       return _cost;
     }
     
     return -1;
@@ -2750,17 +2854,36 @@ PyObject* dpgroup(PyObject* self, PyObject* args)
     PyObject *out_group;
     PyObject *groups;    
     PyObject *do_inline;
+    PyObject *multi_level_tiling;
     
     std::vector <PyObject*> pygroups_vector;
     
-    std::cout<<"PolyMage+ grouping " << std::endl;
-    int ee;
-    PRINT_DEBUG_L1(std::cin >> ee);
-    PRINT_DEBUG_L1 (std::cin >> ee);
-    PyArg_ParseTuple (args, "OOOOOOOOOOOOOOO", &in_group, &out_group, &groups, &pipeline, 
+    std::cerr<<"Running DP Fusion " << std::endl;
+    
+    PyArg_ParseTuple (args, "OOOOOOOOOOOOOOOOllllffff", &in_group, &out_group, &groups, &pipeline, 
                       &reduction_cls, &small_comps, &comp_size_map, &tstencil_cls,
                       &pygroup_topological_order, &pygroup_dim_reuse, &pylive_size,
-                      &pydim_size, &storage_mapping_get_dim_size, &cls_Storage, &do_inline);
+                      &pydim_size, &storage_mapping_get_dim_size, &cls_Storage, 
+                      //Optimization Parameters (Inlining, MultiLevelTiling)
+                      &do_inline, &multi_level_tiling,
+                      //Machine Info
+                      &L1_CACHE_SIZE, &L2_CACHE_SIZE, &N_CORES, &IMAGE_ELEMENT_SIZE,
+                      //Weights
+                      &DIM_STD_DEV_WEIGHT, &LIVE_SIZE_TO_TILE_SIZE_WEIGHT, 
+                      &CLEANUP_THREADS_WEIGHT, &RELATIVE_OVERLAP_WEIGHT);
+    
+    std::cerr << "Machine Information:" << std::endl << 
+    "L1_CACHE_SIZE       "<< L1_CACHE_SIZE      << " Bytes" << std::endl <<
+    "L2_CACHE_SIZE       "<< L2_CACHE_SIZE      << " Bytes" << std::endl << 
+    "N_CORES             "<< N_CORES            << std::endl <<
+    "IMAGE_ELEMENT_SIZE  "<< IMAGE_ELEMENT_SIZE << std::endl << std::endl;
+    
+    std::cerr << "Weights: "<< std::endl << 
+    "DIM_STD_DEV_WEIGHT            " << DIM_STD_DEV_WEIGHT            << std::endl << 
+    "LIVE_SIZE_TO_TILE_SIZE_WEIGHT " << LIVE_SIZE_TO_TILE_SIZE_WEIGHT << std::endl << 
+    "CLEANUP_THREADS_WEIGHT        " << CLEANUP_THREADS_WEIGHT        << std::endl <<
+    "RELATIVE_OVERLAP_WEIGHT       " << RELATIVE_OVERLAP_WEIGHT       << std::endl << std::endl;
+                      
     get_overlapping_size_func = PyObject_GetAttr (pipeline, 
                                                   Py_BuildValue ("s", 
                                                   "get_overlapping_size_for_groups"));
@@ -2770,6 +2893,23 @@ PyObject* dpgroup(PyObject* self, PyObject* args)
         INLINING_ENABLED = false;
     else
         assert (false);
+    
+    if (multi_level_tiling == Py_True)
+        MULTI_LEVEL_TILING_ENABLED = true;
+    else if (multi_level_tiling == Py_False)
+        MULTI_LEVEL_TILING_ENABLED = false;
+    else
+        assert (false);
+    
+    if (INLINING_ENABLED)
+        std::cerr << "INLINING           ENABLED" << std::endl;
+    else
+        std::cerr << "INLINING           DISABLED" << std::endl;
+        
+    if (MULTI_LEVEL_TILING_ENABLED)
+        std::cerr << "MULTI_LEVEL_TILING ENABLED" << std::endl;
+    else
+        std::cerr << "MULTI_LEVEL_TILING DISABLED" << std::endl;
     
     if (PyList_Size (in_group) == 1)
     {

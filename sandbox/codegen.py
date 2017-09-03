@@ -489,7 +489,7 @@ def generate_c_naive_from_isl_ast(pipe, polyrep, node, body, cparam_map,
                 node.for_get_body().get_type () != isl._isl.ast_node_type.for_):
 
                 name = str(user_nodes[0].user_get_expr().get_op_arg(0).get_id())
-                name = name[:name.find("_")]
+                name = name[:name.rfind("_")]
                 
                 comp_in_fused_comps = False
                 
@@ -600,38 +600,38 @@ def generate_c_naive_from_isl_ast(pipe, polyrep, node, body, cparam_map,
                 log_loop_start(var, indent)
                 var_inc = isl_expr_to_cgen(node.for_get_inc())
                 incr = genc.CAssign(var, var+var_inc)
-                if prologue is not None:
-                    for s in prologue:
-                        body.add(s)
+                #if prologue is not None:
+                #    for s in prologue:
+                #        body.add(s)
         
-                prologue = []
+                #prologue = []
                 init = isl_expr_to_cgen(node.for_get_init(), prologue)
-                if prologue is not None:
-                    for s in prologue:
-                        body.add(s)
+                #if prologue is not None:
+                #    for s in prologue:
+                #        body.add(s)
                 var_decl =  genc.CDeclaration(var.typ, var, init)
                 loop = genc.CFor(var_decl, cond, incr)
 
-                # Check if the loop is a parallel or a vector dimension by
-                # examining the loop body.
-                dim_parallel = is_sched_dim_parallel(polyrep, user_nodes, var.name)
-                dim_vector = is_sched_dim_vector(polyrep, user_nodes, var.name)
-                arrays = get_arrays_for_user_nodes(pipe, polyrep, user_nodes)
+                ## Check if the loop is a parallel or a vector dimension by
+                ## examining the loop body.
+                #dim_parallel = is_sched_dim_parallel(polyrep, user_nodes, var.name)
+                #dim_vector = is_sched_dim_vector(polyrep, user_nodes, var.name)
+                #arrays = get_arrays_for_user_nodes(pipe, polyrep, user_nodes)
             
-                if dim_parallel:
-                    omp_par_str = "omp parallel for schedule(static)"
-                    if n_ploops > 1:
-                        outer_loop = perfect_loopnest[0]
-                        # outer loop
-                        if node == outer_loop:
-                            omp_par_str += " collapse("+str(n_ploops)+")"
-                    omp_pragma = genc.CPragma(omp_par_str)
-                    body.add(omp_pragma)
-                if dim_vector:
-                    vec_pragma = genc.CPragma("ivdep")
-                    body.add(vec_pragma)
+                #if dim_parallel:
+                    #omp_par_str = "omp parallel for schedule(static)"
+                    #if n_ploops > 1:
+                        #outer_loop = perfect_loopnest[0]
+                        ## outer loop
+                        #if node == outer_loop:
+                            #omp_par_str += " collapse("+str(n_ploops)+")"
+                    #omp_pragma = genc.CPragma(omp_par_str)
+                    #body.add(omp_pragma)
+                #if dim_vector:
+                    #vec_pragma = genc.CPragma("ivdep")
+                    #body.add(vec_pragma)
         
-                body.add(loop)
+                #body.add(loop)
         
                 # Assuming only one parallel dimension and a whole lot
                 # of other things.
@@ -1036,44 +1036,57 @@ def generate_code_for_group(pipeline, g, body, alloc_arrays,
     #A list of dictionary of comps which should be fused in the innermost loop
     #Each dictionary is the key value pair (comp name, (inlined earlier, cgen loop))
     fused_comps = []
-    #for liveout in g.liveouts:
-    #    queue = [liveout]
-    #    while len(queue) != 0:
-    #        queue.append ()
     
-    rev_sorted_comps = list(sorted_comps).reverse()
-    
-    comps_with_same_parent = {}
-    for comp in sorted_comps:
-        comps_with_same_parent[comp] = set()
+    if ("fuse-for-reg-reuse" in pipeline.options):
+        rev_sorted_comps = list(sorted_comps).reverse()
         
-    initial_comps = []
-    
-    for comp in sorted_comps:
-        for child1 in comp.children:
-            if (len(child1.parents) == 1):
-                for child2 in comp.children:
-                    if (len(child2.parents) == 1 and 
-                        child1 not in child2.parents):
-                        comps_with_same_parent [child1].add (child2)
+        comps_with_same_parent = {}
+        for comp in sorted_comps:
+            comps_with_same_parent[comp] = set()
+            
+        initial_comps = []
+        set_children_traversed = set()
         
-        if (len(comp.parents) == 0):
-            initial_comps.append (comp)
-    
-    for comp in comps_with_same_parent:
-        comps_to_fuse = {}
-        for comp_to_fuse in comps_with_same_parent[comp]:
-            if True: #TODO Check for register reuse
-                comps_to_fuse[comp_to_fuse.func.name] = (False, None)
-                
-        fused_comps.append (comps_to_fuse)
-    
-    initial_comps_to_fuse = {}
-    for comp in initial_comps:
-        #TODO check for register reuse
-        initial_comps_to_fuse[comp.func.name] = (False, None)
+        for comp in sorted_comps:
+            for child1 in comp.children:
+                if (child1 in sorted_comps):
+                    for child2 in comp.children:
+                        if (child1.func.name not in ["g_gr", "g_gb"] and #TODO: Check for register reuse
+                            child2.func.name not in ["g_gr", "g_gb"] and 
+                            child1 != child2 and child2 in sorted_comps and 
+                            child1 not in child2.parents and
+                            child2 not in child1.parents and 
+                            set(child1.parents) == set(child2.parents) and
+                            child1 not in set_children_traversed):
+                            
+                            comps_with_same_parent [child1].add (child2)
+                            set_children_traversed.add (child2)
+                            
+                    set_children_traversed.add (child1)
+                    
+            if (len(comp.parents) == 0):
+                initial_comps.append (comp)
         
-    fused_comps.append (initial_comps_to_fuse)
+        for comp in comps_with_same_parent:
+            print (comp.func.name, [c.func.name for c in comps_with_same_parent[comp]])
+            if (len(comps_with_same_parent[comp]) != 0):
+                comps_to_fuse = {}
+                comps_to_fuse[comp.func.name] = (False, None)
+                for comp_to_fuse in comps_with_same_parent[comp]:
+                    if True: #TODO Check for register reuse and also if their dimensions
+                        #are same
+                        comps_to_fuse[comp_to_fuse.func.name] = (False, None)
+                        
+                fused_comps.append (comps_to_fuse)
+        
+        initial_comps_to_fuse = {}
+        for comp in initial_comps:
+            #TODO check for register reuse and if their references point to same
+            #parent function and if their dimensions are also same
+            initial_comps_to_fuse[comp.func.name] = (False, None)
+            
+        fused_comps.append (initial_comps_to_fuse)
+        print (fused_comps)
     
     for comp in sorted_comps:
         func = comp.func
@@ -1123,7 +1136,6 @@ def generate_code_for_group(pipeline, g, body, alloc_arrays,
                    " of object:"+str(func.name) and \
                    False)
     
-    print ("polyrep", [(c, g.polyRep.poly_parts[c]) for c in g.polyRep.poly_parts])
     # 2. generate code for built isl ast
     polyrep = g.polyRep
     if polyrep.polyast != []:

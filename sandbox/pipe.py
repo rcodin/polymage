@@ -92,16 +92,23 @@ elif (MACHINE_TYPE == 'mcastle2'): #AMD Opteron machine
     #global IMAGE_ELEMENT_SIZE, L2_CACHE_SIZE, N_CORES, TILING_THRESHOLD, VECTOR_WIDTH_THRESHOLD
     #For mcastle
     IMAGE_ELEMENT_SIZE = 4
-    L2_CACHE_SIZE = int(2*512*1024/IMAGE_ELEMENT_SIZE)
+    L2_CACHE_SIZE = int(1024*1024/IMAGE_ELEMENT_SIZE)
+    #TODO: In case of multi level tiling L2_CACHE_SIZE must be set to 256KB
+    #It is automatically set to 256KB in MachineInformation class
     N_CORES = 16
     TILING_THRESHOLD = 1
     VECTOR_WIDTH_THRESHOLD = 64 #TODO: 
     L2_INNER_MOST_DIM_SIZE = 256
     L1_INNER_MOST_DIM_SIZE = 128
     L1_CACHE_SIZE = int(16*1024/IMAGE_ELEMENT_SIZE)
+    #TODO: For harris L1 Cache is 32KB, correct it in the implementation that
+    #in multi-level tiling for harris (i.e. L1 tile in L2 tile) 
+    #the size of _TL1_i0 should be atleast 5.
     OUTER_DIM_TILING_THRESH = 4
     THRESHOLD_TILE_SIZE = 4
 
+
+        
     
 def get_next_power_of_2 (num):
     num -= 1
@@ -592,7 +599,11 @@ class Group:
         self._ctx = _ctx
         self._inline_comps = []
         self._inline_in_all_children = None
+        self._threads = -1
         
+    @property
+    def threads(self):
+        return self._threads
     @property
     def tile_sizes(self):
         return self._tile_sizes
@@ -1435,13 +1446,14 @@ class Group:
 
     def get_tile_sizes_for_cache_size (self, param_estimates, slope_min,
                                        slope_max, group_parts, dim_reuse, 
-                                       dim_sizes, CACHE_SIZE, LAST_DIM_SIZE):
+                                       dim_sizes, CACHE_SIZE, LAST_DIM_SIZE,
+                                       cores):
         '''Returns the tile sizes for each dimension found
             and tile_size 
         '''
         tile_sizes = {}
         total_used_size = self._total_used_size/IMAGE_ELEMENT_SIZE
-        tile_size = total_used_size/N_CORES
+        tile_size = total_used_size/cores
         if (tile_size > CACHE_SIZE):
             tile_size = CACHE_SIZE
         tile_size = tile_size/self._n_buffers
@@ -1504,12 +1516,16 @@ class Group:
         print ('outer_tileable_dim ', outer_tileable_dim)
         tile_sizes [last_tileable_dim] = min (dim_sizes[last_tileable_dim], LAST_DIM_SIZE)
         remaining_tile_size = tile_size/tile_sizes [last_tileable_dim]
+        print ("remaining_tile_size", remaining_tile_size)
+
         #for s in zero_dim_reuse_size:
             #remaining_tile_size = remaining_tile_size/s
         
         if (outer_tileable_dim != -1 and dim_sizes[outer_tileable_dim] != 0):
             remaining_tile_size = remaining_tile_size/dim_sizes[outer_tileable_dim]
-            
+
+        print ("remaining_tile_size1", remaining_tile_size)
+
         for i in range (len(slope_min)):
             if (self.is_dim_tileable (i, slope_min, dim_sizes) and 
                 i != last_tileable_dim and i != outer_tileable_dim):
@@ -1526,7 +1542,9 @@ class Group:
                     max_dim_tile_size = max_dim_tile_size * (max_dim_reuse/dim_reuse [i])
                 else:
                     n_zero_dims +=1
-                    
+        
+        print ("max_dim_tile_size", max_dim_tile_size)
+        
         if (n_non_zero_dims > 0):
             max_dim_tile_size = max_dim_tile_size ** (1.0/n_non_zero_dims)
                     
@@ -1535,7 +1553,7 @@ class Group:
                     i != last_tileable_dim and i != outer_tileable_dim):
                     if (dim_reuse[i] != 0):
                         tile_sizes [i] = int(max_dim_tile_size * dim_reuse[i]/max_dim_reuse)
-                        
+                        print ("tile_sizes [i]", tile_sizes [i])
                         if (tile_sizes [i] > dim_sizes [i]):
                             tile_sizes [i] = dim_sizes [i]
         
@@ -1575,6 +1593,7 @@ class Group:
             
     def get_tile_sizes (self, param_estimates, slope_min, slope_max, group_parts, 
                         h, func_map, use_only_l2 = False, multi_level_tiling = False):
+        global L2_CACHE_SIZE
         print ("get_tile_sizes for ", self)
         #self._tile_sizes = {1:8, 2:256}
         #print ("total_size ", self._total_used_size/IMAGE_ELEMENT_SIZE)
@@ -1587,13 +1606,18 @@ class Group:
         if (self._total_used_size == -1):
             #print (self)
             assert (False)
-
+        
+        #if (use_only_l2):
+        #    L2_CACHE_SIZE = int(256*1024/4)
+            
         tileable_dims = set()
         tile_size = 0
         dim_reuse = [i*IMAGE_ELEMENT_SIZE for i in self.get_dimensional_reuse (param_estimates, func_map)]
         print ("total used size for ", self, " is ", self._total_used_size)
         dim_sizes = {}
-        
+        #if ("blury" in str(self)):
+            #multi_level_tiling = False
+            
         for i in range(1, len(slope_min) + 1):
             # Check if every part in the group has enough iteration
             # points in the dimension to benefit from tiling.
@@ -1601,16 +1625,20 @@ class Group:
             for part in group_parts:
                 lower_bound = part.sched.range().dim_min(i)
                 upper_bound = part.sched.range().dim_max(i)
+                print ("lower_bound ", lower_bound, " upper_bound ", upper_bound)
                 size = upper_bound.sub(lower_bound)
                 if (size.is_cst() and size.n_piece() == 1):
                     aff = (size.get_pieces())[0][1]
                     val = aff.get_constant_val()
-                    print (val, i-1)
                     if (val > TILING_THRESHOLD):
                         if i-1 in dim_sizes:
                             dim_sizes[i-1] = max (val.to_python(), dim_sizes[i-1])
                         else:
                             dim_sizes[i-1] = val.to_python()
+                        if (i-1 == 3):
+                            #TODO: Correct this for z dimension of blurz, blurx, blury in bilateral_grid
+                            #Use compute size instead of this way
+                            dim_sizes[i-1] = 14
                     else:
                         if i-1 not in dim_sizes:
                             dim_sizes [i-1] = 0
@@ -1635,11 +1663,27 @@ class Group:
         #    or (multi_level_tiling and not overlap_shifts_zero)):
         if (not multi_level_tiling):
             if (not use_only_l2):
+                tile_size_less_than_l1 = False
+                cores = N_CORES
+                total_used_size = self._total_used_size/IMAGE_ELEMENT_SIZE
+                tile_size = total_used_size/cores
+                print ("tile_vol for 16 cores", tile_size)
+                if (tile_size < L1_CACHE_SIZE):
+                    tile_size_less_than_l1 = True
+                    cores = int(total_used_size/L1_CACHE_SIZE)
+                    if (cores <= 1):
+                        cores = 2
+                
                 #try with L1 Cache
                 tile_sizes, tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
                     slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
-                    L1_CACHE_SIZE, L1_INNER_MOST_DIM_SIZE)
+                    L1_CACHE_SIZE, L1_INNER_MOST_DIM_SIZE, cores)
                 
+                if (tile_size_less_than_l1):
+                    self._tile_sizes = tile_sizes
+                    print ("tile_size_less_than_l1=True tile_sizes from L1", tile_sizes, "cores", cores)
+                    return tile_size
+                    
                 overlap_shift_greater = False
                 
                 for i in tile_sizes.keys ():
@@ -1661,7 +1705,7 @@ class Group:
                         #threshold_tile_size_met = False
                         #break
                         
-                print ("tile_sizes from L1 ", tile_sizes)
+                print ("tile_sizes from L1 cores", tile_sizes, cores)
                 
                 if (not overlap_shift_greater and threshold_tile_size_met):
                     self._tile_sizes = tile_sizes
@@ -1672,21 +1716,38 @@ class Group:
 
             tile_sizes, tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
                 slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
-                L2_CACHE_SIZE, L2_INNER_MOST_DIM_SIZE)
+                L2_CACHE_SIZE, L2_INNER_MOST_DIM_SIZE, N_CORES)
             
             print ("tile_sizes from L2 ", tile_sizes)
             self._tile_sizes = tile_sizes
             
             if ("denoised" in str(self)):
                 #TODO: denoised group requires even tile size in dimension 0
-                self._tile_sizes[0] += 1
+                self._tile_sizes[0] -= 1
                 
             return tile_size
             
         else:
+            tile_size_less_than_l1 = False
+            cores = N_CORES
+            total_used_size = self._total_used_size/IMAGE_ELEMENT_SIZE
+            _tile_size = total_used_size/cores
+            print ("tile_vol for 16 cores", tile_size)
+            if (_tile_size < L1_CACHE_SIZE):
+                tile_size_less_than_l1 = True
+                cores = int(total_used_size/L1_CACHE_SIZE)
+                if (cores <= 1):
+                    cores = 2
+            
+            #try with L1 Cache
             l1tile_sizes, l1tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
                 slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
-                L1_CACHE_SIZE, L1_INNER_MOST_DIM_SIZE)
+                L1_CACHE_SIZE, L1_INNER_MOST_DIM_SIZE, cores)
+            
+            if (tile_size_less_than_l1):
+                self._tile_sizes = l1tile_sizes
+                print ("tile_size_less_than_l1=True tile_sizes from L1", l1tile_sizes, "cores", cores)
+                return l1tile_size
             
             overlap_shift_greater = False
             overlap_shifts = {}
@@ -1736,7 +1797,7 @@ class Group:
                     #dim_reuse.pop (last_dim)
                     tile_sizes, tile_size = self.get_tile_sizes_for_cache_size(param_estimates, 
                         slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
-                        L2_CACHE_SIZE, last_dim_size)
+                        L2_CACHE_SIZE, last_dim_size, N_CORES)
                     
                     #dim_with_max_reuse = max(dim_reuse.iterkeys (), key=(lambda key:dim_reuse[key]))
                     #max_dim_reuse = dim_reuse[dim_with_max_reuse]
@@ -1749,16 +1810,20 @@ class Group:
                 #and then generate an L1 tile size
                 tile_sizes, tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
                     slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
-                    L2_CACHE_SIZE, L2_INNER_MOST_DIM_SIZE)
+                    L2_CACHE_SIZE, L2_INNER_MOST_DIM_SIZE, N_CORES)
                 
                 l1tile_sizes, l1tile_size = self.get_tile_sizes_for_cache_size (param_estimates, 
                     slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
-                    L1_CACHE_SIZE, L1_INNER_MOST_DIM_SIZE)
+                    L1_CACHE_SIZE, L2_INNER_MOST_DIM_SIZE, N_CORES)
                     
             if (tile_sizes != l1tile_sizes):
                 tile_sizes_keys = list(tile_sizes.keys ())
                 print ("tile_sizes ", tile_sizes, l1tile_sizes)
                 for k in tile_sizes_keys:
+                    if (0 in tile_sizes):
+                        tile_sizes [0] = min (50, tile_sizes[0])
+                    elif (1 in tile_sizes):
+                        tile_sizes [1] = min (64, tile_sizes[1])
                     if (k in l1tile_sizes and tile_sizes[k] >= l1tile_sizes[k]):
                         if ((l1tile_sizes[k] == 16 or l1tile_sizes[k] == 256) and 
                             "filtered" in str(self)): 
@@ -1771,12 +1836,18 @@ class Group:
                             l1tile_sizes[k] -= 1
                         if ("denoised" in str(self)):
                             if (l1tile_sizes[k] %2 == 1):
-                                l1tile_sizes[k] += 1
+                                l1tile_sizes[k] -= 1
                             if (tile_sizes[k] %2 == 1):
-                                tile_sizes[k] += 1
-                                
+                                tile_sizes[k] -= 1
+                        
                         tile_sizes["L1"+str(k)] = l1tile_sizes[k]
                 
+                if ("interpolated" in str(self) and "filtered" in str(self)):
+                    #TODO: Correct this
+                    tile_sizes[1] = 42*4
+                if ("blury" in str(self) and "blurx" in str(self) and "blurz" in str(self)):
+                    tile_sizes[1] = 19*2
+                    tile_sizes[2] = 25*2
             #if (len (self.comps) == 4):
                 #if (1 in l1tile_sizes):
                 #    For Bilateral Grid
@@ -1806,6 +1877,158 @@ class Group:
 
 
 class Pipeline:
+    class MachineInformation:
+        @staticmethod
+        def get_dpfusion_weights (machine, is_inlining, is_heirarichal_tiling,
+                                  is_multi_level_tiling):
+            to_ret = {}
+            if (machine == 'polymage'):
+                if is_inlining and is_heirarichal_tiling and is_multi_level_tiling:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 1.5;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 1.0;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] = 100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0*1.5;
+                    
+                elif is_inlining and is_heirarichal_tiling:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 1.5;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 1.0;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] = 100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0*1.5;
+                    
+                elif is_inlining and is_multi_level_tiling:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 1.5;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 1.5;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] = 100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0/1.5;
+                
+                elif is_multi_level_tiling and is_heirarichal_tiling:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 1.5;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 1.0;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] = 100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0*1.5;
+                    
+                elif is_inlining:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 1.5;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 1.0;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] = 100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0*1.5;
+                    
+                elif is_heirarichal_tiling:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 1.5;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 1.0;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] = 100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0*1.5;
+                    
+                elif is_multi_level_tiling:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 1.5;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 1.5;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] = 100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0/1.5;
+                    
+                else:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 1.5;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 1.0;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] =100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0*1.5;
+            
+            elif (machine == 'mcastle2'):
+                if (is_multi_level_tiling):
+                    global L2_CACHE_SIZE
+                    #In case of multi level tiling L2_CACHE_SIZE is set to 256KB
+                    #the weights are also for that cache size
+                    L2_CACHE_SIZE = int(256*1024/IMAGE_ELEMENT_SIZE)
+                if is_inlining and is_heirarichal_tiling and is_multi_level_tiling:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 1.5;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 1.0;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] = 100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0*1.5;
+                    
+                elif is_inlining and is_heirarichal_tiling:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 1.5;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 1.0;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] = 100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0*1.5;
+                    
+                elif is_inlining and is_multi_level_tiling:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 2.0;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 1.0;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] = 100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0/1.2;
+                
+                elif is_multi_level_tiling and is_heirarichal_tiling:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 1.5;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 1.0;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] = 100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0*1.5;
+                    
+                elif is_inlining:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 1.5;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 1.0;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] = 100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0*1.5;
+                    
+                elif is_heirarichal_tiling:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 1.5;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 1.0;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] = 100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0*1.5;
+                    
+                elif is_multi_level_tiling:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 2.0;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 1.0;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] = 100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0/1.2;
+                    
+                else:
+                    to_ret["DIM_STD_DEV_WEIGHT"] = 2.0;
+                    to_ret["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"] = 0.3;
+                    to_ret["CLEANUP_THREADS_WEIGHT"] =100.0;
+                    to_ret["RELATIVE_OVERLAP_WEIGHT"] = 1000.0*50.0*1.5;
+            else:
+                raise Exception ("Unknown Machine. Enter Weights for the new machine")
+                
+            return to_ret
+        @staticmethod
+        def get_dim_std_dev_weight (is_inlining, is_heirarichal_tiling,
+                                    is_multi_level_tiling):
+            return Pipeline.MachineInformation.get_dpfusion_weights (MACHINE_TYPE, 
+                                                            is_inlining, 
+                                                            is_heirarichal_tiling,
+                                                            is_multi_level_tiling) ["DIM_STD_DEV_WEIGHT"]
+        @staticmethod
+        def get_live_to_tile_size_weight (is_inlining, is_heirarichal_tiling,
+                                          is_multi_level_tiling):
+            return Pipeline.MachineInformation.get_dpfusion_weights (MACHINE_TYPE, 
+                                                            is_inlining,
+                                                            is_heirarichal_tiling,
+                                                            is_multi_level_tiling) ["LIVE_SIZE_TO_TILE_SIZE_WEIGHT"]
+        @staticmethod
+        def get_cleanup_threads_weight (is_inlining, is_heirarichal_tiling,
+                                        is_multi_level_tiling):
+            return Pipeline.MachineInformation.get_dpfusion_weights (MACHINE_TYPE, 
+                                                            is_inlining, 
+                                                            is_heirarichal_tiling,
+                                                            is_multi_level_tiling) ["CLEANUP_THREADS_WEIGHT"]
+        @staticmethod                                 
+        def get_relative_overlap_weight (is_inlining, is_heirarichal_tiling,
+                                         is_multi_level_tiling):
+            print ("is_multi_level_tiling ", is_multi_level_tiling)
+            return Pipeline.MachineInformation.get_dpfusion_weights (MACHINE_TYPE, 
+                                                            is_inlining, is_heirarichal_tiling,
+                                                            is_multi_level_tiling) ["RELATIVE_OVERLAP_WEIGHT"]
+        @staticmethod
+        def get_machine_l1_cache_size ():
+            return L1_CACHE_SIZE
+        @staticmethod
+        def get_machine_l2_cache_size ():
+            return L2_CACHE_SIZE
+        @staticmethod
+        def get_machine_ncores ():
+            return N_CORES
+        @staticmethod    
+        def get_machine_image_element_size ():
+            return IMAGE_ELEMENT_SIZE
+            
     def __init__(self, _ctx, _outputs,
                  _param_estimates, _param_constraints,
                  _grouping, _group_size, _inline_directives,
@@ -2015,22 +2238,19 @@ class Pipeline:
         print ("get_overlapping_size_for_groups for ", [g.comps[0].func.name for g in groups])
         img1 = False
         img2 = False
-        denoised = False
-        #TODO: To solve
+
         for g in groups:
             if (g.comps[0].func.name.find("img1") != -1):
                 img1 = True
             elif (g.comps[0].func.name.find("img2") != -1):
                 img2 = True
-            elif (g.comps[0].func.name.find("denoised") != -1):
-                denoised = True
-            #elif (g.comps[0].func.name.find("deinterleaved") != -1):
-            #    deinterleaved = True
-        if ((img1 and img2) or (denoised and not self.do_inline)):
+            
+        if (img1 and img2):
+            #TODO: Special Case for Pyramid Blend. Otherwise, it groups Dx_img1 and
+            #Dx_img2, which should not happen since both takes different input images.
+            #However, in Harris it is good to group both Ix and Iy group as they
+            #take same input images.
             return -1, 0
-        for c in inlined_comps:
-            if (c.func.name.find ("deinterleaved") != -1):
-                assert False, "deinterleaved in inlined_comps in " + str([str(g) for g in groups])
                 
         #if (denoised and deinterleaved and len(groups) > 2):
         #    return -1, 0
@@ -2132,6 +2352,7 @@ class Pipeline:
             #print ("overlap_shift ", overlap_shift)
             print ("overlap_shift ", overlap_shift, "det_tile_size " , det_tile_size)
             return overlap_shift/1.6, det_tile_size
+            #return 0, det_tile_size
         
         if len (comp_deps) <= 0:
             return 1 << 30, 1 #For Pyramid Blend UnComment
