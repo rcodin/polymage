@@ -2567,7 +2567,6 @@ void detect_and_destroy_cycles ()
         int cycle_length = 0;
         
         change = false;
-        memset (cycle, sizeof (OptGroup*)*n_vertices, 0);
         
         for(auto const &iter: OptGroup::parentOptGroupsToHashID)
         {
