@@ -30,8 +30,8 @@ def init_images(app_data):
     rowdiff = 2560
     coldiff = 1536
 
-    row_base = (rows-rowdiff)/2
-    col_base = (cols-coldiff)/2
+    row_base = int((rows-rowdiff)/2)
+    col_base = int((cols-coldiff)/2)
     image_region = img[row_base:row_base+rows, \
                      col_base:col_base+cols]
     
