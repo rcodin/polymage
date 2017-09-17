@@ -245,6 +245,48 @@ PyObject* get_overlapping_size_func;
 
 long grp_size;
 
+/*Map of Adjacent Vertices for a group. */
+typedef std::unordered_map<Group*, std::set <Group*, Group::GroupComparer>, 
+                            Group::GroupHasher> InlinedAdjacentType;
+/*Table of costs for hash ids*/
+std::unordered_map<uint128_t, uint64_t, uint128Hasher> T;
+
+/*Table of Group for a hash ids */
+std::unordered_map<uint128_t, Group*, uint128Hasher> Group::hashIDToGroup;
+/*Table of OptGroup for hash ids*/
+std::unordered_map<uint128_t, OptGroup*, uint128Hasher> OptGroup::optHashIDToGroup;
+/*Table of hash id to its optimal hash id found*/
+std::unordered_map<uint128_t, uint128_t, uint128Hasher> hashIDToOptHashID;
+/*Table of PyObject to Group*/
+std::unordered_map<PyObject*, Group*> pyToGroup;
+/*Set of small computations*/
+std::unordered_set<PyObject*, PyObjectHasher, PyObjectPred> small_comps_set;
+/* */
+std::unordered_map<uint128_t, OptGroup*, uint128Hasher> OptGroup::parentOptGroupsToHashID;
+/*Table of tile sizes (in form of vector) found for hashid*/
+std::unordered_map<uint128_t, std::vector<uint64_t>, uint128Hasher> optHashIDToTileSizes;
+/*Table of ComputeObject (of Python) to Group (of Python)*/
+std::unordered_map<PyObject*, PyObject*> pyGroupForComp;
+/*Table of ComputeObject to original Storage Class*/
+std::unordered_map<PyObject*, PyObject*> comp_to_orig_storage;
+/*Table of storage class to key*/
+std::unordered_map<PyObject*, string> stg_class_to_key;
+/*Table of ComputeObject to Function (of Python)*/
+std::unordered_map<PyObject*, PyObject*> comp_to_func;
+/*Table of Function (of Python) to its type*/
+std::unordered_map<PyObject*, PyObject*> func_to_typ;
+/*Table of Function to number of dimensions*/
+std::unordered_map<PyObject*, long> func_to_ndims;
+/*Table of Computation Object to maximum offsets*/
+std::unordered_map<PyObject*, vector<long> > comp_to_max_offsets;
+/* */
+std::unordered_map<PyObject*, vector<PyObject*> > helper_storage_to_dim_storage;
+/*Vector of all OptGroups found in current iterations*/
+vector<OptGroup*> OptGroup::vectorOptGroups;
+
+/**
+ * Hash function fo PyObject*
+ * */
 struct PyObjectHasher
 {
     uint64_t operator() (const PyObject* obj) const
@@ -253,6 +295,9 @@ struct PyObjectHasher
     }
 };
 
+/**
+ * Compare function for PyObject
+ * */
 struct PyObjectPred
 {
     bool operator() (PyObject* obj1, PyObject* obj2) const
@@ -261,11 +306,10 @@ struct PyObjectPred
     }
 };
 
-bool optGroupVecFunc (OptGroup* g1, OptGroup* g2)
-{
-    return (g1->hashID() < g2->hashID());
-}
-
+/**
+ * Returns the number of ones in the hash_id, i.e. the number of children in
+ * a group
+ * */
 inline uint64_t numberOfOnes (uint128_t hash_id)
 {
     uint64_t bit = 0;
@@ -285,6 +329,9 @@ inline uint64_t numberOfOnes (uint128_t hash_id)
     return nOnes;
 }
 
+/**
+ * Returns the position of first rightmost "1" in the hash_id 
+ * */
 inline uint64_t first_one (uint128_t hash_id)
 {
     uint64_t bit = 0;
@@ -302,27 +349,10 @@ inline uint64_t first_one (uint128_t hash_id)
     
     return -1;
 }
-typedef std::unordered_map<Group*, std::set <Group*, Group::GroupComparer>, 
-                            Group::GroupHasher> InlinedAdjacentType;
-std::unordered_map<uint128_t, uint64_t, uint128Hasher> T;
-std::unordered_map<uint128_t, Group*, uint128Hasher> Group::hashIDToGroup;
-std::unordered_map<uint128_t, OptGroup*, uint128Hasher> OptGroup::optHashIDToGroup;
-std::unordered_map<uint128_t, uint128_t, uint128Hasher> hashIDToOptHashID;
-std::unordered_map<PyObject*, Group*> pyToGroup;
-std::unordered_map<Group*, PyObject*> groupToPyGroup;
-std::unordered_set<PyObject*, PyObjectHasher, PyObjectPred> small_comps_set;
-std::unordered_map<uint128_t, OptGroup*, uint128Hasher> OptGroup::parentOptGroupsToHashID;
-std::unordered_map<uint128_t, std::vector<uint64_t>, uint128Hasher> optHashIDToTileSizes;
-std::unordered_map<PyObject*, PyObject*> pyGroupForComp;
-std::unordered_map<PyObject*, PyObject*> comp_to_orig_storage;
-std::unordered_map<PyObject*, string> stg_class_to_key;
-std::unordered_map<PyObject*, PyObject*> comp_to_func;
-std::unordered_map<PyObject*, PyObject*> func_to_typ;
-std::unordered_map<PyObject*, long> func_to_ndims;
-std::unordered_map<PyObject*, vector<long> > comp_to_max_offsets;
-std::unordered_map<PyObject*, vector<PyObject*> > helper_storage_to_dim_storage;
-vector<OptGroup*> OptGroup::vectorOptGroups;
 
+/**
+ * Returns number of dimensions for Group (of Python)
+ * */
 uint64_t get_dim_size_for_pygroup (PyObject* group, int dim)
 {
     PyObject* dims_size;
@@ -332,6 +362,9 @@ uint64_t get_dim_size_for_pygroup (PyObject* group, int dim)
     return (uint64_t)PyLong_AsLong (PyList_GetItem (dims_size, dim));
 }
 
+/**
+ * Return the dimensional resuse (list of reuse in each dimension) for a Group
+ * */
 int get_dim_reuse_for_pygroup (PyObject* group, int dim)
 {
     PyObject* dim_reuse;
@@ -341,6 +374,9 @@ int get_dim_reuse_for_pygroup (PyObject* group, int dim)
     return (int)PyLong_AsLong (PyList_GetItem (dim_reuse, dim));
 }
 
+/**
+ * Check if there has been a Python exception and if true print and abort
+ * */
 void check_and_print_exception ()
 {
     if (PyErr_Occurred () != NULL)
@@ -350,6 +386,9 @@ void check_and_print_exception ()
     }
 }
 
+/**
+ * Returns the nubmber of dimensions for Group (of Python)
+ * */
 int get_n_dimensions (PyObject* group)
 {
     PyObject* dim_reuse;
@@ -359,6 +398,9 @@ int get_n_dimensions (PyObject* group)
     return (int)PyList_Size (dim_reuse);
 }
 
+/**
+ * Returns live size for Group (of Python)
+ * */
 uint64_t get_live_size (PyObject* group)
 {
     PyObject* size;
@@ -368,6 +410,9 @@ uint64_t get_live_size (PyObject* group)
     return (uint64_t)PyLong_AsLong (size);
 }
 
+/**
+ * Iterates over all children of a group and returns the maximum dimension.
+ * */
 int get_max_dimensions_for_group (uint128_t hash_id)
 {
     uint64_t bit = 0;
@@ -396,6 +441,9 @@ int get_max_dimensions_for_group (uint128_t hash_id)
     return max_dim;
 }
 
+/**
+ * Returns ComputeObject at an index for a Group.
+ * */
 PyObject* getCompForPyGroup (PyObject* pyGroup, int index)
 {
     static PyObject* str_comps = Py_BuildValue ("s", "comps");
@@ -403,6 +451,9 @@ PyObject* getCompForPyGroup (PyObject* pyGroup, int index)
     return PyList_GetItem (comps, index);
 }
 
+/**
+ * Returns the Function name for given ComputeObject.
+ * */
 char* getPyCompFuncName (PyObject* comp)
 {
     static PyObject* str_func = Py_BuildValue ("s", "func");
@@ -413,6 +464,9 @@ char* getPyCompFuncName (PyObject* comp)
     return PyBytes_AS_STRING (pyStr);
 }
 
+/**
+ * Returns the name of Group (Python).
+ * */
 char* getPyGroupName (PyObject* pygroup)
 {
     if (pygroup == nullptr)
@@ -430,6 +484,9 @@ char* getPyGroupName (PyObject* pygroup)
     return PyBytes_AS_STRING (pyStr);
 }
 
+/**
+ * Returns the number of incoming edges to the children of group.
+ * */
 uint64_t getNumberOfInputs (uint128_t hash_id)
 {
     uint64_t bit = 0;
@@ -470,6 +527,17 @@ uint64_t getNumberOfInputs (uint128_t hash_id)
     return input_size;
 }
 
+/**
+ * Returns the level order traversal in *order* of children in a group.
+ * 
+ * hash_id: HashID of Group
+ * objs: ComputeObjects of Group (No need, remove as an argument)
+ * vec_groups: Children of groups
+ * order: level order traversal to be returned in.
+ * inlined_groups: Set of groups inlined (No need, remove as an argument)
+ * new_nextGroups: Map of Group to Next Groups
+ * new_prevGroups: Map of Group to Prev Groups
+ * */
 void get_level_order (uint128_t hash_id, vector <PyObject*>& objs, 
                       const vector <Group*>& vec_groups, 
                       map <Group*, int, Group::GroupComparer>& order,
@@ -552,6 +620,9 @@ void get_level_order (uint128_t hash_id, vector <PyObject*>& objs,
     }
 }
 
+/**
+ * 
+ * */
 void naive_sched_objs (const map <Group*, int, Group::GroupComparer>& order, 
                        unordered_map <Group*, int>& naive_order,
                        InlinedAdjacentType& new_nextGroups,
@@ -3027,7 +3098,6 @@ PyObject* dpgroup(PyObject* self, PyObject* args)
         
         Group* cppGroup = new Group (group, comps);
         pyToGroup[group] = cppGroup;
-        groupToPyGroup[cppGroup] = group;
         OptGroup::createOptGroup (cppGroup->hashID ());
         PyObject* name = PyObject_GetAttr (group,
                                                    Py_BuildValue ("s", 
@@ -3371,7 +3441,6 @@ PyObject* dpgroup(PyObject* self, PyObject* args)
     
     pyGroupForComp.clear ();
     pyToGroup.clear ();
-    groupToPyGroup.clear ();
     OptGroup::parentOptGroupsToHashID.clear ();
     hashIDToOptHashID.clear ();
     Group::hashIDToGroup.clear ();
