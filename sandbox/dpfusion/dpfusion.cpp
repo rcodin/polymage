@@ -225,6 +225,28 @@ static int const N_CORES = 4; //Number of Cores is 4
 #endif
 
 //To Compile g++ -shared -I/usr/include/python3.4m/ -lpython3 -o optgrouping.so optgrouping_incremental.cpp -fPIC -O3 -std=c++11 -lboost_system
+/**
+ * Hash function fo PyObject*
+ * */
+struct PyObjectHasher
+{
+    uint64_t operator() (const PyObject* obj) const
+    {
+        return (uint64_t)obj;
+    }
+};
+
+/**
+ * Compare function for PyObject
+ * */
+struct PyObjectPred
+{
+    bool operator() (PyObject* obj1, PyObject* obj2) const
+    {
+        return (bool)PyObject_RichCompareBool (obj1, obj2, Py_EQ);
+    }
+};
+
 using boost::multiprecision::uint128_t;
 using namespace boost;
 using namespace std;
@@ -285,26 +307,20 @@ std::unordered_map<PyObject*, vector<PyObject*> > helper_storage_to_dim_storage;
 vector<OptGroup*> OptGroup::vectorOptGroups;
 
 /**
- * Hash function fo PyObject*
+ * Convert a Python String object to C++ STD String
  * */
-struct PyObjectHasher
+string pystring_to_string (PyObject* str)
 {
-    uint64_t operator() (const PyObject* obj) const
-    {
-        return (uint64_t)obj;
-    }
-};
-
-/**
- * Compare function for PyObject
- * */
-struct PyObjectPred
-{
-    bool operator() (PyObject* obj1, PyObject* obj2) const
-    {
-        return (bool)PyObject_RichCompareBool (obj1, obj2, Py_EQ);
-    }
-};
+    char* _str;
+    string cxx_str;
+    
+    PyObject* pyStr = PyUnicode_AsEncodedString(str, "utf-8", "Error ~");
+    _str = PyBytes_AS_STRING (pyStr);
+    //Py_DECREF (pyStr);
+    cxx_str = string (_str);
+    //free (_str);
+    return cxx_str;
+}
 
 /**
  * Returns the number of ones in the hash_id, i.e. the number of children in
@@ -720,19 +736,6 @@ void naive_sched_objs (const map <Group*, int, Group::GroupComparer>& order,
     }
 }
 
-string pystring_to_string (PyObject* str)
-{
-    char* _str;
-    string cxx_str;
-    
-    PyObject* pyStr = PyUnicode_AsEncodedString(str, "utf-8", "Error ~");
-    _str = PyBytes_AS_STRING (pyStr);
-    //Py_DECREF (pyStr);
-    cxx_str = string (_str);
-    //free (_str);
-    return cxx_str;
-}
-
 void classify_storage (const vector <PyObject*>& vec_comps, 
                        unordered_map <PyObject*, PyObject*>& comp_to_stg_class,
                        unordered_map <PyObject*, vector <PyObject*>>& new_storage_class_map)
@@ -884,7 +887,16 @@ void getLivenessMap (const uint128_t hash_id, const vector<Group*>& vec_groups,
     }
 }
 
-uint64_t getLiveoutsSize (uint128_t hash_id, vector <Group*> vec_groups, int& n_liveouts)
+/**
+ * Returns sum of size of all liveouts for given group. Also sets n_liveouts to
+ * the number of liveouts.
+ * hashID: Hash ID of group
+ * vec_groups: Vector of Group's Children
+ * n_liveouts: Number of liveouts.
+ * */
+
+uint64_t getLiveoutsSize (uint128_t hash_id, vector <Group*> vec_groups, 
+                          int& n_liveouts)
 {
     uint64_t liveouts_size = 0;
     n_liveouts = 0;
@@ -932,6 +944,17 @@ uint64_t getLiveoutsSize (uint128_t hash_id, vector <Group*> vec_groups, int& n_
     return liveouts_size;
 }
 
+/**
+ * Returns Total Size used by the group i.e. sum of size of all intermediate 
+ * buffers + sum of size of all liveouts
+ * hash_id: HashID of Group
+ * number_of_buffers: set to the number of intermediate buffers
+ * liveouts_size: set to the size of live outs.
+ * livein_size: set to the size of all liveins
+ * inlined_groups: Groups that has been inlined
+ * new_nextGroups: New next Groups after inlining
+ * new_prevGroups: New prev Groups after inlining
+ * */
 uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
                            uint64_t& liveouts_size, uint64_t& livein_size,
                            std::unordered_set<Group*, Group::GroupHasher>&
@@ -1252,6 +1275,11 @@ uint64_t getTotalSizeUsed (uint128_t hash_id, int& number_of_buffers,
     return total_size + liveouts_size;
 }
 
+/**
+ * Returns the standard deviation of dim sizes of all children of group.
+ * dim_size_diff: vector of dimension sizes of each child
+ * max_dim: maximum number of dims of all children of a group.
+ * */
 inline int64_t dim_size_std_dev (std::vector <std::vector <uint64_t> >& dim_size_diff, int max_dim)
 {
     std::vector <double> sum, mean; //vectors for sum and mean in each dimension
@@ -1341,6 +1369,10 @@ inline int64_t dim_size_std_dev (std::vector <std::vector <uint64_t> >& dim_size
         return 0;
 }
 
+/**
+ * Return number of edges in a group.
+ * 
+ * */
 int getNumberOfEdges (uint128_t _hash_id)
 {
     vector <Group*> vec_groups;
