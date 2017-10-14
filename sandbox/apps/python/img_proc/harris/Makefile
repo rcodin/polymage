@@ -1,7 +1,7 @@
-CXX=icpc
-CXX_FLAGS=-openmp -ipo -O3 -xhost
-#CXX=g++
-#CXX_FLAGS=-fopenmp -O3 -march=native -ftree-vectorize
+#CXX=icpc
+#CXX_FLAGS=-openmp -ipo -O3 -xhost
+CXX=g++
+CXX_FLAGS=-fopenmp -O3 -march=native -ftree-vectorize
 PYTHON=python3
 ROOT="../../../../"
 
@@ -11,7 +11,7 @@ IMG=$(ROOT)"/../images/venice_wikimedia.jpg"
 RUNS=500
 
 APP_ARGS=--img=${IMG}
-OPT_ARGS=--pool_alloc --optimize_storage --early_free #--multi-level-tiling --inline
+OPT_ARGS=--pool_alloc --optimize_storage --early_free #--multi-level-tiling #--inline
 TOOL_ARGS=--graph-gen --runs=${RUNS} --display --timer
 CXX_ARGS=--cxx="${CXX}" --cxx_flags="${CXX_FLAGS}"
 

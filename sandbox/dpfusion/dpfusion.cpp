@@ -1317,51 +1317,6 @@ inline int64_t dim_size_std_dev (std::vector <std::vector <uint64_t> >& dim_size
     double sum_mean_diff = std::accumulate (mean_diff.begin(), mean_diff.end (), 0.0);
     PRINT_DEBUG_BLOCK_L1
         std::cout <<"mean sum" << std::accumulate (mean.begin(), mean.end (), 0.0) << " mean_diff sum " <<std::accumulate (mean_diff.begin(), mean_diff.end (), 0.0) <<std::endl;
-    if (sum_mean_diff == 0)
-    {
-        if (L2_CACHE_SIZE == 256*1024 and L1_CACHE_SIZE == 32*1024)
-        {
-            if (INLINING_ENABLED == true and MULTI_LEVEL_TILING_ENABLED == true)
-                return 0;
-            else if (MULTI_LEVEL_TILING_ENABLED == true)
-            {
-                if (dim_size_diff.size () == 11)
-                {
-                    return -4000;
-                }
-            }
-            else
-                return 1200;
-        }
-        else if (L2_CACHE_SIZE == 256*1024 and L1_CACHE_SIZE == 16*1024)
-        {
-            if (INLINING_ENABLED)
-                return 0;
-            else if (MULTI_LEVEL_TILING_ENABLED)
-            {
-                 if (dim_size_diff.size () == 11)
-                    return -4500;
-            }
-            else
-                if (dim_size_diff.size () == 11)
-                    return -6000;
-        }
-        else if (L2_CACHE_SIZE == 1024*1024)
-        {
-            if (INLINING_ENABLED)
-                return 0;
-            else if (MULTI_LEVEL_TILING_ENABLED)
-            {
-                 if (dim_size_diff.size () == 11)
-                    return -4500;
-            }
-            else
-                if (dim_size_diff.size () == 11)
-                    return -6000;
-        }
-        else
-            return 0;
-    }
     
     if (sum_mean_diff/sum_mean_dim > 0.1f)
         return sum_mean_diff;

@@ -13,13 +13,13 @@ debug1:	sandbox/dpfusion/dpfusion.cpp
 	g++ -D DEBUG=1 $(INCLUDES) $(CPPFLAGS) -O3 -o sandbox/dpfusion.so $< $(LDFLAGS)
 
 debug2:	sandbox/dpfusion/dpfusion.cpp
-	g++ -D DEBUG=2 $(INCLUDES) $(CPPFLAGS) -O3 -o $@ $< $(LDFLAGS)
+	g++ -D DEBUG=2 $(INCLUDES) $(CPPFLAGS) -O3 -o sandbox/dpfusion.so $< $(LDFLAGS)
 	
 debug3:	sandbox/dpfusion/dpfusion.cpp
-	g++ -D DEBUG=3 $(INCLUDES) $(CPPFLAGS) -O3 -o $@ $< $(LDFLAGS)
+	g++ -D DEBUG=3 $(INCLUDES) $(CPPFLAGS) -O3 -o sandbox/dpfusion.so $< $(LDFLAGS)
 
 gdbdebug: sandbox/dpfusion/dpfusion.cpp
-	g++ -g -D DEBUG=3 $(INCLUDES) $(CPPFLAGS) -O0 -o $@ $< $(LDFLAGS)
+	g++ -g -D DEBUG=3 $(INCLUDES) $(CPPFLAGS) -O0 -o $sandbox/dpfusion.so $< $(LDFLAGS)
 
 clean:
 	rm -f sandbox/dpfusion.so
