@@ -52,7 +52,7 @@ pipe_logger = logging.getLogger("pipe.py")
 pipe_logger.setLevel(logging.INFO)
 LOG = pipe_logger.log
 
-MACHINE_TYPE = ['personal', 'mcastle1', 'mcastle2', 'polymage'][2]
+MACHINE_TYPE = ['personal', 'mcastle1', 'mcastle2', 'polymage'][3]
     
 if (MACHINE_TYPE == 'personal'):
     #global IMAGE_ELEMENT_SIZE, L2_CACHE_SIZE, N_CORES, TILING_THRESHOLD, VECTOR_WIDTH_THRESHOLD
