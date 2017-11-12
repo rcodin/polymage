@@ -49,6 +49,11 @@ $ git am ../patches/0001-ctye-to-dtype-handle-void.patch
 
 $ cd ..
 
+$ make
+(to build the DP-based fusion module)
+
+Try any of the apps in the sandbox/apps/ directory.
+
 [Optional (needed for diamond tiling with multigrid)]
 
 $ cd libpluto/
@@ -56,8 +61,6 @@ $ cd libpluto/
 $ (follow installation instructions for pluto)
 
 ```
-
-Also make sure to have install `libpluto` from the [Pluto website](http://pluto-compiler.sourceforge.net/) to be able to use time-iterated stencils
 
 
 **BUILD**
