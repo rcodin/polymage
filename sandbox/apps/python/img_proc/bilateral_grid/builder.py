@@ -66,7 +66,7 @@ def build_bilateral(app_data, g_size = None, t_size = None):
                       Condition(C, "==", cols) ]
 
     if (t_size == None):
-	    t_size = [8, 128]
+	    t_size = [8, 128, 128]
     #t_size = [16, 32, 32, 32]
     if (g_size == None):
         g_size = 7
@@ -79,7 +79,8 @@ def build_bilateral(app_data, g_size = None, t_size = None):
         opts += ['pool_alloc']
     if app_data['multi-level-tiling']:
         opts += ['multi-level-tiling']
-        
+    
+    opts += ['dpfusion']
     pipe = buildPipeline(live_outs,
                          param_estimates=p_estimates,
                          param_constraints=p_constraints,

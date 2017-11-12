@@ -78,7 +78,8 @@ def build_unsharp(app_data, g_size = None, t_size = None):
         opts += ['inline']
     if app_data['multi-level-tiling']:
         opts += ['multi-level-tiling']
-        
+    
+    opts += ['dpfusion']
     pipe = buildPipeline(live_outs,
                          param_estimates=p_estimates,
                          param_constraints=p_constraints,
