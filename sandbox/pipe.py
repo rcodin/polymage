@@ -1900,7 +1900,12 @@ class Pipeline:
             # Run the grouping algorithm
             #TESTING HERE
             self.initialize_storage()
-            auto_group(self)
+            if 'dpfusion' in self.options:
+                auto_group_dp(self)
+            else:
+                auto_group_greedy(self)
+
+            #auto_group(self)
             #self.merge_groups (self.groups[1], self.groups[2])
             pass
         

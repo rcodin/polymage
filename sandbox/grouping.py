@@ -25,7 +25,6 @@ from __future__ import absolute_import, division, print_function
 
 from constructs import *
 import logging
-import dpfusion
 import storage_mapping
 
 # LOG CONFIG #
@@ -86,7 +85,7 @@ def group_topological_sort (pipeline):
     
     return stack;
 
-def auto_group(pipeline):    
+def auto_group_dp(pipeline):
     
     stack = group_topological_sort (pipeline)
     order = 0
@@ -154,6 +153,8 @@ def auto_group(pipeline):
     
     w_args = [pipeline.do_inline, False, pipeline.multi_level_tiling]
     elem_size = pipeline.MachineInformation.get_machine_image_element_size ();
+
+    import dpfusion
     dpfusion.dpgroup (in_group, out_group, pipeline.groups, pipeline, 
                        Reduction, small_comps, comp_size_map, TStencil,
                        topological_order, dim_reuse, live_size, dim_size,
@@ -172,7 +173,7 @@ def auto_group(pipeline):
 
     return
 
-def auto_group1(pipeline):
+def auto_group_greedy(pipeline):
     param_est = pipeline._param_estimates
     size_thresh = pipeline._size_threshold
     grp_size = pipeline._group_size
