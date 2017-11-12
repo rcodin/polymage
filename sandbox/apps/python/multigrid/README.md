@@ -20,19 +20,21 @@ The instructions to install Polymage is present here - https://bitbucket.org/uda
 
 The various configurations as mentioned in the paper can be obtained by variying the following parameters in the Makefile.
 
- 1. Multigrid Cycle (V / W) : CYCLE='V'
+ 1. Multigrid Cycle (V / W): CYCLE='V'
 
- 2. Multigrid levels : L=3      
+ 2. Multigrid levels: L=3      
 
- 3. coarse-grid size along each dimension : SIZE=31  
+ 3. Coarse-grid size along each dimension: SIZE=31  
 
- 4. V / W Cycle iterations : NIT=10   
+ 4. V / W Cycle iterations: NIT=10   
 
- 5. pre-smoothing steps : NU1=10   
+ 5. Pre-smoothing steps: NU1=10   
 
- 6. post-smoothing steps : NU2=0    
+ 6. Post-smoothing steps: NU2=0    
 
- 7. coarse-smoothing steps : NUC=0    
+ 7. Coarse-smoothing steps: NUC=0    
+
+ 8. Number of runs (for timing purposes): RUNS=1 (default)
 
 
 **How to run**
@@ -59,9 +61,9 @@ The make command optionally takes the following parameters:
 
 - tune - uses the app\_tuner.py file and tunes for various configurations of group and tile size.
 
-- existing - compiles and runs an existing optimized C file.
+- existing - compiles and executes an existing optimized C file.
 
-- ready - runs an already compiled version of the optimized C code.
+- ready - executes an already compiled version of the optimized C code.
 
 - clean/cleaner - deletes the shared object and the optimized C file. 
 
@@ -85,3 +87,9 @@ To get results for polymg-dtile-opt+:
 >   $ git fetch && git checkout origin/Tstencils
 
 >   $ make
+
+**Output**
+
+Comment out the "--timer" option in the Makefile to see error for each 
+V-cycle iteration. In such a scenario (where performance timing isn't 
+being performed), it's meaningful to use RUNS=1.
