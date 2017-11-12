@@ -64,7 +64,7 @@ def buildPipeline(outputs,
 
     if 'optimize_storage' in options:
         options.append('flatten_scratchpad')
-
+    options.append('multipar')
     options = list(set(options))
 
     return pipe.Pipeline(_ctx = ctx,

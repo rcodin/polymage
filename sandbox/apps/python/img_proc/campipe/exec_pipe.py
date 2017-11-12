@@ -55,17 +55,20 @@ def campipe(app_data):
     if timer == True:
         t1 = time.time()
 
+    avg = 0
     while it < runs :
-        print("")
-        print("[exec_pipe] : executing ...")
+        t1 = time.time()
         call_pipe(app_data)
-        it += 1
-
-    if timer == True:
         t2 = time.time()
 
         time_taken = float(t2) - float(t1)
+        avg += time_taken
         print("")
-        print("[exec_pipe] : time taken to execute = ", time_taken*1000, " ms")
+        print("[exec_pipe] : time taken to execute = ", (time_taken * 1000), " ms")
 
-    return
+        it += 1
+
+    print ("average time ", avg/runs*1000, " ms")
+
+    return avg/runs*1000
+

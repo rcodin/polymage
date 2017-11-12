@@ -27,7 +27,21 @@ from grouping import get_group_dep_vecs
 from utils import *
 from poly import *
 import libpluto
+import math
+import pipe
 
+def get_next_power_of_2 (num):
+    num -= 1
+    num |= num >> 1
+    num |= num >> 2
+    num |= num >> 4
+    num |= num >> 8
+    num |= num >> 16
+    num |= num >> 32
+    num += 1
+    
+    return num
+    
 # LOG CONFIG #
 poly_sched_logger = logging.getLogger("poly_schedule.py")
 poly_sched_logger.setLevel(logging.INFO)
@@ -165,7 +179,6 @@ def compute_tile_slope(dep_vecs, hmax):
 
     if len(dep_vecs) < 1 :
         return ([], [])
-
     vec_len = len(dep_vecs[0][0])
     slope_min = [ (0, 1) for i in range(0, vec_len - 1) ]
     slope_max = [ (0, 1) for i in range(0, vec_len - 1) ]
@@ -224,6 +237,38 @@ def compute_tile_slope(dep_vecs, hmax):
 
     return (slope_min, slope_max)
 
+def mark_par_for_all_parts(poly_parts):
+    
+    for p in poly_parts:
+        for dim in p.dim_tile_info:
+            if p.dim_tile_info[dim][0] == 'none':
+                # Either the dimension is too small to be parallelized or
+                # is skewed. In both cases the dimension cannot be parallel.
+                # This can change when we choose to not tile a dimension.
+                continue
+            elif p.dim_tile_info[dim][0] == 'overlap':
+                lower_bound = p.sched.range().dim_min(dim)
+                upper_bound = p.sched.range().dim_max(dim)
+                size = upper_bound.sub(lower_bound)
+                val = None
+                if (size.is_cst() and size.n_piece() == 1):
+                    aff = (size.get_pieces())[0][1]
+                    val = aff.get_constant_val()
+                    
+                dim_name = p.dim_tile_info[dim][1]
+                tile_dim_name = p.dim_tile_info[dim][2]
+                sched_dim = p.sched.find_dim_by_name(isl._isl.dim_type.out,
+                                                     dim_name)
+                tile_dim = p.sched.find_dim_by_name(isl._isl.dim_type.out,
+                                                    tile_dim_name)
+                
+                # update outermost parallel dim
+                if outer_parallel_dim is not None and val >= 4:
+                    outer_parallel_dim = min(tile_dim, outer_parallel_dim)
+                else:
+                    outer_parallel_dim = tile_dim
+
+                
 def mark_par_and_vec_for_tile(poly_part):
     p = poly_part
     # -- Mark parallel dimensions and vector dimensions for tiles
@@ -232,6 +277,7 @@ def mark_par_and_vec_for_tile(poly_part):
     #    -- Partial and full tile separation to enable better vectorization.
     outer_parallel_dim = None
     inner_vec_dim = None
+    
     for dim in p.dim_tile_info:
         if p.dim_tile_info[dim][0] == 'none':
             # Either the dimension is too small to be parallelized or
@@ -239,23 +285,32 @@ def mark_par_and_vec_for_tile(poly_part):
             # This can change when we choose to not tile a dimension.
             continue
         elif p.dim_tile_info[dim][0] == 'overlap':
+            lower_bound = p.sched.range().dim_min(dim)
+            upper_bound = p.sched.range().dim_max(dim)
+            size = upper_bound.sub(lower_bound)
+            val = None
+            if (size.is_cst() and size.n_piece() == 1):
+                aff = (size.get_pieces())[0][1]
+                val = aff.get_constant_val()
+                
             dim_name = p.dim_tile_info[dim][1]
             tile_dim_name = p.dim_tile_info[dim][2]
             sched_dim = p.sched.find_dim_by_name(isl._isl.dim_type.out,
                                                  dim_name)
             tile_dim = p.sched.find_dim_by_name(isl._isl.dim_type.out,
                                                 tile_dim_name)
+            
             # update outermost parallel dim
             if outer_parallel_dim is not None:
                 outer_parallel_dim = min(tile_dim, outer_parallel_dim)
             else:
                 outer_parallel_dim = tile_dim
+                    
             # update outermost vector dim
             if inner_vec_dim is not None:
                 inner_vec_dim = max(sched_dim, inner_vec_dim)
             else:
                 inner_vec_dim = sched_dim
-
     # mark parallel
     if outer_parallel_dim is not None:
         p_dim_name = p.sched.get_dim_name(isl._isl.dim_type.out,
@@ -294,7 +349,6 @@ def mark_par_and_vec(poly_part, param_estimates):
                 vec_dim = max(p.align[dim], vec_dim)
             else:
                 vec_dim = p.align[dim]
-
     # mark parallel
     if parallel_dim is not None:
         p_dim_name = p.sched.get_dim_name(isl._isl.dim_type.out,
@@ -323,31 +377,31 @@ def enable_tile_scratchpad(group_parts):
                 right = p.dim_tile_info[dim][5]
                 h = p.dim_tile_info[dim][6]
                 extent += abs(left * h) + abs(right * h)
-            p.dim_scratch_size[dim] = \
-                int(math.ceil(Fraction(extent, p.scale[dim])))
-            mul_name = \
-              '_Mul_'+p.sched.get_dim_name(isl._isl.dim_type.in_, dim)
-            dim_in = p.sched.dim(isl._isl.dim_type.in_)
-            dim_id =  p.sched.get_tuple_id(isl._isl.dim_type.in_)
-            p.sched = p.sched.insert_dims(isl._isl.dim_type.in_, dim_in, 1)
-            p.sched = p.sched.set_tuple_id(isl._isl.dim_type.in_, dim_id)
-            p.sched = \
-              p.sched.set_dim_name(isl._isl.dim_type.in_, dim_in, mul_name)
-            sched_dim = \
-              p.sched.find_dim_by_name(isl._isl.dim_type.out, dim_name)
-            tile_dim = \
-              p.sched.find_dim_by_name(isl._isl.dim_type.out, tile_dim_name)
-
-            eqs = []
-            coeff = {}
-            coeff[('in', dim_in)] = p.scale[dim]
-            coeff[('out', sched_dim)] = -1
-            coeff[('out', tile_dim)] = p.dim_tile_info[dim][3]
-            eqs.append(coeff)
-
-            ineqs = []
-
-            p.sched = add_constraints(p.sched, ineqs, eqs)
+                p.dim_scratch_size[dim] = \
+                    int(math.ceil(Fraction(extent, p.scale[dim])))
+                mul_name = \
+                  '_Mul_'+p.sched.get_dim_name(isl._isl.dim_type.in_, dim)
+                dim_in = p.sched.dim(isl._isl.dim_type.in_)
+                dim_id =  p.sched.get_tuple_id(isl._isl.dim_type.in_)
+                p.sched = p.sched.insert_dims(isl._isl.dim_type.in_, dim_in, 1)
+                p.sched = p.sched.set_tuple_id(isl._isl.dim_type.in_, dim_id)
+                p.sched = \
+                  p.sched.set_dim_name(isl._isl.dim_type.in_, dim_in, mul_name)
+                sched_dim = \
+                  p.sched.find_dim_by_name(isl._isl.dim_type.out, dim_name)
+                tile_dim = \
+                  p.sched.find_dim_by_name(isl._isl.dim_type.out, tile_dim_name)
+    
+                eqs = []
+                coeff = {}
+                coeff[('in', dim_in)] = p.scale[dim]
+                coeff[('out', sched_dim)] = -1
+                coeff[('out', tile_dim)] = p.dim_tile_info[dim][3]
+                eqs.append(coeff)
+    
+                ineqs = []
+    
+                p.sched = add_constraints(p.sched, ineqs, eqs)
 
     return
 
@@ -409,7 +463,6 @@ def add_staging_dimension(schedule, staging_val):
 
 def fused_schedule(pipeline, isl_ctx, group, param_estimates):
     """Generate an optimized schedule for the stage."""
-
     g_poly_parts = group.polyRep.poly_parts
     # NOTE: we assume that group has >= 1 compute objects in it.
     # diamond tile if group is tstencil
@@ -506,14 +559,12 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
         # get dependence vectors between each part of the group and each of its
         # parents' part
         comp_deps = get_group_dep_vecs(pipeline, group, g_all_parts)
-
         # No point in tiling a group that has no dependencies
         is_stencil = len(comp_deps) > 0 and len(g_all_parts) > 1
         for dep, h in comp_deps:
             # Skips groups which have self deps
             if dep[0] == 0:
                 is_stencil = False
-
         # threshold for parallelism
         if not is_stencil:
             for p in g_all_parts:
@@ -530,18 +581,20 @@ def fused_schedule(pipeline, isl_ctx, group, param_estimates):
             p.set_liveness(p.is_liveout or is_liveout)
 
         if is_stencil:
+            
             assert(len(g_all_parts) > 1)
             hmax = max( [ p.level for p in g_all_parts ] )
             hmin = min( [ p.level for p in g_all_parts ] )
             slope_min, slope_max = compute_tile_slope(comp_deps, hmax)
 
             #splitTile(stageGroups[gi], slopeMin, slopeMax)
-            overlap_tile(pipeline, g_all_parts, slope_min, slope_max)
-
+            overlap_tile(pipeline, group, g_all_parts, slope_min, slope_max)
+            
             enable_tile_scratchpad(g_all_parts)
 
             for p in g_all_parts:
                 mark_par_and_vec_for_tile(p)
+            #mark_par_and_vec_for_all_parts (g_all_parts)
 
             '''
             for p in g_all_parts:
@@ -574,16 +627,39 @@ def get_group_height(group_parts):
     max_height = max( [ part.level for part in group_parts ] )
     return max_height - min_height
 
-def overlap_tile(pipeline, group_parts, slope_min, slope_max):
+def overlap_tile(pipeline, group, group_parts, slope_min, slope_max):
     comp_dim = 0
     tile_dims = 0
     no_tile_dims = 0
+    l1tile_in_l2_dims = 0
     h = get_group_height(group_parts)
     num_tile_dims = 0
+    
+    pipeline.use_different_tile_sizes = True
+    if (pipeline.use_different_tile_sizes):
+        _multi_level_tiling = pipeline.multi_level_tiling
+        group.get_tile_sizes (pipeline.param_estimates, slope_min, slope_max, 
+                              group_parts, h, pipeline.func_map, #len(group.comps) == 2,
+                              multi_level_tiling = _multi_level_tiling)
+        #TODO: Correct this
+        if (_multi_level_tiling and ("b_gb" in str(group) or "r_r" in str(group))):
+            group.tile_sizes[0] = 20
+            group.tile_sizes[1] = 512
+            group.tile_sizes["L10"] = 6
+            group.tile_sizes["L11"] = 256
+        #group.tile_sizes["L20"] = group.tile_sizes[0]
+        #group.tile_sizes["L21"] = group.tile_sizes[1]
+        #group.tile_sizes[1] = group.tile_sizes[1]*4
+        #group.tile_sizes[0] = group.tile_sizes[0]*2
+        
+    no_tile_dims_set = set()
+    tile_dims_set = set ()
+        
     for i in range(1, len(slope_min) + 1):
         # Check if every part in the group has enough iteration
         # points in the dimension to benefit from tiling.
         tile = False
+        #dims_with_no_tiles = set()
         for part in group_parts:
             curr_dim = comp_dim + no_tile_dims + 2*tile_dims + 1
             lower_bound = part.sched.range().dim_min(curr_dim)
@@ -592,10 +668,16 @@ def overlap_tile(pipeline, group_parts, slope_min, slope_max):
             if (size.is_cst() and size.n_piece() == 1):
                 aff = (size.get_pieces())[0][1]
                 val = aff.get_constant_val()
-                if val > pipeline._tile_sizes[num_tile_dims]:
-                    tile = True
+                if (pipeline.use_different_tile_sizes and group.tile_sizes and (i-1) in group.tile_sizes):
+                    if val >= group.tile_sizes[i-1]:
+                        tile = True
+                else:
+                    if val > pipeline._tile_sizes[num_tile_dims]:
+                        tile = True
+                
             else:
                 tile = True
+        
         if tile and slope_min[i-1] != '*':
             # Altering the schedule by constructing overlapped tiles
             for part in group_parts:
@@ -607,7 +689,8 @@ def overlap_tile(pipeline, group_parts, slope_min, slope_max):
                 # tiled dimension
                 name = part.sched.get_dim_name(
                             isl._isl.dim_type.out,
-                            comp_dim + no_tile_dims + 2*tile_dims + 2)
+                            comp_dim + no_tile_dims + 2*tile_dims + 2 +
+                            l1tile_in_l2_dims)
                 part.sched = part.sched.set_dim_name(
                                 isl._isl.dim_type.out,
                                 comp_dim + tile_dims,
@@ -618,10 +701,11 @@ def overlap_tile(pipeline, group_parts, slope_min, slope_max):
                                               slope_max[i-1][1])))
                 # L and R are normals to the left and the right
                 # bounding hyperplanes of the uniform dependencies
-
-                tile_size = pipeline._tile_sizes[num_tile_dims]
+                if (pipeline.use_different_tile_sizes and group.tile_sizes and (i-1) in group.tile_sizes):
+                    tile_size = group.tile_sizes[i-1]
+                else:
+                    tile_size = pipeline._tile_sizes[num_tile_dims]
                 # Compute the overlap shift
-                #print(slope_max, slope_min, h, L, R, i-1)
                 overlap_shift = abs(left * (h)) + abs(right * (h))
                 for j in range(0, len(part.align)):
                     if i == part.align[j]:
@@ -633,10 +717,10 @@ def overlap_tile(pipeline, group_parts, slope_min, slope_max):
                 ineqs = []
                 eqs = []
                 coeff = {}
-                it_dim = comp_dim + no_tile_dims + 2*tile_dims + 2
+                it_dim = comp_dim + no_tile_dims + 2*tile_dims + 2 + l1tile_in_l2_dims
                 tile_dim = comp_dim + tile_dims
-                time_dim = comp_dim + tile_dims + 1
-
+                time_dim = comp_dim + tile_dims + 1 + l1tile_in_l2_dims
+                
                 coeff[('out', time_dim)] = -left
                 coeff[('out', it_dim)] = 1
                 coeff[('out', tile_dim)] = -tile_size
@@ -661,16 +745,83 @@ def overlap_tile(pipeline, group_parts, slope_min, slope_max):
                 coeff[('out', tile_dim)] = tile_size
                 coeff[('constant', 0)] = tile_size + overlap_shift - 1
                 ineqs.append(coeff)
-
+                
                 prior_dom = part.sched.domain()
                 part.sched = add_constraints(part.sched, ineqs, eqs)
                 post_dom = part.sched.domain()
-
                 assert(part.sched.is_empty() == False)
                 # Tiling should not change the domain that is iterated over
                 assert(prior_dom.is_equal(post_dom))
+            
+            if pipeline.multi_level_tiling:
+                _it_dim = it_dim+1
+                for cache_level in range (2,0,-1):
+                    if ("L"+str(cache_level)+str(i-1) in group.tile_sizes):
+                        for part in group_parts:
+                            part.sched = part.sched.insert_dims(
+                                                isl._isl.dim_type.out,
+                                                tile_dim+l1tile_in_l2_dims+1, 1)
+                            # get the name of the untiled dim to name its corresponding
+                            # tiled dimension
+                            
+                            _name = part.sched.get_dim_name(
+                                        isl._isl.dim_type.out,
+                                        comp_dim + no_tile_dims + 2*tile_dims + 3 + l1tile_in_l2_dims)
+                            l1_tile_dim = tile_dim + 1 + l1tile_in_l2_dims
+                            part.sched = part.sched.set_dim_name(
+                                                isl._isl.dim_type.out,
+                                                comp_dim + tile_dims +l1tile_in_l2_dims+ 1,
+                                                '_TL%d%s'%(cache_level, _name))
+                            l1tile_l2_size = group.tile_sizes["L%d%d"%(cache_level, i-1)]
+                            part.dim_tile_info['L%dTileDim'%(cache_level)] = \
+                                ('L%dtile'%(cache_level), _name,
+                                 '_TL%d'%(cache_level) + _name, l1tile_l2_size,
+                                 left, right, l1tile_in_l2_dims)                            
+                            
+                            time_dim = comp_dim + tile_dims + 1 + l1tile_in_l2_dims+1
+                            ineqs = []
+                            eqs = []
+                            coeff = {}
+                                                        
+                            coeff = {}
+                            coeff[('out', time_dim)] = right
+                            coeff[('out', _it_dim)] = 1
+                            coeff[('out', l1_tile_dim)] = -l1tile_l2_size 
+                            ineqs.append(coeff)
+                            
+                            coeff = {}
+                            coeff[('out', time_dim)] = -right
+                            coeff[('out', _it_dim)] = -1
+                            coeff[('out', l1_tile_dim)] = l1tile_l2_size
+                            coeff[('constant', 0)] = l1tile_l2_size - 1
+                            ineqs.append(coeff)
+                            
+                            coeff = {}
+                            coeff[('out', time_dim)] = right
+                            coeff[('out', _it_dim)] = 1
+                            coeff[('out', l1_tile_dim)] = -l1tile_l2_size
+                            ineqs.append(coeff)
+                            
+                            coeff = {}
+                            coeff[('out', time_dim)] = -right
+                            coeff[('out', _it_dim)] = -1
+                            coeff[('out', l1_tile_dim)] = l1tile_l2_size
+                            coeff[('constant', 0)] = l1tile_l2_size - 1
+                            ineqs.append(coeff)
+                            
+                            prior_dom = part.sched.domain()
+                            part.sched = add_constraints(part.sched, ineqs, eqs)
+                            post_dom = part.sched.domain()
+                            assert(part.sched.is_empty() == False)
+                            # Tiling should not change the domain that is iterated over
+                            assert(prior_dom.is_equal(post_dom))
+                        
+                        _it_dim += 1
+                        l1tile_in_l2_dims += 1
+                    
             tile_dims += 1
             num_tile_dims += 1
+            tile_dims_set.add (i-1)
         else:
             #self.move_independent_dim(i, group_parts, comp_dim)
             name = part.sched.get_dim_name(isl._isl.dim_type.out, comp_dim)
@@ -680,7 +831,8 @@ def overlap_tile(pipeline, group_parts, slope_min, slope_max):
                         assert j not in part.dim_tile_info
                         part.dim_tile_info[j] = ('none', name)
             no_tile_dims += 1
-
+            no_tile_dims_set.add(i-1)
+    
     return
 
 def splitTile(self, group, slopeMin, slopeMax):

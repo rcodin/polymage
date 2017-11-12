@@ -197,9 +197,11 @@ def generate(_tuner_arg_data):
         print_to("\nParameter Estimates     :", to_file, " ")
         for estimate in _tuner_param_estimates:
             print_to((estimate[0].name, estimate[1]), to_file, " ")
-        print_to("\nTile Sizes              :", to_file)
-        for tile_sizes in _tuner_tile_size_configs:
-            print_to(tile_sizes, to_file,)
+        
+        if (_tuner_tile_size_configs != None):
+            print_to("\nTile Sizes              :", to_file)
+            for tile_sizes in _tuner_tile_size_configs:
+                print_to(tile_sizes, to_file,)
         print_to("\nGroup Sizes             :", to_file)
         for group_sizes in _tuner_group_size_configs:
             print_to(group_sizes, to_file, " ")
@@ -276,8 +278,11 @@ def generate(_tuner_arg_data):
 
     total_t1 = time.time()
     # iterate over tile_sizes
+    if (_tuner_tile_size_configs == None):
+        _tuner_tile_size_configs = [16,256]
+        
     for _tuner_tile_size in _tuner_tile_size_configs:
-        # iterate over group_sizes
+    # iterate over group_sizes
         for _tuner_group_size in _tuner_group_size_configs:
             _tuner_config += 1
 
@@ -299,8 +304,8 @@ def generate(_tuner_arg_data):
 
             # building the pipeline :
             _tuner_build_error = False
-            try:
-
+            #try:
+            if (True):
                 _tuner_pipe = buildPipeline(
                                  _tuner_live_outs,
                                  param_constraints=_tuner_param_constraints,
@@ -309,10 +314,10 @@ def generate(_tuner_arg_data):
                                  group_size=_tuner_group_size,
                                  options=_tuner_opts,
                                  pipe_name=_tuner_pipe_name)
-            except:
-                _tuner_build_error = True
-            finally:
-                pass
+            #except:
+            #    _tuner_build_error = True
+            #finally:
+            #    pass
 
             # code generation :
             if _tuner_build_error is True:

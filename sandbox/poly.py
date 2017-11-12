@@ -69,7 +69,7 @@ def add_constraints_from_list(obj, local_space, constraint_list,
                 m = (abs(constr[coeff].denominator) * m)//den
         assert m.denominator == 1
         m = m.numerator
-
+        
         # normalize
         for coeff in constr:
             if isinstance(constr[coeff], Fraction):
@@ -112,6 +112,7 @@ def add_constraints_from_list(obj, local_space, constraint_list,
                 # existence of a dimension in that part.
                 pass
         obj = obj.add_constraint(c)
+        
     return obj
 
 def add_constraints(obj, ineqs, eqs):
@@ -144,6 +145,7 @@ def add_constraints(obj, ineqs, eqs):
 def extract_value_dependence(part, ref, ref_poly_dom):
     # Dependencies are calculated between values. There is no storage
     # mapping done yet.
+    #raise (Exception)
     assert(part.sched)
     deps = []
     access_region = isl.BasicSet.universe(ref_poly_dom.dom_set.get_space())
@@ -155,7 +157,6 @@ def extract_value_dependence(part, ref, ref_poly_dom):
     dim_out = rel.dim(isl._isl.dim_type.out)
     source_dims = [ ('out', i) for i in range(0, dim_out)]
     num_args = len(ref.arguments)
-
     for i in range(0, num_args):
         arg = ref.arguments[i]
         # If the argument is not affine the dependence reflects that
@@ -167,6 +168,7 @@ def extract_value_dependence(part, ref, ref_poly_dom):
             coeff[('constant', 0)] = get_constant_from_expr(arg, affine=True)
             coeff[source_dims[i]] = -1
             rel = add_constraints(rel, [], [coeff])
+            
     if not rel.is_empty():
         deps.append(PolyDep(ref.objectRef, part.comp.func, rel))
     return deps 
@@ -1083,7 +1085,7 @@ class PolyRep(object):
             else:
                 part_map = isl.UnionMap.from_map(part.sched)
                 sched_map = sched_map.union(part_map)
-
+            
             srange = part.sched.range()
             unroll_union_set = \
                 isl.UnionSet.from_set(isl.Set("{:}", self.ctx))
@@ -1096,6 +1098,7 @@ class PolyRep(object):
                 opt_map = opt_map.union( \
                             isl.UnionMap.from_domain_and_range( \
                                 dom_union_set, unroll_union_set) )
+            
         astbld = astbld.set_options(opt_map)
 
         # All parts in the group will have the same schedule dimension
@@ -1119,7 +1122,7 @@ class PolyRep(object):
         for comp in self.poly_parts:
             for part in self.poly_parts[comp]:
                 polystr = polystr + part.__str__() + '\n'
-
+        
         if (self.polyast != []):
             for ast in self.polyast:
                 printer = isl.Printer.to_str(self.ctx)

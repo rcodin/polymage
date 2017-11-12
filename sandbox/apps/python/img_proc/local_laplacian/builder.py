@@ -64,7 +64,7 @@ def build_laplacian(app_data):
     p_constraints = [ Condition(R, "==", rows), \
                       Condition(C, "==", cols) ]
     t_size = [8, 256]
-    g_size = 15
+    g_size = 10
     opts = []
     if app_data['early_free']:
         opts += ['early_free']

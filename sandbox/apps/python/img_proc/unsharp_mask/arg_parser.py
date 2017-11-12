@@ -15,7 +15,7 @@ def parse_args():
                       type='choice',
                       action='store',
                       dest='mode',
-                      choices=['new', 'existing', 'ready', 'tune'],
+                      choices=['new', 'existing', 'ready', 'tune', 'tune+'],
                       default=['new'],
                       help=help_str)
 
@@ -87,7 +87,7 @@ def parse_args():
     parser.add_option('--cxx',
                       action='store',
                       dest='cxx',
-                      choices=['g++', 'icpc'],
+                      choices=['g++', 'icpc', '/home/abhinav-mcl/llvm3.7/build/bin/clang++'],
                       default=['g++'],
                       help='CXX Compiler')
 

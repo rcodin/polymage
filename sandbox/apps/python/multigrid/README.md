@@ -2,11 +2,18 @@
 -------------------------------
 
 
-**Install polymage**
+**Install PolyMage**
 
-The instructions to install Polymage is present here - https://bitbucket.org/udayb/polymage
+Instructions on general pre-requisites to run Polymage apps are here: 
+https://bitbucket.org/udayb/polymage
 
-*Note*: Install Pluto to run the benchmarks in polymg-dtile-opt+ configuration
+*Note*:
+
+- If you encounter a 'pygraphviz not found' error, uninstall pygraphviz and 
+  install with the below options
+
+> sudo pip3 install pygraphviz --install-option="--include-path=/usr/include/graphviz" --install-option="--library-path=/usr/lib/graphviz/"
+
 
 **Benchmarks**: 
 
@@ -18,7 +25,7 @@ The instructions to install Polymage is present here - https://bitbucket.org/uda
 
 **Required Parameters**
 
-The various configurations as mentioned in the paper can be obtained by variying the following parameters in the Makefile.
+The various configurations as mentioned in the paper can be obtained by varying the following parameters in the Makefile.
 
  1. Multigrid Cycle (V / W): CYCLE='V'
 
@@ -47,44 +54,48 @@ Run the following commands before running any of the experiments.
 
 In order to run any benchmark, navigate to its directory and run 'make'. 
 
+'make' executes polymg-opt+, polymg-opt, handopt and handopt-pluto 
+configurations.
+
 Example:
+
+> $ cd sandbox/apps/python/multigrid
 
 > $ cd jacobi2d
 
 > $ make
 
-The make command optionally takes the following parameters:
+The various make targets available and what they correspond to are listed 
+below:
 
-- all - same as running make. (reads the polymage code, creates a new C file and compiles and executes the code.)
+- all (executes polymg-opt+, polymg-opt, handopt and handopt-pluto 
+  configurations)
 
-- new - same as the previous option.
+- polymg-opt-plus - executes polymg-opt+ configurations.
 
-- tune - uses the app\_tuner.py file and tunes for various configurations of group and tile size.
+- polymg-opt - executes polymg-opt configurations.
 
-- existing - compiles and executes an existing optimized C file.
+- handopt - executes hand optimized code (for Jacobi2D and Jacobi3D 
+  only).
 
-- ready - executes an already compiled version of the optimized C code.
+- handopt-pluto - executes hand optimized code with Pluto's diamond 
+  tiling (for Jacobi2D and Jacobi3D only).
 
-- clean/cleaner - deletes the shared object and the optimized C file. 
+- tune - uses the app\_tuner.py file and tunes for various group and tile size for polymg code.
 
-The optimized code is written to the \*.cpp file, and it is also turned into 
+- clean/cleaner - deletes the shared object and the optimized Polymage generated C file. 
+
+The optimized Polymage code is written to the \*.cpp file, and it is also turned into 
 a shared library (\*.so file).
 
-The polymage DSL code is written in the file named polymage\_\*.py
+The Polymage DSL code is written in the file named polymage\_\*.py
 
-To get results for polymg-opt+:
-
-- Storage optimizations are enabled by default. Running make command gives the result for polymg-opt+
-
-To get results for polymg-opt:
-
-- comment OPT\_ARGS from the Makefile and run the make command.
-
-To get results for polymg-dtile-opt+:
+To get results for polymg-dtile-opt+ (Multigrid smoothing optimized with 
+diamond tiling), libpluto (included as a submodule) is needed.
 
 - change the branch to Tstencil.
 
->   $ git fetch && git checkout origin/Tstencils
+>   $ git checkout origin/Tstencils
 
 >   $ make
 

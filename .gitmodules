@@ -1,3 +1,7 @@
 [submodule "cgen"]
 	path = cgen
 	url = https://github.com/inducer/cgen.git
+[submodule "libpluto"]
+	path = libpluto
+	url = https://github.com/bondhugula/pluto.git
+	branch = master

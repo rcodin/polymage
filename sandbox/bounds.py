@@ -59,7 +59,6 @@ def check_refs(child_group, parent_group):
     parent_func = parent_comp.func
     child_comp = child_group.comps[0]
     child_func = child_comp.func
-
     # Only verifying if both child and  parent group have a polyhedral
     # representation
     if child_group.polyRep.poly_parts and parent_group.polyRep.poly_doms:
@@ -107,7 +106,7 @@ def check_refs(child_group, parent_group):
                     LOG(log_level, dom_str)
                     LOG(log_level, "_______________________")
                     # ***
-                    raise TypeError("Reference out of domain", child_group,
-                                     parent_group, diff)
+                    raise TypeError("Reference out of domain", str(child_group),
+                                     str(parent_group), diff)
 
     return

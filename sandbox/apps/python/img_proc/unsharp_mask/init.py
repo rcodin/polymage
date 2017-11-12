@@ -16,7 +16,7 @@ def init_images(app_data):
     img_path = app_args.img_file
     img = np.array(Image.open(img_path)) #.convert('1'))
     rows, cols, c = img.shape
-
+    #rows, cols = 2048, 2048
     row_base = int(app_args.rowbase)
     col_base = int(app_args.colbase)
 
@@ -44,7 +44,7 @@ def init_images(app_data):
 
     app_data['rowbase'] = int(app_args.rowbase)
     app_data['colbase'] = int(app_args.colbase)
-
+    
     return
 
 def get_input(app_data):
@@ -65,6 +65,9 @@ def get_input(app_data):
     app_data['early_free'] = bool(app_args.early_free)
     # pool allocate option
     app_data['pool_alloc'] = bool(app_args.pool_alloc)
+    # inline
+    app_data['inline'] = bool (app_args.inline)
+    app_data['multi-level-tiling'] = bool(app_args.multi_level_tiling)
 
     return
 

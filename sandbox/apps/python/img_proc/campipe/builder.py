@@ -47,11 +47,11 @@ def generate_graph(pipe, file_name, app_data):
 
     return
 
-def build_campipe(app_data):
+def build_campipe(app_data, g_size = None, t_size = None):
     pipe_data = app_data['pipe_data']
 
     # construct the camera pipeline
-    out_campipe = camera_pipe(pipe_data)
+    out_campipe, to_inline = camera_pipe(pipe_data)
 
     R = pipe_data['R']
     C = pipe_data['C']
@@ -61,8 +61,11 @@ def build_campipe(app_data):
     p_estimates = [(R, app_data['rows']), (C, app_data['cols'])]
     p_constraints = [ Condition(R, "==", app_data['rows']), \
                       Condition(C, "==", app_data['cols']) ]
-    t_size = [64, 256]
-    g_size = 5
+    if (t_size == None):
+        t_size = [64, 256]
+    
+    if (g_size == None):
+        g_size = 5
 
     opts = []
     if app_data['early_free']:
@@ -71,21 +74,26 @@ def build_campipe(app_data):
         opts += ['optimize_storage']
     if app_data['pool_alloc']:
         opts += ['pool_alloc']
-
+    if app_data['inline']:
+        opts += ['inline']
+    if app_data['multi-level-tiling']:
+        opts += ['multi-level-tiling']
+        
     pipe = buildPipeline(live_outs,
                          param_estimates=p_estimates,
                          param_constraints=p_constraints,
                          tile_sizes = t_size,
                          group_size = g_size,
                          options = opts,
-                         pipe_name = pipe_name)
+                         pipe_name = pipe_name,
+                         inline_directives = to_inline)
 
     return pipe
 
-def create_lib(build_func, pipe_name, app_data):
+def create_lib(build_func, pipe_name, app_data, g_size = None, t_size = None):
     pipe_data = app_data['pipe_data']
     mode = app_data['mode']
-    pipe_src  = pipe_name+".cpp"
+    pipe_src  = pipe_name+"_L2.cpp"
     pipe_so   = pipe_name+".so"
     app_args = app_data['app_args']
     graph_gen = bool(app_args.graph_gen)
@@ -94,6 +102,16 @@ def create_lib(build_func, pipe_name, app_data):
         if mode == 'new':
             # build the polymage pipeline
             pipe = build_func(app_data)
+
+            # draw the pipeline graph to a png file
+            if graph_gen:
+                generate_graph(pipe, pipe_name, app_data)
+
+            # generate pipeline cpp source
+            codegen(pipe, pipe_src, app_data)
+        elif mode == 'tune+':
+            # build the polymage pipeline
+            pipe = build_func(app_data, g_size, t_size)
 
             # draw the pipeline graph to a png file
             if graph_gen:

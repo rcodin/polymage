@@ -210,7 +210,7 @@ class Abs(InbuiltFunction):
 
     def __str__(self):
         return "std::abs(" +  self._args[0].__str__() +  ")"
-
+        
 class Cast(AbstractExpression):
     def __init__(self, _typ, _expr):
         _expr = Value.numericToValue(_expr)
@@ -252,7 +252,9 @@ class Cast(AbstractExpression):
     def macro_expand(self):
         self._expr = self._expr.macro_expand()
         return self
-
+        
+    def visit (self, visitor):
+        return visitor.visit_cast (self)
 
 class Select(AbstractExpression):
     def __init__(self, _cond, _true_expr, _false_expr, typeCheck = True):
@@ -269,7 +271,7 @@ class Select(AbstractExpression):
         self._true_expr = _true_expr
         self._false_expr = _false_expr
         self._cond = _cond
-
+        
     @property 
     def condition(self):
         return self._cond
@@ -287,13 +289,15 @@ class Select(AbstractExpression):
         objs += self._false_expr.collect(objType)
         if (type(self) == objType):
             objs += [self]
-        return list(set(objs))
+        toRet = list(set(objs))
 
+        return toRet
+        
     def replace_refs(self, ref_to_expr_map):
         self._cond.replace_refs(ref_to_expr_map)
         self._true_expr = substitute_refs(self._true_expr, ref_to_expr_map)
         self._false_expr = substitute_refs(self._false_expr, ref_to_expr_map)
-    
+            
     def clone(self):
         return Select(self._cond.clone(),
                       self._true_expr.clone(),
@@ -310,6 +314,9 @@ class Select(AbstractExpression):
         self._false_expr = self._false_expr.macro_expand()
         return self
 
+    def visit (self, visitor):
+        return visitor.visit_select (self)
+        
 class Max(Select):
     def __init__(self, _leftExpr, _rightExpr, typeCheck = True):
         Select.__init__(self, Condition(_leftExpr, '>', _rightExpr),
@@ -342,10 +349,16 @@ class Variable(AbstractExpression):
 
     def macro_expand(self):
         return self
+    
+    def visit (self, visitor):
+        return visitor.visit_variable (self)
 
 class Parameter(Variable):
     def __init__(self, _typ, _name):
         Variable.__init__(self, _typ, _name)
+    
+    def visit (self, visitor):
+        return visitor.visit_parameter (self)
     
 class Interval(object):
     def __init__(self, _typ,  _lb, _ub):
@@ -425,6 +438,9 @@ class Reference(AbstractExpression):
 
         self.args = expanded_args
         return self
+    
+    def visit (self, visitor):
+        return visitor.visit_reference (self)
 
 # returns lengths of stuff one level deep in the list
 # returns 0 if the object is a value
@@ -954,7 +970,7 @@ class TStencil(object):
             assert(isinstance(arg, AbstractExpression))
         return Reference(self, args)
 
-class Condition(object):
+class Condition(expr_ast.AbstractExpression):
     def __init__(self, _left, _cond, _right):
         _left  = Value.numericToValue(_left)
         _right = Value.numericToValue(_right)
@@ -1044,7 +1060,6 @@ class Case(object):
         assert(isinstance(_cond, Condition))
         assert(isinstance(_expr, (AbstractExpression, Reduce)))
         self._cond = _cond
-
         if isinstance(_expr, AbstractExpression):
             self._expr = _expr.macro_expand()
         else:
@@ -1138,7 +1153,10 @@ class Reduce(object):
                   op_str + '(' + self._red_ref.__str__() + op_sep + \
                   self._expr.__str__() + ') ]'
         return ret_str
-
+    
+    def visit (self, visitor):
+        return visitor.visit_reduce (self)
+        
 class Function(object):
     def __init__(self, _varDom, _typ, _name, _const=""):
         self._name      = _name
@@ -1180,7 +1198,8 @@ class Function(object):
         # * The Case constructs are expected to be non-overlapping. Therefore,
         #   value at each point in the function domain is uniquely defined.
         self._body      = []
-
+        self._orig_body = None
+        
     @property
     def name(self):
         return self._name
@@ -1285,6 +1304,19 @@ class Function(object):
         newFunc.defn = newBody
         return newFunc
     
+    def clone_and_replace_body (self):
+        """Clone only body and replace the current body with cloned body.
+        Returns self
+        """
+        self._orig_body = self._body
+        newBody = [ c.clone() for c in self._body ]
+        self._body = newBody
+        return self
+    
+    def restore_original_body (self):
+        assert (self._orig_body != None)
+        self._body = self._orig_body
+        
     def __str__(self):
         if (self._body):
             var_str = ", ".join([var.__str__() for var in self._variables])
@@ -1295,6 +1327,7 @@ class Function(object):
                                             for case in self._body]) + " }"
             return "Domain: " + dom_str + '\n' + self._name + \
                    "(" + var_str + ") = " + case_str + '\n'
+            #return self._name
         else:
             return self._name
 
@@ -1448,3 +1481,438 @@ class Reduction(Function):
         else:
             return self._name
 
+class CountMemRefsExpVisitor(AbstractExpressionVisitor):
+    def __init__ (self):
+        pass
+
+    def visit_value (self, value):
+        return 0
+
+    def visit_abstractbinaryopnode(self, binop):
+        return binop.left.visit (self) + binop.right.visit (self)
+    
+    def visit_add (self, add):
+        return self.visit_abstractbinaryopnode (add)
+    
+    def visit_mul (self, mul):
+        return self.visit_abstractbinaryopnode (mul)
+
+    def visit_div (self, div):
+        return self.visit_abstractbinaryopnode (div)
+    
+    def visit_sub (self, sub):
+        return self.visit_abstractbinaryopnode (sub)
+    
+    def visit_lshift (self, lshift):
+        return self.visit_abstractbinaryopnode (lshift)
+    
+    def visit_rshift (self, rshift):
+        return self.visit_abstractbinaryopnode (rshift)
+    
+    def visit_mod (self, mod):
+        return self.visit_abstractbinaryopnode (mod)
+    
+    def visit_land (self, land):
+        return self.visit_abstractbinaryopnode (land)
+    
+    def visit_lor (self, lor):
+        return self.visit_abstractbinaryopnode (lor)
+    
+    def visit_xor (self, xor):
+        return self.visit_abstractbinaryopnode (xor)
+    
+    def visit_inbuiltfunction (self, inbuiltfunction):
+        return 0
+    
+    def visit_abstractunaryopnode (self, node):            
+        return node.child.visit (self)
+        
+    def visit_unaryplus (self, unaryplus):
+        return self.visit_abstractunaryopnode (unaryplus)
+
+    def visit_unaryminus (self, unaryminus):
+        return self.visit_abstractunaryopnode (unaryminus)
+    
+    def visit_cast (self, cast):
+        return cast.expression.visit (self)
+    
+    def visit_variable (self, variable):
+        return 0
+    
+    def visit_select (self, select):            
+        return select.true_expression.visit (self) + select.false_expression.visit (self)
+    
+    def visit_reference (self, reference):
+        return 1
+        
+    def visit_reduce (self, reduce):
+        return reduce.expression.visit (self)
+    
+    def visit_parameter (self, parameter):
+        return self._param_estimates[parameter]
+        
+class GetSizeVisitor(AbstractExpressionVisitor):
+    def __init__ (self, param_estimates):
+        self.param_estimates = param_estimates
+
+    def visit_value (self, value):
+        return value.value
+
+    def visit_abstractbinaryopnode(self, binop):
+        if (binop.op == '+'):
+            return binop.left.visit (self) + binop.right.visit (self)
+        elif (binop.op == '*'):
+            return binop.left.visit (self)*binop.right.visit (self)
+        elif (binop.op == '/'):
+            return binop.left.visit (self)/binop.right.visit (self)
+        elif (binop.op == '-'):
+            return binop.left.visit (self) - binop.right.visit (self)
+        elif (binop.op == '<<'):
+            return binop.left.visit (self) << binop.right.visit (self)
+        elif (binop.op == '>>'):
+            return binop.left.visit (self) >> binop.right.visit (self)
+        elif (binop.op == '%'):
+            return binop.left.visit (self) % binop.right.visit (self)
+        elif (binop.op == '&'):
+            return binop.left.visit (self) & binop.right.visit (self)
+        elif (binop.op == '|'):
+            return binop.left.visit (self) | binop.right.visit (self)
+        elif (binop.op == '^'):
+            return binop.left.visit (self) ^ binop.right.visit (self)
+            
+        raise NotImplemntedException ("GetSizeVisitor not implemented for binaryopnode ", binop.op)
+    
+    def visit_add (self, add):
+        return add.left.visit (self) + add.right.visit (self)
+    
+    def visit_mul (self, mul):
+        return mul.left.visit (self)*mul.right.visit (self)
+
+    def visit_div (self, div):
+        return div.left.visit (self) / div.right.visit (self)
+    
+    def visit_sub (self, sub):
+        return sub.left.visit (self) - sub.right.visit (self)
+        
+    def visit_lshift (self, lshift):
+        return lshift.left.visit (self)>> lshift.right.visit (self)
+    
+    def visit_rshift (self, rshift):
+        return rshift.left.visit (self) << rshift.right.visit (self)
+        
+    def visit_mod (self, mod):
+        return mod.left.visit (self) << mod.right.visit (self)
+    
+    def visit_land (self, land):
+        return land.left.visit (self) << land.right.visit (self)
+    
+    def visit_lor (self, lor):
+        return lor.left.visit (self) << lor.right.visit (self)
+    
+    def visit_xor (self, xor):
+        return xor.left.visit (self) << xor.right.visit (self)
+    
+    def visit_inbuiltfunction (self, inbuiltfunction):
+        return 0
+    
+    def visit_abstractunaryopnode (self, node):            
+        return node.child.visit (self)
+        
+    def visit_unaryplus (self, unaryplus):
+        return self.visit_abstractunaryopnode (unaryplus)
+
+    def visit_unaryminus (self, unaryminus):
+        return self.visit_abstractunaryopnode (unaryminus)
+    
+    def visit_cast (self, cast):
+        return cast.expression.visit (self)
+    
+    def visit_variable (self, variable):
+        for p in self.param_estimates:
+            if (variable in p):
+                return p[1]
+        return variable
+    
+    def visit_select (self, select):            
+        return select.true_expression.visit (self) + select.false_expression.visit (self)
+    
+    def visit_reference (self, reference):
+        raise NotImplemntedException ("GetSizeVisitor not implemented for this")
+        
+    def visit_reduce (self, reduce):
+        return reduce.expression.visit (self)
+    
+    def visit_parameter (self, parameter):
+        return self.visit_variable (parameter)
+
+class MemRefsAtIterationVisitor(AbstractExpressionVisitor):
+    def __init__ (self, _dim, _iter, comps_to_exclude = []):
+        self._dim = _dim
+        self._iter = _iter
+        self._dim_refs = []
+        self._funcs_to_exclude = []
+        for c in comps_to_exclude:
+            self._funcs_to_exclude.append (c.func)
+            
+    @property
+    def dim_refs (self):
+        return self._dim_refs
+    
+    @property
+    def funcs_to_exclude (self):
+        return self._funcs_to_exclude
+        
+    def visit_value (self, value):
+        return value.value
+
+    def visit_abstractbinaryopnode(self, binop):
+        left_visit = binop.left.visit (self)
+        right_visit = binop.right.visit (self)
+        
+        if (isinstance (binop.left, Reference) or
+            isinstance (binop.right, Reference)):
+            return self._dim_refs
+        
+        if (isinstance (left_visit, list) or
+            isinstance (right_visit, list)):
+            return self._dim_refs
+            
+        if (binop.op == '+'):
+            return left_visit + right_visit
+        elif (binop.op == '*'):
+            return left_visit * right_visit
+        elif (binop.op == '/'):
+            return left_visit/right_visit
+        elif (binop.op == '-'):
+            return left_visit - right_visit
+        elif (binop.op == '<<'):
+            return left_visit << right_visit
+        elif (binop.op == '>>'):
+            return left_visit >> right_visit
+        elif (binop.op == '%'):
+            return left_visit % right_visit
+        elif (binop.op == '&'):
+            return left_visit & right_visit
+        elif (binop.op == '|'):
+            return left_visit | right_visit
+        elif (binop.op == '^'):
+            return left_visit ^ right_visit
+            
+        raise NotImplemntedException ("MemRefsAtIterationVisitor not implemented for binaryopnode ", binop.op)
+    
+    def visit_add (self, add):
+        return add.left.visit (self) + add.right.visit (self)
+    
+    def visit_mul (self, mul):
+        return mul.left.visit (self)*mul.right.visit (self)
+
+    def visit_div (self, div):
+        return div.left.visit (self) / div.right.visit (self)
+    
+    def visit_sub (self, sub):
+        return sub.left.visit (self) - sub.right.visit (self)
+        
+    def visit_lshift (self, lshift):
+        return lshift.left.visit (self)>> lshift.right.visit (self)
+    
+    def visit_rshift (self, rshift):
+        return rshift.left.visit (self) << rshift.right.visit (self)
+        
+    def visit_mod (self, mod):
+        return mod.left.visit (self) << mod.right.visit (self)
+    
+    def visit_land (self, land):
+        return land.left.visit (self) << land.right.visit (self)
+    
+    def visit_lor (self, lor):
+        return lor.left.visit (self) << lor.right.visit (self)
+    
+    def visit_xor (self, xor):
+        return xor.left.visit (self) << xor.right.visit (self)
+    
+    def visit_inbuiltfunction (self, inbuiltfunction):
+        return 0
+    
+    def visit_abstractunaryopnode (self, node):            
+        return node.child.visit (self)
+        
+    def visit_unaryplus (self, unaryplus):
+        return self.visit_abstractunaryopnode (unaryplus)
+
+    def visit_unaryminus (self, unaryminus):
+        return self.visit_abstractunaryopnode (unaryminus)
+    
+    def visit_cast (self, cast):
+        return cast.expression.visit (self)
+    
+    def visit_variable (self, variable):
+        return self._iter
+    
+    def visit_select (self, select):        
+        left_visit = select.true_expression.visit (self)
+        right_visit = select.false_expression.visit (self)
+                    
+        if (isinstance (select.true_expression, Reference) or
+            isinstance (select.false_expression, Reference)):
+            return self._dim_refs
+        
+        if (isinstance (left_visit, list) or
+            isinstance (right_visit, list)):
+            return self._dim_refs  
+            
+        return select.true_expression.visit (self) + select.false_expression.visit (self)
+    
+    def visit_reference (self, reference):
+        if (reference.objectRef not in self.funcs_to_exclude and self._dim < len(reference.arguments)):
+            l = reference.arguments[self._dim].visit (self)
+            if not isinstance (l, list):
+                self._dim_refs.append (int(l))
+
+        return self._dim_refs
+        
+    def visit_reduce (self, reduce):
+        return reduce.expression.visit (self)
+
+    def visit_parameter (self, parameter):
+        return self.visit_variable (parameter)
+        
+class AccessTypesVisitor(AbstractExpressionVisitor):
+    def __init__ (self, _iter, param_estimates):
+        self._iter = _iter
+        self._refs = []
+        self._curr_dim = -1
+        self._param_estimates = param_estimates
+        
+    @property
+    def refs (self):
+        return self._refs
+        
+    def visit_value (self, value):
+        return value.value
+
+    def visit_abstractbinaryopnode(self, binop):
+        left_visit = binop.left.visit (self)
+        right_visit = binop.right.visit (self)
+            
+        if (isinstance (binop.left, Reference) or
+            isinstance (binop.right, Reference)):
+            return self._refs
+        
+        if (isinstance (left_visit, list) or
+            isinstance (right_visit, list)):
+            return self._refs
+            
+        if (binop.op == '+'):
+            return left_visit + right_visit
+        elif (binop.op == '*'):
+            return left_visit * right_visit
+        elif (binop.op == '/'):
+            return left_visit/right_visit
+        elif (binop.op == '-'):
+            return left_visit - right_visit
+        elif (binop.op == '<<'):
+            return left_visit << right_visit
+        elif (binop.op == '>>'):
+            return left_visit >> right_visit
+        elif (binop.op == '%'):
+            return left_visit % right_visit
+        elif (binop.op == '&'):
+            return left_visit & right_visit
+        elif (binop.op == '|'):
+            return left_visit | right_visit
+        elif (binop.op == '^'):
+            return left_visit ^ right_visit
+            
+        raise NotImplemntedException ("MemRefsAtIterationVisitor not implemented for binaryopnode ", binop.op)
+    
+    def visit_add (self, add):
+        return add.left.visit (self) + add.right.visit (self)
+    
+    def visit_mul (self, mul):
+        return mul.left.visit (self)*mul.right.visit (self)
+
+    def visit_div (self, div):
+        return div.left.visit (self) / div.right.visit (self)
+    
+    def visit_sub (self, sub):
+        return sub.left.visit (self) - sub.right.visit (self)
+        
+    def visit_lshift (self, lshift):
+        return lshift.left.visit (self)>> lshift.right.visit (self)
+    
+    def visit_rshift (self, rshift):
+        return rshift.left.visit (self) << rshift.right.visit (self)
+        
+    def visit_mod (self, mod):
+        return mod.left.visit (self) << mod.right.visit (self)
+    
+    def visit_land (self, land):
+        return land.left.visit (self) << land.right.visit (self)
+    
+    def visit_lor (self, lor):
+        return lor.left.visit (self) << lor.right.visit (self)
+    
+    def visit_xor (self, xor):
+        return xor.left.visit (self) << xor.right.visit (self)
+    
+    def visit_inbuiltfunction (self, inbuiltfunction):
+        return 0
+    
+    def visit_abstractunaryopnode (self, node):            
+        return node.child.visit (self)
+        
+    def visit_unaryplus (self, unaryplus):
+        return self.visit_abstractunaryopnode (unaryplus)
+
+    def visit_unaryminus (self, unaryminus):
+        return self.visit_abstractunaryopnode (unaryminus)
+    
+    def visit_cast (self, cast):
+        return cast.expression.visit (self)
+    
+    def visit_parameter (self, parameter):
+        for p in self._param_estimates:
+            if (parameter in p):
+                return p[1]
+        
+        return 1
+        
+    def visit_variable (self, variable):
+        if (self._curr_dim == -1):
+            #raise Exception ("Current Dimension is -1")
+            return []
+            
+        return self._iter[self._curr_dim]
+    
+    def visit_select (self, select):        
+        left_visit = select.true_expression.visit (self)
+        right_visit = select.false_expression.visit (self)
+        
+        if (isinstance (select.true_expression, Reference) or
+            isinstance (select.false_expression, Reference)):
+            return self._refs
+        
+        if (isinstance (left_visit, list) or
+            isinstance (right_visit, list)):
+            return self._refs  
+            
+        return select.true_expression.visit (self) + select.false_expression.visit (self)
+    
+    def visit_reference (self, reference):
+        
+        references = []
+        for dim in range(0, len(reference.arguments)):
+            if (reference.arguments[dim] is Reference):
+                v = AccessTypesVisitor (self._iter, param_estimates)
+                reference.arguments[dim].visit (v)
+                references.append (v)
+            else:
+                references = reference.arguments
+        
+        if (references):
+            self._refs.append (references)
+            
+        return self._refs
+        
+    def visit_reduce (self, reduce):
+        return reduce.expression.visit (self)

@@ -17,7 +17,8 @@ def bilateral_grid(pipe_data):
     # Params
     rows = Parameter(Int, "rows")
     cols = Parameter(Int, "cols")
-
+    print ("param rows ", rows)
+    print ("param cols ", cols)
     pipe_data['R'] = rows
     pipe_data['C'] = cols
 
@@ -58,8 +59,8 @@ def bilateral_grid(pipe_data):
     intaccess = Cast(Int, (img(x, y) * invSigma_r))
     grid.defn = [ Case(cond0, Reduce(grid(0, 2 + (x/sigma_s), 2 + (y/sigma_s), 2 + intaccess), \
                                         img(x, y), Op.Sum)),
-                  Case(cond1, Reduce(grid(1, 2 + (x/sigma_s), 2 + (y/sigma_s), 2 + intaccess), \
-                                        1, Op.Sum)) ]
+                  Case(cond1, 1)]#Reduce(grid(1, 2 + (x/sigma_s), 2 + (y/sigma_s), 2 + intaccess), \
+                                        #1, Op.Sum)) ]
     grid.default = 0
 
     cond = Condition(x, '>=', 2) & \
@@ -121,11 +122,11 @@ def bilateral_grid(pipe_data):
     interpolated.defn = [lerp(xinteryinterz0, xinteryinterz1, zf)]
 
 
-    filterexpr = Select(Condition(interpolated(1, x, y), '>', 0), \
-                               interpolated(0, x, y) / interpolated(1, x, y), \
-                               img(x, y)) 
+    #filterexpr = Select(Condition(interpolated(1, x, y), '>', 0), \
+    #                           interpolated(0, x, y) / interpolated(1, x, y), \
+    #                           img(x, y)) 
     filtered = Function(([c, x, y], [cd, rowr, colr]), Float, "filtered")
-    filtered.defn = [filterexpr]
+    filtered.defn = [interpolated(0, x, y)/ interpolated (1, x, y)]
 
     return filtered
     #####################################################################################

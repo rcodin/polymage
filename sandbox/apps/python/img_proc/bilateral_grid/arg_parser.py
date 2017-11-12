@@ -15,7 +15,7 @@ def parse_args():
                        type='choice',
                        action='store',
                        dest='mode',
-                       choices=['new', 'existing', 'ready', 'tune'],
+                       choices=['new', 'existing', 'ready', 'tune', 'tune+'],
                        default=['new'],
                        help=help_str)
 
@@ -74,7 +74,6 @@ def parse_args():
                        default=False,
                        help='True : generate .dot file of pipeline graph, \
                              False: don\'t')
-
 
     (options, args) = parser.parse_args()
 

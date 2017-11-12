@@ -31,6 +31,7 @@ installing libffi-devel via yum/apt-get)
 
 6) The video demo (sandbox/video_demo) has additional requirements; see sandbox/video_demo/README.md
 
+7) Boost C++ Libraries version 1.3 or higher
 
 **INSTALLATION**
 ```
@@ -42,12 +43,28 @@ $ git submodule update --init
 
 $ cd cgen
 
+$ sudo python3 setup.py install
+
 $ git am ../patches/0001-ctye-to-dtype-handle-void.patch
 
 $ cd ..
+
+[Optional (needed for diamond tiling with multigrid)]
+
+$ cd libpluto/
+
+$ (follow installation instructions for pluto)
+
 ```
 
 Also make sure to have install `libpluto` from the [Pluto website](http://pluto-compiler.sourceforge.net/) to be able to use time-iterated stencils
+
+
+**BUILD**
+
+$ cd polymage
+
+$ make
 
 **PROJECT STRUCTURE**
 sandbox is the main directory of interest and it contains most of the code.  

@@ -118,11 +118,10 @@ class Storage:
         self._dim_sizes = _dim_sizes
 
         self._id = None
-
         self._dimension = []
         for dim in range(0, self._dims):
             self._dimension.append(Dimension(self._dim_sizes[dim]))
-
+            
         self._lookup_key = self.generate_key()
         self._offsets = self.gen_param_offsets()
 
@@ -205,7 +204,7 @@ class Storage:
                 dims_str += ' :: '
         stg_str = '{'+typ_str+', '+ndims_str+', '+dims_str+'}'
         return stg_str
-
+        
 def classify_storage(pipeline):
     '''
     Classifies the compute objects into separate groups based on their storage
@@ -259,7 +258,6 @@ def classify_storage(pipeline):
 
             # this list holds the maximal offset value for each dimension
             max_offset = [offsets[dim][1] for dim in range(0, dims)]
-
             for comp in class_comps:
                 storage = comp.orig_storage_class
                 offsets = storage.offsets
@@ -286,7 +284,7 @@ def classify_storage(pipeline):
                 new_storage_class_map[max_storage].append(comp)
 
             # ***
-            log_level = logging.DEBUG
+            log_level = logging.INFO
             LOG(log_level, key)
             LOG(log_level, "\t%-*s" % \
                 (15, [comp.func.name for comp in class_comps]))
@@ -376,7 +374,7 @@ def log_schedule(comps, schedule):
     return
 
 def log_storage_mapping(comps, storage_map):
-    log_level = logging.DEBUG-1
+    log_level = logging.INFO
     LOG(log_level, "")
     LOG(log_level, "Storage mapping:")
     for comp in comps:
@@ -401,19 +399,18 @@ def remap_storage_for_comps(comps, storage_class_map, schedule,
                 array_count += 1
                 storage_map[comp] = array_count
         return
-
+    
     # sort comps according to their schedule
     sorted_comps = get_sorted_objs(schedule)
-
+    
     # initialize a pool of arrays for each storage class
     stg_classes = list(set([comp.storage_class for comp in sorted_comps]))
     array_pool = {}
     for stg_class in stg_classes:
         array_pool[stg_class] = []
-
+        
     for comp in sorted_comps:
         stg_class = comp.storage_class
-
         # number of arrays required to realize the compute object
         num_reqd = 2 if comp.is_tstencil_type else 1
         # number of arrays avaiable in the pool
@@ -423,7 +420,6 @@ def remap_storage_for_comps(comps, storage_class_map, schedule,
         num_allocated = min(num_available, num_reqd)
         allocated_arrays = [array_pool[stg_class].pop() \
             for _ in range(num_allocated)]
-
         # number of arrays yet to be allocated
         deficit = num_reqd - num_allocated
         if deficit > 0:
@@ -548,7 +544,6 @@ def create_physical_arrays(pipeline):
             array = (array1, array2)
         else:
             array = set_array(comp, array_id, created, flat_scratch)
-
         return array
 
     def set_arrays_for_inputs(pipeline):
@@ -629,7 +624,6 @@ def create_physical_arrays(pipeline):
 
     # create arrays for the rest of the comps
     set_arrays_for_comps(pipeline, created_arrays, flat_scratch)
-
     # collect users for each array created
     array_writers = {}
     for comp in pipeline.comps:

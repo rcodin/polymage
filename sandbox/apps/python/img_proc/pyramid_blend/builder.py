@@ -46,7 +46,7 @@ def generate_graph(pipe, file_name, app_data):
 
     return
 
-def build_pyramid(app_data):
+def build_pyramid(app_data, g_size = None, t_size = None):
     pipe_data = app_data['pipe_data']
     
     out_pyramid = pyramid_blending(pipe_data)
@@ -63,16 +63,22 @@ def build_pyramid(app_data):
     p_estimates = [(R, rows), (C, cols)]
     p_constraints = [ Condition(R, "==", rows), \
                       Condition(C, "==", cols) ]
-    t_size = [16, 256]
-    g_size = 10
+    if (t_size == None):
+        t_size = [16, 256]
+    if (g_size == None):
+        g_size = 5 
+    
     opts = []
+
     if app_data['early_free']:
         opts += ['early_free']
     if app_data['optimize_storage']:
         opts += ['optimize_storage']
     if app_data['pool_alloc']:
         opts += ['pool_alloc']
-
+    if app_data['multi-level-tiling']:
+        opts += ['multi-level-tiling']
+    
     pipe = buildPipeline(live_outs,
                          param_estimates=p_estimates,
                          param_constraints=p_constraints,
@@ -83,7 +89,7 @@ def build_pyramid(app_data):
 
     return pipe
 
-def create_lib(build_func, pipe_name, app_data):
+def create_lib(build_func, pipe_name, app_data, g_size = None, t_size = None):
     mode = app_data['mode']
     pipe_src  = pipe_name+".cpp"
     pipe_so   = pipe_name+".so"
@@ -101,7 +107,18 @@ def create_lib(build_func, pipe_name, app_data):
 
             # generate pipeline cpp source
             codegen(pipe, pipe_src, app_data)
+        
+        elif mode == 'tune+':
+            # build the polymage pipeline
+            pipe = build_func(app_data, g_size, t_size)
 
+            # draw the pipeline graph to a png file
+            if graph_gen:
+                generate_graph(pipe, pipe_name, app_data)
+
+            # generate pipeline cpp source
+            codegen(pipe, pipe_src, app_data)
+            
     if mode != 'ready':
         # compile the cpp code
         c_compile(pipe_src, pipe_so, app_data)

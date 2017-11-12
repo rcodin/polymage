@@ -1,13 +1,13 @@
-#CXX=icpc
-#CXX_FLAGS=-openmp -ipo -O3 -xhost
-CXX=g++
-CXX_FLAGS=-fopenmp -O3 -march=native -ftree-vectorize
+CXX=icpc
+CXX_FLAGS=-openmp -ipo -O3 -xhost
+#CXX=g++
+#CXX_FLAGS=-fopenmp -O3 -march=native -ftree-vectorize
 PYTHON=python3
 ROOT="../../../../"
 
 # app inputs
 IMG=$(ROOT)"/../images/rgb.png"
-RUNS=6
+RUNS=500
 ALPHA=1
 BETA=1
 

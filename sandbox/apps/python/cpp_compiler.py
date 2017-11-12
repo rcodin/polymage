@@ -10,7 +10,7 @@ def gen_compile_string(app_data):
     #fi
 
     # Include Flags :
-    if bool(arg_data.pool_alloc):
+    if True or bool(arg_data.pool_alloc):
         include = "-I"+ROOT+"/memory_allocation/ "+\
                   ROOT+"/memory_allocation/simple_pool_allocator.cpp"
     else:

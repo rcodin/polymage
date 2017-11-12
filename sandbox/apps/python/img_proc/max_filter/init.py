@@ -41,7 +41,7 @@ def init_images(app_data):
     #imgalpha_f = np.float32(imgalpha_ghost) / 255.0
 
     # result array
-    res = np.empty((3, R, C), np.uint8)
+    res = np.empty((3, R, C), np.uint32)
 
     img_data = {}
     img_data['IN'] = image_flip

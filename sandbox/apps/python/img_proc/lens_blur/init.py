@@ -14,11 +14,11 @@ def init_images(app_data):
 
 	# input image: 
 	img_path_left = app_args.img_file_left
-	img_left = np.array(Image.open(img_path_left))#.convert('1'))
+	img_left = np.array(Image.open(img_path_left), dtype=np.uint32)#.convert('1'))
 	rows, cols, c = img_left.shape
 
 	img_path_right = app_args.img_file_right
-	img_right = np.array(Image.open(img_path_right))
+	img_right = np.array(Image.open(img_path_right), dtype=np.uint32)
 
 	if img_right.shape != img_left.shape:
 		app_data['error'] = 1
@@ -47,7 +47,7 @@ def init_images(app_data):
 	image_f_left = np.rollaxis(image_ghost_left, 2).ravel()
 	image_f_right = np.rollaxis(image_ghost_right, 2).ravel()
 
-	OUT = np.zeros((4,rows, cols), np.uint8).ravel()
+	OUT = np.zeros((4,rows, cols), np.uint32).ravel()
 
 	#image_f = image_region.astype(np.float32).ravel()
 

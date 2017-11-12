@@ -60,7 +60,7 @@ def liveness_for_group_comps(group, children_map, comps_schedule):
     liveness_map = compute_liveness(group.children_map, group.comps_schedule)
 
     group.set_liveness_map(liveness_map)
-
+    
     return
 
 def liveness_for_pipe_outputs(pipeline):

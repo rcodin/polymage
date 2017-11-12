@@ -61,7 +61,8 @@ def naive_sched_objs(order):
             next_level += [obj for obj in reverse_map[l+1] \
                                   if obj not in next_level]
             reverse_map[l+1] = next_level
-
+    
+    
     return naive_order
 
 def sort_scheduled_objs(schedule):
@@ -122,7 +123,7 @@ def naive_sched_comps(group):
     schedule in level order traversal of the group comps DAG
     '''
     level_order = group.get_ordered_comps
-
+    
     return naive_sched_objs(level_order)
 
 def schedule_within_group(group):
@@ -133,14 +134,14 @@ def schedule_within_group(group):
 
     # naive scheduling
     comp_schedule = naive_sched_comps(group)
-
+    
     # get list of comps sorted according to scheduled order
     sorted_comps = get_sorted_objs(comp_schedule)
-
+    
     # create a sub-time dimension for poly_parts to introduce an order within
     # the group
     schedule_parts(group, sorted_comps)
-
+    
     return comp_schedule
 
 def schedule_liveouts(pipeline):

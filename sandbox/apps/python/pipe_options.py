@@ -55,3 +55,19 @@ parser.add_option('--multipar',
                   default=False,
                   help='True : Mark omp \'collapse\' directive if possible, \
                         False: Simply mark \'omp parallel for\'')
+
+#To enable automatic inlining
+parser.add_option('--inline',
+                  action='store_true',
+                  dest='inline',
+                  default=False,
+                  help='True : Enable Inlining, \
+                        False: Disable Inlining')
+
+#To enable automatic inlining
+parser.add_option('--multi-level-tiling',
+                  action='store_true',
+                  dest='multi_level_tiling',
+                  default=False,
+                  help='True : Enable Multi Level L2 and L1 Tiling, \
+                        False: Disable Multi Level L2 and L1 Tiling')

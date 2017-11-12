@@ -135,6 +135,7 @@ def level_order(objs, parent_map):
                 if (p_obj in order and (order[p_obj] >= order[obj])):
                     order[obj] = order[p_obj] + 1
                     change = True
+                    
     return order
 
 def get_sorted_objs(objs_order, reverse_flag=False):

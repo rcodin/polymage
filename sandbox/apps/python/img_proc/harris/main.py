@@ -22,12 +22,22 @@ def main():
     init_all(app_data)
     print_config(app_data)
 
-    if app_data['mode'] == 'tune':
-        auto_tune(app_data)
+    if app_data['mode'] == 'tune+':
+        for g_size in [3, 5, 7]:
+            for t1 in [8, 16, 32, 64, 128, 256]:
+                for t2 in [8, 16, 32, 64, 128, 256]:
+                    create_lib(build_harris, app, app_data, g_size, [t1, t2])
+                    for t in range (0, 0):
+                        print ("Running for iteration #", t)
+                        harrispipe(app_data)
+    elif app_data['mode'] == 'tune':
+        pass
     else:
         create_lib(build_harris, app, app_data)
-        harrispipe(app_data)
-
+        _m = 10000000
+        for i in range (0,5):
+            _m = min (_m, harrispipe(app_data))
+        print ("min time is ", _m)
     return
 
 main()

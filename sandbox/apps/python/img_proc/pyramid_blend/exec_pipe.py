@@ -56,19 +56,20 @@ def pyramid_blending(app_data):
     if timer == True:
         t1 = time.time()
 
+    avg = 0
     while it < runs :
+        t1 = time.time()
         call_pipe(app_data)
-        it += 1
-
-    if timer == True:
         t2 = time.time()
 
         time_taken = float(t2) - float(t1)
+        avg += time_taken
         print("")
-        print("[exec_pipe] : time taken to execute = ", (time_taken * 1000) / runs, " ms")
+        print("[exec_pipe] : time taken to execute = ", (time_taken * 1000), " ms")
 
-    if pool_alloc:
-        lib.pool_destroy()
+        it += 1
 
-    return
+    print ("average time ", avg/runs*1000, " ms")
+
+    return avg/runs*1000
 
