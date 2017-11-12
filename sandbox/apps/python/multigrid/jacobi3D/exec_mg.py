@@ -131,9 +131,9 @@ def multigrid(app_data):
         while it < nit:
             it += 1
             call_mg_cycle(UW[(it-1)%2], UW[it%2], app_data)
-            if not timer:
-                calc_norm(UW[it%2], app_data)
-                print_errors(it, app_data)
+            #if not timer:
+            calc_norm(UW[it%2], app_data)
+            print_errors(it, app_data)
         if timer:
             t2 = time.time()
             time_store[run] = float(t2) - float(t1)

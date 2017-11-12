@@ -44,10 +44,11 @@ def print_layout(app_data):
     nu1 = app_data['nu1']
     nu2 = app_data['nu2']
     nuc = app_data['nuc']
+    nit = app_data['nit']
 
     print(": levels: 0.."+str(L)+" , coarse grid: "+str(n)+"x"+str(n))
     print("# pre-smoothing: ", nu1,", post-smoothing: ", nu2,
-          ", coarse relaxation: ", nuc)
+            ", coarse relaxation: ", nuc, ", MG cycle iterations: ", nit)
     print("")
     print("# discr            iter       error         residual       rho-error    rho-residual")
     print("# ----------       ----       -----         --------       ---------    ------------")
