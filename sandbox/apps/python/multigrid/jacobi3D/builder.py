@@ -65,7 +65,10 @@ def build_mg_cycle(app_data):
     p_estimates = [(n, app_data['n'])]
     p_constraints = [ Condition(n, "==", app_data['n']) ]
     t_size = [8, 8, 32]
-    g_size = 6
+    if app_data['naive']:
+        g_size = 1
+    else:
+        g_size = 6
     opts = []
     if app_data['early_free']:
         opts += ['early_free']

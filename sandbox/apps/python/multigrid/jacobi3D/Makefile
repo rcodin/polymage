@@ -20,7 +20,7 @@ OPT_ARGS=--pool_alloc --optimize_storage --early_free --multipar
 TOOL_ARGS=--graph-gen --runs=$(RUNS) --timer
 CXX_ARGS=--cxx="$(CXX)" --cxx_flags="$(CXX_FLAGS)"
 
-all: polymg-opt-plus polymg-opt handopt handopt-pluto
+all: polymg-opt-plus polymg-opt polymg-naive handopt handopt-pluto
 
 new:
 	@echo "=================  Building $@  ================="
@@ -50,6 +50,10 @@ polymg-opt:
 polymg-opt-plus:
 	@echo "=================  Building $@  ================="
 	$(PYTHON) main.py --mode='new' $(APP_ARGS) $(OPT_ARGS) $(TOOL_ARGS) $(CXX_ARGS)
+
+polymg-naive:
+	@echo "=================  Building $@  ================="
+	$(PYTHON) main.py --mode='new' --naive $(APP_ARGS) $(OPT_ARGS) $(TOOL_ARGS) $(CXX_ARGS)
 
 clean:
 	rm -rf *.pyc *.so *.dot *.png __pycache__

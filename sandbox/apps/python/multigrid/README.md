@@ -54,7 +54,7 @@ Run the following commands before running any of the experiments.
 
 In order to run any benchmark, navigate to its directory and run 'make'. 
 
-'make' executes polymg-opt+, polymg-opt, handopt and handopt-pluto 
+'make' executes polymg-opt+, polymg-opt, polymg-naive, handopt and handopt-pluto
 configurations.
 
 Example:
@@ -68,12 +68,14 @@ Example:
 The various make targets available and what they correspond to are listed 
 below:
 
-- all (executes polymg-opt+, polymg-opt, handopt and handopt-pluto 
+- all (executes polymg-naive, polymg-opt+, polymg-opt, handopt and handopt-pluto
   configurations)
 
 - polymg-opt-plus - executes polymg-opt+ configurations.
 
 - polymg-opt - executes polymg-opt configurations.
+
+- polymg-naive - executes polymg-naive configurations.
 
 - handopt - executes hand optimized code (for Jacobi2D and Jacobi3D 
   only).

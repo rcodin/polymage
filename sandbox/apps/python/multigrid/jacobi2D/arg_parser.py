@@ -100,6 +100,14 @@ def parse_args():
                       help='True : generate .dot & .png file of pipeline graph, \
                             False: don\'t')
 
+    parser.add_option('--naive',
+                      action='store_true',
+                      dest='naive',
+                      default=False,
+                      help='True : Run polymage naive. set g_size=1, \
+                            False: don\'t')
+
+
     (options, args) = parser.parse_args()
 
     return options

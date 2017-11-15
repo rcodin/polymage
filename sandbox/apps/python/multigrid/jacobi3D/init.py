@@ -122,6 +122,7 @@ def get_input(app_data):
     app_data['pool_alloc'] = bool(app_args.pool_alloc)
     # multi-dimensional parallelism option
     app_data['multipar'] = bool(app_args.multipar)
+    app_data['naive'] = bool(app_args.naive)
 
     return
 
