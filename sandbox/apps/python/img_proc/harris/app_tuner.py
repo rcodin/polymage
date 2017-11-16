@@ -15,7 +15,7 @@ def auto_tune(app_data):
     app_name = app_data['app']
     pipe_name = app_data['app']
 
-    out_harrispipe = harris_pipe(pipe_data)
+    out_harrispipe, inline_func = harris_pipe(pipe_data)
     live_outs = [out_harrispipe]
     
     R = pipe_data['R']

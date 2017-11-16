@@ -15,7 +15,7 @@ def auto_tune(app_data):
     app_name = app_data['app']
     pipe_name = app_data['app']
 
-    out_campipe = camera_pipe(pipe_data)
+    out_campipe, iniline_fn = camera_pipe(pipe_data)
     live_outs = [out_campipe]
     
     R = pipe_data['R']
