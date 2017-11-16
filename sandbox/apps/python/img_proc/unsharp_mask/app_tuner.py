@@ -17,7 +17,7 @@ def auto_tune(app_data):
     pipe_name = app_data['app']
     pipe_func_name = "pipeline_"+pipe_name
 
-    out_unsharp = unsharp_mask(pipe_data)
+    out_unsharp, inline_func = unsharp_mask(pipe_data)
     live_outs = [out_unsharp]
     
     R = pipe_data['R']
@@ -74,6 +74,7 @@ def auto_tune(app_data):
 
     # Generate Variants for Tuning
     # ============================
+
 
     gen_config = {"_tuner_app_name": app_name,
                   "_tuner_live_outs": live_outs,
