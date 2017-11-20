@@ -199,10 +199,10 @@ def generate(_tuner_arg_data):
             print_to((estimate[0].name, estimate[1]), to_file, " ")
         
         if (_tuner_tile_size_configs != None):
-            print_to("\nTile Sizes              :", to_file)
+            print_to("\nTile sizes              :", to_file)
             for tile_sizes in _tuner_tile_size_configs:
                 print_to(tile_sizes, to_file,)
-        print_to("\nGroup Sizes             :", to_file)
+        print_to("\nGroup sizes             :", to_file)
         for group_sizes in _tuner_group_size_configs:
             print_to(group_sizes, to_file, " ")
         '''
@@ -292,8 +292,8 @@ def generate(_tuner_arg_data):
 
             print_line(dump_files)
             print_to("Config     : #"+str(_tuner_config), dump_files)
-            print_to("Tile Sizes : "+str(_tuner_tile_size), dump_files)
-            print_to("Group Size : "+str(_tuner_group_size), dump_files)
+            print_to("Tile sizes : "+str(_tuner_tile_size), dump_files)
+            print_to("Group size : "+str(_tuner_group_size), dump_files)
 
             # .cpp and .so files
             c_file_name = str(prog_prefix)+str(_tuner_config)+'.cpp'

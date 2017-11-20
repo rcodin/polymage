@@ -1946,7 +1946,7 @@ class Pipeline:
         LOG(log_level, "\n\n")
         LOG(log_level, "Grouped compute objects:")
         for g in self.groups:
-            LOG(log_level, g.name+" Tile Sizes: " + str(g.tile_sizes))
+            LOG(log_level, g.name+" Tile sizes: " + str(g.tile_sizes))
         # ***
         
         # group
