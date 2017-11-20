@@ -1933,14 +1933,6 @@ class Pipeline:
         self._liveouts = self.collect_liveouts()
         self._liveouts_children_map = self.build_liveout_graph()
 
-        # ***
-        log_level = logging.INFO
-        LOG(log_level, "\n\n")
-        LOG(log_level, "Grouped compute objects:")
-        for g in self.groups:
-            LOG(log_level, g.name+" ")
-        # ***
-
         ''' SCHEDULING '''
         for g in self.groups:
             # alignment and scaling
@@ -1948,7 +1940,15 @@ class Pipeline:
             base_schedule(g)
             # grouping, select tile sizes, and tiling
             fused_schedule(self, self._ctx, g, self._param_estimates)
-    
+        
+        # ***
+        log_level = logging.INFO
+        LOG(log_level, "\n\n")
+        LOG(log_level, "Grouped compute objects:")
+        for g in self.groups:
+            LOG(log_level, g.name+" Tile Sizes: " + str(g.tile_sizes))
+        # ***
+        
         # group
         self._grp_schedule = schedule_groups(self)
         # comps and poly parts
