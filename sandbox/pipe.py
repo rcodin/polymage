@@ -1332,12 +1332,12 @@ class Group:
                         if (tile_sizes [i] > dim_sizes [i]):
                             tile_sizes [i] = dim_sizes [i]
         
-        if (n_non_zero_dims == 0 and n_zero_dims != 0):
+        if (n_zero_dims > 0):
             max_dim_tile_size = max_dim_tile_size ** (1.0/n_zero_dims)
             
             for i in range (len(slope_min)):
                 if (self.is_dim_tileable (i, slope_min, dim_sizes) and i != last_tileable_dim
-                    and i != outer_tileable_dim):
+                    and i != outer_tileable_dim and n_zero_dims > 0):
                     if (max_dim_tile_size > dim_sizes [i]):
                         max_dim_tile_size = max_dim_tile_size ** (1.0/n_zero_dims)
                         n_zero_dims -= 1
@@ -1363,7 +1363,11 @@ class Group:
                     tile_sizes [1] = int(math.ceil(tile_size/tile_sizes[2]))
             elif (len(tile_sizes) == 2 and 1 in tile_sizes and int(tile_sizes[1]) == 1):
                 tile_sizes [1] = int(math.ceil(tile_size/tile_sizes[2]))
-
+        
+        for i in range (outer_tileable_dim+1, last_tileable_dim+1):
+            if i not in _tile_sizes:
+                return -1, -1
+                
         return _tile_sizes, tile_size
             
     def get_tile_sizes (self, param_estimates, slope_min, slope_max, group_parts, 
@@ -1399,10 +1403,10 @@ class Group:
                             dim_sizes[i-1] = max (val.to_python(), dim_sizes[i-1])
                         else:
                             dim_sizes[i-1] = val.to_python()
-                        if (i-1 == 3):
+                        #if (i-1 == 3):
                             #TODO: Correct this for z dimension of blurz, blurx, blury in bilateral_grid
                             #Use compute size instead of this way
-                            dim_sizes[i-1] = 14
+                            #dim_sizes[i-1] = 14
                     else:
                         if i-1 not in dim_sizes:
                             dim_sizes [i-1] = 0
@@ -1444,34 +1448,37 @@ class Group:
                     slope_min, slope_max, group_parts, dim_reuse, dim_sizes, 
                     L1_CACHE_SIZE, L1_INNER_MOST_DIM_SIZE, cores)
                 
-                if (tile_size_less_than_l1):
-                    self._tile_sizes = tile_sizes
-                    LOG (logging.DEBUG, "tile_size_less_than_l1=True tile_sizes from L1 " +str(tile_sizes) +" cores "+str(cores))
-                    return tile_size
-                    
                 overlap_shift_greater = False
-                
-                for i in tile_sizes.keys ():
-                    if (slope_min[i] != '*'):
-                        right = int(math.floor(Fraction(slope_min[i][0],
-                                                        slope_min[i][1])))
-                        left = int(math.ceil(Fraction(slope_max[i][0],
-                                                    slope_max[i][1])))
-                        # Compute the overlap shift
-                        overlap_shift = abs(left * (h)) + abs(right * (h))
-                            
-                        if (overlap_shift + 0 > tile_sizes[i]):
-                            overlap_shift_greater = True
+                if (tile_sizes != -1 and tile_size != -1):
+                    if (tile_size_less_than_l1):
+                        self._tile_sizes = tile_sizes
+                        LOG (logging.DEBUG, "tile_size_less_than_l1=True tile_sizes from L1 " +str(tile_sizes) +" cores "+str(cores))
+                        return tile_size
+                    
+                    for i in tile_sizes.keys ():
+                        if (slope_min[i] != '*'):
+                            right = int(math.floor(Fraction(slope_min[i][0],
+                                                            slope_min[i][1])))
+                            left = int(math.ceil(Fraction(slope_max[i][0],
+                                                        slope_max[i][1])))
+                            # Compute the overlap shift
+                            overlap_shift = abs(left * (h)) + abs(right * (h))
+                                
+                            if (overlap_shift + 0 > tile_sizes[i]):
+                                overlap_shift_greater = True
+                                break
+                    
+                    threshold_tile_size_met = True
+                    for i in tile_sizes.keys ():
+                        if tile_sizes[i] <= 2:
+                            threshold_tile_size_met = False
                             break
-                
-                threshold_tile_size_met = True
-                for i in tile_sizes.keys ():
-                    if tile_sizes[i] <= 2:
-                        threshold_tile_size_met = False
-                        break
+                else:
+                    overlap_shift_greater = True
+                    threshold_tile_size_met = False
                         
                 LOG (logging.DEBUG, "tile_sizes from L1 cores " + str(tile_sizes) + " " + str(cores))
-                
+
                 if (not overlap_shift_greater and threshold_tile_size_met):
                     self._tile_sizes = tile_sizes
                     #if (len(self.comps) == 2 and "filtered" in str(self)):
@@ -1514,20 +1521,23 @@ class Group:
                 LOG (logging.DEBUG, "tile_size_less_than_l1=True tile_sizes from L1 " + str(l1tile_sizes) + " cores " + str(cores))
                 return l1tile_size
             
-            overlap_shift_greater = False
-            overlap_shifts = {}
-            for i in l1tile_sizes.keys ():
-                if (slope_min[i] != '*'):
-                    right = int(math.floor(Fraction(slope_min[i][0],
-                                                    slope_min[i][1])))
-                    left = int(math.ceil(Fraction(slope_max[i][0],
-                                                slope_max[i][1])))
-                    # Compute the overlap shift
-                    overlap_shift = abs(left * (h)) + abs(right * (h))
-                    overlap_shifts [i] = overlap_shift    
-                    if (overlap_shift + 0 > l1tile_sizes[i]):
-                        overlap_shift_greater = True
-                        break
+            if (l1tile_sizes == -1):
+                overlap_shift_greater = False
+                overlap_shifts = {}
+                for i in l1tile_sizes.keys ():
+                    if (slope_min[i] != '*'):
+                        right = int(math.floor(Fraction(slope_min[i][0],
+                                                        slope_min[i][1])))
+                        left = int(math.ceil(Fraction(slope_max[i][0],
+                                                    slope_max[i][1])))
+                        # Compute the overlap shift
+                        overlap_shift = abs(left * (h)) + abs(right * (h))
+                        overlap_shifts [i] = overlap_shift    
+                        if (overlap_shift + 0 > l1tile_sizes[i]):
+                            overlap_shift_greater = True
+                            break
+            else:
+                overlap_shift_greater = True
                     
             LOG (logging.DEBUG, "tile_sizes from L1 " + str(l1tile_sizes))
             
@@ -1946,7 +1956,11 @@ class Pipeline:
         LOG(log_level, "\n\n")
         LOG(log_level, "Grouped compute objects:")
         for g in self.groups:
-            LOG(log_level, g.name+" Tile Sizes: " + str(g.tile_sizes))
+            if 'dpfusion' in self.options:
+                s = " Tile Sizes: " + str(g.tile_sizes)
+            else:
+                s = "  "
+            LOG(log_level, g.name+s)
         # ***
         
         # group
@@ -2077,8 +2091,7 @@ class Pipeline:
             return overlap_shift/1.6, det_tile_size
             
         if len (comp_deps) <= 0:
-            return 1 << 30, 1 #For Pyramid Blend UnComment
-            #return 0, 0 #For Campipe
+            return 1 << 30, 1
             
         LOG (logging.DEBUG, "Getting Overlap for non stencil? Not Good")
         assert (False)
