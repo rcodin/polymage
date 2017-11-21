@@ -3168,7 +3168,7 @@ PyObject* dpgroup(PyObject* self, PyObject* args)
     
     PRINT_DEBUG_BLOCK_L1
     {
-        std::cout << "Group Size " << grp_size << std::endl;
+        std::cout << "Group size " << grp_size << std::endl;
     }
     
     uint64_t max_group_size = 1UL << logMaxChildren;
