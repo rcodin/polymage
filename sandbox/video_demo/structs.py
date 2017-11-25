@@ -11,6 +11,7 @@ class AppType():
     HARRIS = 1
     BILATERAL = 2
     LAPLACIAN = 3
+    DARKNET = 4
 
     apps_list = set([])
     apps_list.add(NONE)
@@ -18,6 +19,7 @@ class AppType():
     apps_list.add(HARRIS)
     apps_list.add(BILATERAL)
     apps_list.add(LAPLACIAN)
+    apps_list.add(DARKNET)
 
     name = {}
     name[NONE] = ''
@@ -25,6 +27,7 @@ class AppType():
     name[HARRIS] = 'Harris Corner'
     name[BILATERAL] = 'Bilateral Grid'
     name[LAPLACIAN] = 'Local Laplacian'
+    name[DARKNET] = 'yolo testing'
 
     file_name = {}
     file_name[NONE] = ''
@@ -32,6 +35,7 @@ class AppType():
     file_name[HARRIS] = 'harris'
     file_name[BILATERAL] = 'bilateral'
     file_name[LAPLACIAN] = 'laplacian'
+    file_name[DARKNET] = 'darknet'
 
 class ModeType():
     QUIT = -3

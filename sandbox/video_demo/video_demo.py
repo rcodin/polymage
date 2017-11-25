@@ -10,11 +10,13 @@ sys.path.insert(0, "harris_corner")
 sys.path.insert(0, "unsharp_mask")
 sys.path.insert(0, "bilateral_grid")
 sys.path.insert(0, "local_laplacian")
+sys.path.insert(0, "darknet")
 
 from harris_process import *
 from unsharp_process import *
 from bilateral_process import *
 from laplacian_process import *
+from darknet_process import *
 
 def none_app_process(frame, lib_func):
     return frame
@@ -55,6 +57,11 @@ def app_init():
     app_id = AppType.LAPLACIAN
     assert app_id in apps_list
     app_map[app_id] = add_laplacian_app(app_id)
+
+    ''' Add Local Laplacian app '''
+    app_id = AppType.DARKNET
+    assert app_id in apps_list
+    app_map[app_id] = add_darknet_app(app_id)
 
     ''' Add a NONE type app '''
     app_id = AppType.NONE

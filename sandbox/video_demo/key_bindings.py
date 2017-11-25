@@ -16,6 +16,7 @@ def generate_key_bindings(def_modes_map):
     HARRIS = AppType.HARRIS
     BILATERAL = AppType.BILATERAL
     LAPLACIAN = AppType.LAPLACIAN
+    DARKNET = AppType.DARKNET
 
     # mode chars
     none = 255
@@ -41,6 +42,7 @@ def generate_key_bindings(def_modes_map):
     h = ord('h')
     b = ord('b')
     l = ord('l')
+    d = ord('d')
 
     app_keys = {}
     # TODO : add key for NONE : ESC
@@ -49,6 +51,7 @@ def generate_key_bindings(def_modes_map):
     app_keys[UNSHARP] = u
     app_keys[BILATERAL] = b
     app_keys[LAPLACIAN] = l
+    app_keys[DARKNET] = d
 
     if NONE_APP not in def_modes_map:
         def_modes_map[NONE_APP] = []

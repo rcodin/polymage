@@ -1,4 +1,4 @@
-DIRS = bilateral_grid harris_corner local_laplacian unsharp_mask
+DIRS = bilateral_grid harris_corner local_laplacian unsharp_mask darknet
 
 all: naive polymage
 
