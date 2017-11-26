@@ -58,7 +58,7 @@ def app_init():
     assert app_id in apps_list
     app_map[app_id] = add_laplacian_app(app_id)
 
-    ''' Add Local Laplacian app '''
+    ''' Add Darknet app '''
     app_id = AppType.DARKNET
     assert app_id in apps_list
     app_map[app_id] = add_darknet_app(app_id)
