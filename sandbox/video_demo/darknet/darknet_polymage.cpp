@@ -43,7 +43,11 @@ extern "C" void  pipeline_opt(int  C, int  R, void * input_void_arg, void * filt
         if(!input) return;
         strtok(input, "\n");
     }
-    image im = load_image_color(input,0,0);
+
+    image im;
+    
+    im.w = C;
+    im.h=
     image sized = letterbox_image(im, net->w, net->h);
     //image sized = resize_image(im, net->w, net->h);
     //image sized2 = resize_max(im, net->w);
