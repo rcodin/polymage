@@ -4,7 +4,6 @@
 #include <cmath>
 #include <string.h>
 #include "../simple_pool_allocator.h"
-#include "../darknet.h"
 
 #define isl_min(x,y) ((x) < (y) ? (x) : (y))
 #define isl_max(x,y) ((x) > (y) ? (x) : (y))
