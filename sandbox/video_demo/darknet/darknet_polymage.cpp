@@ -8,7 +8,7 @@
 #define isl_min(x,y) ((x) < (y) ? (x) : (y))
 #define isl_max(x,y) ((x) > (y) ? (x) : (y))
 #define isl_floord(n,d) (((n)<0) ? -((-(n)+(d)-1)/(d)) : (n)/(d))
-extern "C" void  pipeline_opt(int  C, int  R, network *net, char* datacfg)
+extern "C" void  pipeline_opt()
 {
    // list *options = read_data_cfg(datacfg);
    //  char *name_list = option_find_str(options, "names", "data/names.list");
