@@ -158,7 +158,7 @@ def darknet_polymage(frame, lib_func):
     # im->data = ctypes.c_char_p()
     
     # res = detect(net, meta, 'messigray.png')
-    test_detector("darknet/files/coco.data", net, '/home/e0358-3/asst-2/polymage/sandbox/video_demo/messigray.png', .5, .5, "try",0)
+    test_detector("darknet/files/coco.data", net, 'messigray.png', .5, .5, "try",0)
     # lib_func(ctypes.c_int(cols), \
     #          ctypes.c_int(rows), \
     #          net, \
